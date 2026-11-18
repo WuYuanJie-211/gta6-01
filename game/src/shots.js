@@ -1,79 +1,168 @@
-// The screenshot scenes behind ?shot=start|play|end. Each one plays the real rules forward from a
-// fresh world for a fixed number of steps, steered by a simple autopilot (look ahead each way the
-// paddle could move, keep clear of blocks, chase the lowest coin when that is safe), so the frame
-// is what a short game really looks like and the same seed always gives the same frame.
-import { FIELD, PLAYER, STEP } from './config.js';
-import { EVENT_OVER, KIND_BLOCK } from './world.js';
-import { SCREEN_OVER, SCREEN_PLAY, SCREEN_TITLE } from './render.js';
+// The screenshot scenes behind ?shot=chase|drive|walk|mission. Each one stages
+// a real game state — a car, a wanted level, police behind it, a mission in
+// progress — then plays the rules forward for a few seconds with a scripted
+// driver, so the frame is what a short game really looks like and the same
+// seed always gives the same frame. Nothing here is faked: the HUD, the
+// minimap and the traffic are all the live game.
+import { STEP } from './config.js';
+import { enterCar, spawnPoliceCar } from './vehicles.js';
 
-const START_SECONDS = 5;
-const PLAY_SECONDS = 26;
-const END_LIMIT_SECONDS = 600;
-/**
- * How far ahead, in seconds, the autopilot checks each way it could move: the play scene's pilot
- * looks well ahead and keeps all its lives; the end scene's looks only a moment ahead, so it is
- * caught out once the blocks speed up, as a hurried player is.
- */
-const HORIZON_PLAY = 0.7;
-const HORIZON_END = 0.25;
-const SAMPLE = 1 / 30;
-const DIRECTIONS = [0, -1, 1];
-/** Extra room, each side, it keeps between the paddle and a block. */
-const MARGIN = 10;
-
-/** Seconds until moving in `direction` (-1, 0, 1) runs the paddle into a block; Infinity when it never does. */
-function timeToHit(state, direction, horizon) {
-  const player = state.player;
-  for (let t = SAMPLE; t <= horizon; t += SAMPLE) {
-    const x = Math.min(FIELD.width - player.width, Math.max(0, player.x + direction * PLAYER.speed * t));
-    for (let index = 0; index < state.items.length; index += 1) {
-      const item = state.items[index];
-      if (!item.active || item.kind !== KIND_BLOCK) continue;
-      const y = item.y + item.speed * t;
-      if (y + item.height > player.y && y < player.y + player.height && item.x < x + player.width + MARGIN && item.x + item.width > x - MARGIN) return t;
-    }
-  }
-  return Infinity;
+/** Steer the player's car toward a point: A when the nose must turn left, D for right. */
+function steerCarToward(game, tx, tz) {
+  const car = game.player.car;
+  if (!car) return;
+  const dx = tx - car.pos.x;
+  const dz = tz - car.pos.z;
+  const wanted = Math.atan2(-dz, dx);
+  let diff = wanted - car.heading;
+  while (diff > Math.PI) diff -= Math.PI * 2;
+  while (diff < -Math.PI) diff += Math.PI * 2;
+  game.input.setKey('a', diff > 0.06);
+  game.input.setKey('d', diff < -0.06);
 }
 
-/** Of the safe ways to move, the one toward the lowest coin (or the centre); else the one that is hit last. */
-function autopilot(state, horizon) {
-  const player = state.player;
-  let coin = null;
-  for (let index = 0; index < state.items.length; index += 1) {
-    const item = state.items[index];
-    if (item.active && item.kind !== KIND_BLOCK && (coin === null || item.y > coin.y)) coin = item;
+/** Hold W for `seconds`, steering with `steerFn` each step, then let go. */
+function driveFor(game, seconds, steerFn) {
+  game.input.setKey('w', true);
+  const steps = Math.round(seconds / STEP);
+  for (let i = 0; i < steps; i += 1) {
+    if (steerFn) steerFn(game);
+    game.step(STEP);
   }
-  const target = coin === null ? FIELD.width / 2 : coin.x + coin.width / 2;
-  const centre = player.x + player.width / 2;
-  const wanted = target > centre + 8 ? 1 : target < centre - 8 ? -1 : 0;
-  let best = wanted;
-  let bestTime = timeToHit(state, wanted, horizon);
-  for (let index = 0; index < DIRECTIONS.length && bestTime !== Infinity; index += 1) {
-    const time = timeToHit(state, DIRECTIONS[index], horizon);
-    if (time > bestTime) {
-      bestTime = time;
-      best = DIRECTIONS[index];
-    }
-  }
-  return best;
+  game.input.setKey('w', false);
+  game.input.setKey('a', false);
+  game.input.setKey('d', false);
 }
 
-/**
- * Set `world` to the named scene (start, play or end; any other name is start) and return the
- * screen to draw over it and the best score to show.
- */
-export function stageShot(name, world) {
-  world.reset();
-  if (name !== 'play' && name !== 'end') {
-    for (let index = 0; index < START_SECONDS / STEP; index += 1) world.step(STEP, 0, true);
-    return { screen: SCREEN_TITLE, best: 0 };
+/** Hold W on foot for `seconds` (camera-relative, like a real player). */
+function walkFor(game, seconds) {
+  game.input.setKey('w', true);
+  const steps = Math.round(seconds / STEP);
+  for (let i = 0; i < steps; i += 1) game.step(STEP);
+  game.input.setKey('w', false);
+}
+
+/** Put the camera right behind the player's direction of travel. */
+function cameraBehind(game) {
+  let fx;
+  let fz;
+  if (game.player.car) {
+    fx = Math.cos(game.player.car.heading);
+    fz = -Math.sin(game.player.car.heading);
+  } else {
+    fx = Math.sin(game.player.heading);
+    fz = Math.cos(game.player.heading);
   }
-  const limit = name === 'end' ? END_LIMIT_SECONDS : PLAY_SECONDS;
-  const horizon = name === 'end' ? HORIZON_END : HORIZON_PLAY;
-  for (let index = 0; index < limit / STEP; index += 1) {
-    if (world.step(STEP, autopilot(world.state, horizon), false) & EVENT_OVER) break;
+  game.cameraAngle = Math.atan2(-fx, -fz);
+  game.lastDragAt = game.time;
+}
+
+/** The cover: three stars, three police cars on the tail, the lighthouse run. */
+function stageChase(game) {
+  game.missions.setProgress(2, 1);
+  const comet = game.cars.comet;
+  comet.pos.set(0, 0, 120);
+  comet.heading = Math.PI / 2; // north, up the avenue
+  comet.mesh.position.copy(comet.pos);
+  comet.mesh.rotation.y = comet.heading;
+  comet.stolen = true;
+  enterCar(game, comet);
+  game.police.state.wanted = 3;
+  const tailSpots = [[2, 132], [-4, 148], [5, 165]];
+  for (const [x, z] of tailSpots) {
+    const pc = spawnPoliceCar(game);
+    pc.pos.set(x, 0, z);
+    pc.heading = Math.PI / 2;
+    pc.speed = 24;
+    pc.mesh.position.copy(pc.pos);
+    pc.mesh.rotation.y = pc.heading;
+    game.police.state.cars.push(pc);
   }
-  const over = world.state.lives === 0;
-  return { screen: over ? SCREEN_OVER : SCREEN_PLAY, best: world.state.score };
+  cameraBehind(game);
+  driveFor(game, 2.5, (g) => steerCarToward(g, 0, -240));
+  game.hud.hideMissionCard();
+}
+
+/** The coastal drive: beach and sea on the right, skyline ahead, traffic around. */
+function stageDrive(game) {
+  game.missions.setProgress(0, 1);
+  const car = game.cars.parked[0];
+  car.pos.set(-120, 0, 240);
+  car.heading = 0; // east, along the coast road
+  car.mesh.position.copy(car.pos);
+  car.mesh.rotation.y = car.heading;
+  enterCar(game, car);
+  // Two traffic cars on the coast road ahead of the player, driving east.
+  const coastSpots = [
+    { x: -50, prev: '-60,240', target: '0,240' },
+    { x: 40, prev: '0,240', target: '60,240' },
+  ];
+  game.cars.traffic.slice(0, 2).forEach((t, i) => {
+    t.pos.set(coastSpots[i].x, 0, 240);
+    t.heading = 0;
+    t.prevNode = game.roads.byKey.get(coastSpots[i].prev);
+    t.targetNode = game.roads.byKey.get(coastSpots[i].target);
+    t.speed = 10;
+    t.mesh.position.copy(t.pos);
+    t.mesh.rotation.y = t.heading;
+  });
+  cameraBehind(game);
+  driveFor(game, 3, (g) => steerCarToward(g, 240, 240));
+  game.hud.hideMissionCard();
+}
+
+/** On foot at a busy intersection: pedestrians, traffic, a car to steal. */
+function stageWalk(game) {
+  game.missions.setProgress(0, 0);
+  const player = game.player;
+  player.pos.set(65, 0, 88);
+  player.heading = Math.PI; // north, toward the intersection
+  player.mesh.position.copy(player.pos);
+  // A car parked right by the kerb, close enough for the prompt to show.
+  const car = game.cars.parked[0];
+  car.pos.set(68, 0, 82);
+  car.heading = Math.PI / 2;
+  car.mesh.position.copy(car.pos);
+  car.mesh.rotation.y = car.heading;
+  // A few pedestrians on the sidewalks around this corner.
+  const spots = [[54, 70], [66, 60], [52, 84], [70, 96]];
+  game.peds.slice(0, 4).forEach((ped, i) => {
+    ped.pos.set(spots[i][0], 0, spots[i][1]);
+    ped.target = { x: spots[i][0] + 20, z: spots[i][1] };
+    ped.mesh.position.copy(ped.pos);
+  });
+  cameraBehind(game);
+  walkFor(game, 1);
+  game.hud.hideMissionCard();
+}
+
+/** The steal: Rook beside the red Comet GT, chop-shop muscle closing in. */
+function stageMission(game) {
+  game.missions.setProgress(1, 0);
+  const player = game.player;
+  const comet = game.cars.comet;
+  // Stand south-west of the Comet, close enough for the prompt, off to the
+  // side so the car is not hidden behind Rook from the camera.
+  player.pos.set(-177, 0, 64);
+  // Face the Comet GT.
+  player.heading = Math.atan2(comet.pos.x - player.pos.x, comet.pos.z - player.pos.z);
+  player.mesh.position.copy(player.pos);
+  player.mesh.rotation.y = player.heading;
+  game.combat.spawnThug(-168, 82);
+  game.combat.spawnThug(-190, 56);
+  cameraBehind(game);
+  // Two seconds of the thugs closing in; the beacon spins over the Comet.
+  for (let i = 0; i < Math.round(2 / STEP); i += 1) game.step(STEP);
+  game.hud.hideMissionCard();
+}
+
+/** Set `game` to the named scene (chase, drive, walk or mission; anything else is drive). */
+export function stageShot(name, game) {
+  game.screen = 'playing';
+  game.hud.showMenu(false);
+  if (name === 'chase') stageChase(game);
+  else if (name === 'walk') stageWalk(game);
+  else if (name === 'mission') stageMission(game);
+  else stageDrive(game);
+  game.hud.update();
 }
