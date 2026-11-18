@@ -103,10 +103,14 @@ export function buildCity(scene, rng) {
     plaza: { x: 0, z: 12 },
     clientSpot: { x: 6, z: 12 },
     marina: { x: 210, z: 258 },
-    chopShop: { x: -210, z: 210 },
-    lighthouse: { x: -216, z: -216 },
+    // Delivery/pickup points sit in FRONT of their buildings, on open ground:
+    // the marker must be reachable, and a building's own collision box keeps
+    // a player 11 m or more from its centre, so a centre marker with a 10 m
+    // radius can never be reached (found by the mission-2 playtest).
+    chopShop: { x: -210, z: 194 },
+    lighthouse: { x: -216, z: -200 },
     cometSpot: { x: -180, z: 66 },
-    packageSpot: { x: -204, z: 204 },
+    packageSpot: { x: -204, z: 194 },
   };
 
   // Ground: one big slab, then the beach and the sea on top of it to the south.

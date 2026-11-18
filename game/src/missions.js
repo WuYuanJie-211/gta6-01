@@ -188,7 +188,7 @@ export function createMissions(game) {
     const pos = game.player.car ? game.player.car.pos : game.player.pos;
     if (key === 'deliver' && target) {
       const d = Math.hypot(target.x - pos.x, target.z - pos.z);
-      if (d < 10) {
+      if (d < 12) {
         if (state.index === 0 && !game.player.car) return; // Mara rides in a car
         completeStage();
       }

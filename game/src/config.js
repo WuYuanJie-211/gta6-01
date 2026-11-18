@@ -43,6 +43,10 @@ export const POLICE = {
   // Wanted falls one star after this long with no police close by.
   decayAfterSeconds: 12,
   decayIntervalSeconds: 8,
+  // During the final mission's escape stage the heat cools off faster:
+  // the player has already done the job, the chase should end, not grind.
+  escapeDecayAfterSeconds: 6,
+  escapeDecayIntervalSeconds: 5,
 };
 
 export const WORLD = {

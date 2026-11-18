@@ -11,6 +11,7 @@ export function createPolice(game) {
     wanted: 0,
     cars: [],
     decayTimer: 0,
+    decayArmed: false,
     ramCooldown: 0,
   };
 
@@ -78,17 +79,25 @@ export function createPolice(game) {
         }
       }
     }
-    // Cool off: no police near for a while, lose a star.
+    // Cool off: no police near for a while, lose a star. The first star takes
+    // `after` seconds; later stars take `interval` each. During the final
+    // mission's escape stage the heat cools off faster, so the chase ends.
     if (state.wanted > 0) {
+      const escaping = game.missions.state.index === 2 && game.missions.state.stage === 2;
+      const after = escaping ? POLICE.escapeDecayAfterSeconds : POLICE.decayAfterSeconds;
+      const interval = escaping ? POLICE.escapeDecayIntervalSeconds : POLICE.decayIntervalSeconds;
       if (nearestPolice > 80) {
         state.decayTimer += dt;
-        if (state.decayTimer > POLICE.decayAfterSeconds) {
+        const threshold = state.decayArmed ? interval : after;
+        if (state.decayTimer > threshold) {
           state.decayTimer = 0;
+          state.decayArmed = true;
           state.wanted -= 1;
           if (state.wanted === 0) game.hud.flash('You lost them. The heat is off — for now.');
         }
       } else {
         state.decayTimer = 0;
+        state.decayArmed = false;
       }
     }
     game.audio.updateSiren(dt, state.wanted);
