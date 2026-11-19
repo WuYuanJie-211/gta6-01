@@ -53,7 +53,7 @@ function stageChase(game) {
   van.stolen = true;
   enterCar(game, van);
   game.police.state.wanted = 4;
-  const tailSpots = [[243, -48], [237, -32], [243, -16], [237, 0]];
+  const tailSpots = [[237, -62], [243, -72], [237, -82], [243, -92]];
   for (const [x, z] of tailSpots) {
     const pc = spawnPoliceCar(game);
     pc.pos.set(x, 0, z);
@@ -64,12 +64,12 @@ function stageChase(game) {
     game.police.state.cars.push(pc);
   }
   cameraBehind(game);
-  driveFor(game, 2.2, (g) => steerCarToward(g, 243, -360));
+  driveFor(game, 1.5, (g) => steerCarToward(g, 243, -360));
   game.camDist = 14;
   game.camPitch = 0.28;
   const heli = game.police.heli;
   if (heli) {
-    heli.position.set(game.player.car.pos.x + 8, 10, game.player.car.pos.z - 14);
+    heli.position.set(game.player.car.pos.x + 5, 10, game.player.car.pos.z - 8);
   }
   game.hud.hideToast();
   game.hud.hideMissionCard();
@@ -94,6 +94,7 @@ function stageGunfight(game) {
   game.camDist = 8;
   game.input.fireAction(ACTION_SHOOT);
   game.step(STEP);
+  game.hud.hideToast();
   game.hud.hideMissionCard();
 }
 function stageDowntown(game) {
@@ -147,16 +148,16 @@ function stageRace(game) {
   const cx = game.player.car.pos.x;
   const cz = game.player.car.pos.z;
   const rivals = game.cars.traffic.slice(0, 2);
-  rivals[0].pos.set(cx, 0, cz - 25);
+  rivals[0].pos.set(cx, 0, cz - 12);
   rivals[0].heading = Math.PI / 2;
   rivals[0].mesh.position.copy(rivals[0].pos);
   rivals[0].mesh.rotation.y = rivals[0].heading;
-  rivals[1].pos.set(cx - 4, 0, cz - 18);
+  rivals[1].pos.set(cx - 4, 0, cz - 16);
   rivals[1].heading = Math.PI / 2;
   rivals[1].mesh.position.copy(rivals[1].pos);
   rivals[1].mesh.rotation.y = rivals[1].heading;
-  game.camDist = 7;
-  game.camPitch = 0.22;
+  game.camDist = 6;
+  game.camPitch = 0.18;
   game.hud.hideMissionCard();
 }
 export const SHOT_ORDER = ['chase', 'gunfight', 'downtown', 'race'];
