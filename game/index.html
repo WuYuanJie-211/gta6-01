@@ -30,6 +30,7 @@ html,body{ margin:0;height:100%;overflow:hidden;background:#0b0e13;font-family:s
 #timer{ color:#ffd94d;font-size:18px;font-weight:800;display:block;}
 #prompt{ bottom:18px;left:50%;transform:translateX(-50%);font-size:15px;font-weight:600;padding:8px 16px;}
 #speed{ bottom:18px;left:12px;font-size:20px;font-weight:700;color:#ffd94d;}
+#speed:empty{ display:none;}
 #toast{ top:34%;left:50%;transform:translate(-50%,-50%) scale(0.95);font-size:22px;font-weight:800;text-align:center;padding:12px 22px;opacity:0;transition:opacity 0.25s,transform 0.25s;pointer-events:none;text-shadow:0 2px 8px rgba(0,0,0,0.6);}
 #toast.show{ opacity:1;transform:translate(-50%,-50%) scale(1);}
 #hitmarker{ position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);font-size:28px;font-weight:800;color:#fff;text-shadow:0 0 6px #000;opacity:0;pointer-events:none;z-index:5;}
@@ -49,6 +50,8 @@ html,body{ margin:0;height:100%;overflow:hidden;background:#0b0e13;font-family:s
 .hidden{ display:none !important;}
 .shot-mode #toast,.shot-mode #mission-list,.shot-mode #objective,.shot-mode #prompt,.shot-mode #mission-card{ display:none !important;}
 .shot-mode:not(.shot-cash) #cash{ display:none !important;}
+.shot-cash #stats .row{ flex-wrap:wrap;}
+.shot-cash #cash{ flex:1 1 100%;}
 #status{ position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;}
 </style>
 <script type="importmap">

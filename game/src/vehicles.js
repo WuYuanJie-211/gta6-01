@@ -1,17 +1,17 @@
-import * as THREE from 'three';
+import{BX,CG,MS,ME,V3,GP,PI}from'./geo.js';
 const _vm=new Map();
-function VM(c,r=1,e){const k=c+'|'+r+'|'+(e||0);let m=_vm.get(k);if(!m){m=new THREE.MeshStandardMaterial({color:c,roughness:r,...(e?{emissive:e}:{})});_vm.set(k,m)}return m}
+function VM(c,r=1,e){const k=c+'|'+r+'|'+(e||0);let m=_vm.get(k);if(!m){m=new MS({color:c,roughness:r,...(e?{emissive:e}:{})});_vm.set(k,m)}return m}
 import { CAR, CAR_MODELS, COLOURS, DETAIL, WORLD } from './config.js';
 import { nodeNeighbours, nearestNode, isIntersection } from './roads.js';
 import { resolveBuildingCollision } from './city.js';
 let carTextures = null;
 export function setCarTextures(t) { carTextures = t; }
 export function createCarMesh(color, kind = 'sedan') {
-  const group = new THREE.Group();
-  const B=(w,h,d,m,x=0,y=0,z=0,s=false)=>{const q=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);q.position.set(x,y,z);if(s)q.castShadow=true;group.add(q);return q;};
+  const group = new GP();
+  const B=(w,h,d,m,x=0,y=0,z=0,s=false)=>{const q=new ME(new BX(w,h,d),m);q.position.set(x,y,z);if(s)q.castShadow=true;group.add(q);return q;};
   const paintMap = carTextures && kind === 'sport' ? carTextures.redPaint : carTextures && kind === 'taxi' ? carTextures.taxiPaint : null;
-  const paint = new THREE.MeshStandardMaterial({ color: paintMap ? 0xffffff : color, roughness: paintMap ? 0.35 : 0.4, metalness: paintMap ? 0.6 : 0.4, ...(paintMap ? { map: paintMap } : {}) });
-  const glass = new THREE.MeshStandardMaterial({ color: 0x1a2a3a, roughness: 0.2, metalness: 0.6 });
+  const paint = new MS({ color: paintMap ? 0xffffff : color, roughness: paintMap ? 0.35 : 0.4, metalness: paintMap ? 0.6 : 0.4, ...(paintMap ? { map: paintMap } : {}) });
+  const glass = new MS({ color: 0x1a2a3a, roughness: 0.2, metalness: 0.6 });
   const tyre = VM(0x151515);
   const model = CAR_MODELS[kind] || CAR_MODELS.sedan;
   const len = model.len;
@@ -21,7 +21,7 @@ export function createCarMesh(color, kind = 'sedan') {
     if (kind === 'truck') {
       B(1.6, 1.3, 2.1, paint, len / 2 - 0.8, 1.5, 0);
       B(len - 2.4, 0.3, 2, VM(0x555a60), -0.8, 1.1, 0);
-      const stack = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 2, 8), new THREE.MeshStandardMaterial({ color: 0xaaaaaa, roughness: 0.3, metalness: 0.7 }));
+      const stack = new ME(new CG(0.12, 0.12, 2, 8), new MS({ color: 0xaaaaaa, roughness: 0.3, metalness: 0.7 }));
       stack.position.set(len / 2 - 1.8, 1.8, 0.9);
       group.add(stack);
     }
@@ -35,7 +35,7 @@ export function createCarMesh(color, kind = 'sedan') {
       B(0.08, 0.4, 1.4, VM(0xff8800,1,0x664400), len / 2 + 0.02, 2.3, 0);
     }
     if (kind === 'armored') {
-      B(len - 0.5, 0.8, 2.2, new THREE.MeshStandardMaterial({ color: 0x6a6f75, roughness: 0.5, metalness: 0.6 }), 0, 1.5, 0);
+      B(len - 0.5, 0.8, 2.2, new MS({ color: 0x6a6f75, roughness: 0.5, metalness: 0.6 }), 0, 1.5, 0);
       B(0.4, 0.25, 1.4, VM(0xffe14d,1,0x886600), 0, bodyH + 0.6, 0);
     }
   } else {
@@ -69,7 +69,7 @@ export function createCarMesh(color, kind = 'sedan') {
     }
   }
   if (kind === 'police') {
-    B(len, bodyH, 2, new THREE.MeshStandardMaterial({ color: 0xf2f2f2, roughness: 0.4, metalness: 0.3 }), 0, 0.55, 0, true);
+    B(len, bodyH, 2, new MS({ color: 0xf2f2f2, roughness: 0.4, metalness: 0.3 }), 0, 0.55, 0, true);
     B(len * 0.5, bodyH * 0.9, 2.02, VM(0x1a3a8f,0.4), 0, 0.55, 0);
     B(0.7, 0.18, 1.2, VM(0x222222,0.5), -0.1, 1.6, 0);
     const lightR = B(0.3, 0.2, 0.55, VM(0xff2222,1,0xaa0000), -0.1, 1.72, 0.3);
@@ -92,18 +92,18 @@ export function createCarMesh(color, kind = 'sedan') {
   }
   const wheelR = kind === 'truck' || kind === 'bus' ? 0.55 : 0.42;
   const wheels = [];
-  const wheelGeo = new THREE.CylinderGeometry(wheelR, wheelR, 0.3, 14);
-  const hubGeo = new THREE.CylinderGeometry(wheelR * 0.55, wheelR * 0.55, 0.34, 12);
-  const hubMat = new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.4, metalness: 0.6 });
+  const wheelGeo = new CG(wheelR, wheelR, 0.3, 14);
+  const hubGeo = new CG(wheelR * 0.55, wheelR * 0.55, 0.34, 12);
+  const hubMat = new MS({ color: 0x888888, roughness: 0.4, metalness: 0.6 });
   for (const [wx, wz] of [[len * 0.32, 0.95], [len * 0.32, -0.95], [-len * 0.32, 0.95], [-len * 0.32, -0.95]]) {
-    const wheel = new THREE.Mesh(wheelGeo, tyre);
-    wheel.rotation.x = Math.PI / 2;
+    const wheel = new ME(wheelGeo, tyre);
+    wheel.rotation.x = PI / 2;
     wheel.position.set(wx, wheelR, wz);
     wheel.castShadow = true;
     group.add(wheel);
     wheels.push(wheel);
-    const hub = new THREE.Mesh(hubGeo, hubMat);
-    hub.rotation.x = Math.PI / 2;
+    const hub = new ME(hubGeo, hubMat);
+    hub.rotation.x = PI / 2;
     hub.position.set(wx, wheelR, wz);
     group.add(hub);
   }
@@ -116,7 +116,7 @@ export function makeCarState(mesh, x, z, heading, kind, topSpeed, model = 'sedan
   const modelDef = CAR_MODELS[model];
   return {
     mesh,
-    pos: new THREE.Vector3(x, 0, z),
+    pos: new V3(x, 0, z),
     heading,
     speed: 0,
     kind,
@@ -142,24 +142,24 @@ function placeOnRoad(game, car, x, z, heading) {
 export function spawnCars(game) {
   const rng = game.rng;
   const parkedSpots = [
-    { x: 60, z: 18, heading: Math.PI / 2, color: 0xf1c40f, kind: 'taxi' },
-    { x: 150, z: 66, heading: Math.PI / 2, color: 0x2e86c1, kind: 'sedan' },
+    { x: 60, z: 18, heading: PI / 2, color: 0xf1c40f, kind: 'taxi' },
+    { x: 150, z: 66, heading: PI / 2, color: 0x2e86c1, kind: 'sedan' },
     { x: -60, z: -66, heading: 0, color: 0xecf0f1, kind: 'compact' },
-    { x: -120, z: 130, heading: Math.PI, color: 0xe67e22, kind: 'pickup' },
+    { x: -120, z: 130, heading: PI, color: 0xe67e22, kind: 'pickup' },
     { x: 300, z: -120, heading: 0, color: 0xc0392b, kind: 'muscle' }, 
-    { x: 120, z: -240, heading: Math.PI / 2, color: 0x16a085, kind: 'van' },
-    { x: 300, z: 66, heading: Math.PI, color: 0x7d3c98, kind: 'sedan' },
+    { x: 120, z: -240, heading: PI / 2, color: 0x16a085, kind: 'van' },
+    { x: 300, z: 66, heading: PI, color: 0x7d3c98, kind: 'sedan' },
     { x: -300, z: -180, heading: 0, color: 0x2c3e50, kind: 'truck' },
-    { x: 330, z: 180, heading: Math.PI / 2, color: 0xf1c40f, kind: 'compact' },
+    { x: 330, z: 180, heading: PI / 2, color: 0xf1c40f, kind: 'compact' },
     { x: 180, z: 240, heading: 0, color: 0x2e86c1, kind: 'sedan' },
-    { x: -180, z: 240, heading: Math.PI / 2, color: 0x16a085, kind: 'van' },
-    { x: 60, z: -300, heading: Math.PI, color: 0xecf0f1, kind: 'sedan' },
+    { x: -180, z: 240, heading: PI / 2, color: 0x16a085, kind: 'van' },
+    { x: 60, z: -300, heading: PI, color: 0xecf0f1, kind: 'sedan' },
     { x: 180, z: -185, heading: 0, color: 0xc0392b, kind: 'sedan' },
-    { x: 240, z: -175, heading: Math.PI, color: 0x2e86c1, kind: 'compact' },
+    { x: 240, z: -175, heading: PI, color: 0x2e86c1, kind: 'compact' },
     { x: 300, z: -185, heading: 0, color: 0x16a085, kind: 'van' },
-    { x: 60, z: -175, heading: Math.PI, color: 0xf1c40f, kind: 'taxi' },
-    { x: 245, z: -120, heading: Math.PI / 2, color: 0x7d3c98, kind: 'sedan' },
-    { x: 235, z: -240, heading: -Math.PI / 2, color: 0xe67e22, kind: 'pickup' },
+    { x: 60, z: -175, heading: PI, color: 0xf1c40f, kind: 'taxi' },
+    { x: 245, z: -120, heading: PI / 2, color: 0x7d3c98, kind: 'sedan' },
+    { x: 235, z: -240, heading: -PI / 2, color: 0xe67e22, kind: 'pickup' },
   ];
   for (const spot of parkedSpots) {
     const mesh = createCarMesh(spot.color, spot.kind);
@@ -169,18 +169,18 @@ export function spawnCars(game) {
     game.cars.parked.push(car);
   }
   const comet = createCarMesh(COLOURS.cometRed, 'sport');
-  const cometCar = makeCarState(comet, game.city.landmarks.cometSpot.x, game.city.landmarks.cometSpot.z, Math.PI / 2, 'comet', CAR.sportTopSpeed, 'sport');
+  const cometCar = makeCarState(comet, game.city.landmarks.cometSpot.x, game.city.landmarks.cometSpot.z, PI / 2, 'comet', CAR.sportTopSpeed, 'sport');
   placeOnRoad(game, cometCar, cometCar.pos.x, cometCar.pos.z, cometCar.heading);
   game.cars.comet = cometCar;
   const armored = createCarMesh(0x8a8f96, 'armored');
-  const armoredCar = makeCarState(armored, game.city.landmarks.armoredSpot.x, game.city.landmarks.armoredSpot.z, Math.PI, 'armored', CAR_MODELS.armored.topSpeed, 'armored');
+  const armoredCar = makeCarState(armored, game.city.landmarks.armoredSpot.x, game.city.landmarks.armoredSpot.z, PI, 'armored', CAR_MODELS.armored.topSpeed, 'armored');
   placeOnRoad(game, armoredCar, armoredCar.pos.x, armoredCar.pos.z, armoredCar.heading);
   game.cars.armored = armoredCar;
   const saleKinds = ['sport', 'muscle', 'van'];
   saleKinds.forEach((kind, i) => {
     const mesh = createCarMesh(rng.pick(COLOURS.car), kind);
     const model = CAR_MODELS[kind];
-    const car = makeCarState(mesh, 192 + i * 12, -132, -Math.PI / 2, 'parked', model.topSpeed, kind);
+    const car = makeCarState(mesh, 192 + i * 12, -132, -PI / 2, 'parked', model.topSpeed, kind);
     car.forSale = true;
     car.salePrice = model.price;
     placeOnRoad(game, car, car.pos.x, car.pos.z, car.heading);
@@ -191,7 +191,7 @@ export function spawnCars(game) {
     const node = rng.pick(game.roads.nodes);
     const kind = rng.pick(trafficKinds);
     const mesh = createCarMesh(rng.pick(COLOURS.car), kind);
-    const car = makeCarState(mesh, node.x, node.z, rng.pick([0, Math.PI / 2, Math.PI, -Math.PI / 2]), 'traffic', CAR.trafficSpeed, kind);
+    const car = makeCarState(mesh, node.x, node.z, rng.pick([0, PI / 2, PI, -PI / 2]), 'traffic', CAR.trafficSpeed, kind);
     car.targetNode = rng.pick(nodeNeighbours(game.roads, node));
     car.prevNode = node;
     car.speed = CAR.trafficSpeed;
@@ -204,8 +204,8 @@ function steerToward(car, tx, tz, maxTurn) {
   const dz = tz - car.pos.z;
   const wanted = Math.atan2(-dz, dx);
   let diff = wanted - car.heading;
-  while (diff > Math.PI) diff -= Math.PI * 2;
-  while (diff < -Math.PI) diff += Math.PI * 2;
+  while (diff > PI) diff -= PI * 2;
+  while (diff < -PI) diff += PI * 2;
   return Math.max(-maxTurn, Math.min(maxTurn, diff * 2.2));
 }
 function wreckCar(game, car) {

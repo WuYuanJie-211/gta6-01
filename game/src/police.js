@@ -1,7 +1,8 @@
 import * as THREE from 'three';
+import{BX,CN,MB,MS,SG,ME,GP,PI}from'./geo.js';
 import { POLICE, CAR } from './config.js';
-const B=(g,w,h,d,m,x=0,y=0,z=0)=>{const q=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);q.position.set(x,y,z);g.add(q);return q;};
-const mt=(c,r=0.9)=>new THREE.MeshStandardMaterial({color:c,roughness:r});
+const B=(g,w,h,d,m,x=0,y=0,z=0)=>{const q=new ME(new BX(w,h,d),m);q.position.set(x,y,z);g.add(q);return q;};
+const mt=(c,r=0.9)=>new MS({color:c,roughness:r});
 import { spawnPoliceCar } from './vehicles.js';
 import { nearestNode } from './roads.js';
 import { resolveBuildingCollision } from './city.js';
@@ -13,27 +14,27 @@ function rotatedAABB(x, z, halfLen, halfWid, angle) {
   return { minX: x - hx, maxX: x + hx, minZ: z - hz, maxZ: z + hz };
 }
 function createHelicopterMesh() {
-  const group = new THREE.Group();
+  const group = new GP();
   const bodyMat = mt(0xd8dce2, 0.5);
   const body = B(group, 2.4, 1.6, 4.5, bodyMat, 0, 0, 0);
   body.castShadow = true;
   B(group, 0.6, 0.6, 4, bodyMat, 0, 0.3, -4);
   B(group, 0.3, 1.4, 0.8, bodyMat, 0, 0.8, -5.8);
-  B(group, 2.0, 1.0, 1.2, new THREE.MeshStandardMaterial({ color: 0x1a2a3a, roughness: 0.2, metalness: 0.6 }), 0, 0.3, 2.2);
+  B(group, 2.0, 1.0, 1.2, new MS({ color: 0x1a2a3a, roughness: 0.2, metalness: 0.6 }), 0, 0.3, 2.2);
   const tailRotor = B(group, 0.08, 2.2, 0.3, mt(0x222222, 0.5), 0.35, 0.8, -5.8);
   const rotor = B(group, 9, 0.08, 0.5, mt(0x222222, 0.5), 0, 1.1, 0);
   const rotor2 = B(group, 0.5, 0.08, 9, mt(0x222222, 0.5), 0, 1.1, 0);
   const skidMat = mt(0x333333, 0.8);
   for (const side of [-1, 1]) B(group, 0.15, 0.15, 3.5, skidMat, side * 1.1, -1.1, 0);
-  const light = new THREE.Mesh(
-    new THREE.ConeGeometry(3, 12, 16, 1, true),
-    new THREE.MeshBasicMaterial({ color: 0xfff8c0, transparent: true, opacity: 0.22, side: THREE.FrontSide }),
+  const light = new ME(
+    new CN(3, 12, 16, 1, true),
+    new MB({ color: 0xfff8c0, transparent: true, opacity: 0.22, side: THREE.FrontSide }),
   );
   light.position.set(0, -6, 0);
   group.add(light);
-  const bulb = new THREE.Mesh(
-    new THREE.SphereGeometry(0.5, 10, 8),
-    new THREE.MeshStandardMaterial({ color: 0xfff8c0, emissive: 0xcc9900, roughness: 0.3 }),
+  const bulb = new ME(
+    new SG(0.5, 10, 8),
+    new MS({ color: 0xfff8c0, emissive: 0xcc9900, roughness: 0.3 }),
   );
   bulb.position.set(0, -1.2, 1.5);
   group.add(bulb);
@@ -88,13 +89,13 @@ export function createPolice(game) {
     const ax = playerPos.x + Math.cos(heading) * 80;
     const az = playerPos.z - Math.sin(heading) * 80;
     const node = nearestNode(game.roads, ax, az);
-    const perp = heading + Math.PI / 2;
+    const perp = heading + PI / 2;
     const barriers = [];
     const colliders = [];
     for (const offset of [-3.5, 3.5]) {
       const bx = node.x + Math.cos(perp) * offset;
       const bz = node.z - Math.sin(perp) * offset;
-      const barrier = new THREE.Group();
+      const barrier = new GP();
       B(barrier, 5, 1, 0.4, mt(0xe67e22, 0.7), 0, 0.9, 0);
       B(barrier, 5, 0.3, 0.42, mt(0xf5f5f0, 0.7), 0, 1.1, 0);
       const legL = B(barrier, 0.3, 0.8, 0.3, mt(0x333333, 0.8), -2.2, 0.4, 0);
@@ -140,7 +141,7 @@ export function createPolice(game) {
       const spot = heli.userData.spotlight;
       if (spot) {
         const dist = Math.hypot(playerPos.x - heli.position.x, playerPos.z - heli.position.z);
-        spot.rotation.x = Math.PI + Math.max(-0.3, Math.min(0.3, dist * 0.008));
+        spot.rotation.x = PI + Math.max(-0.3, Math.min(0.3, dist * 0.008));
       }
     }
     let nearestPolice = Infinity;
@@ -151,8 +152,8 @@ export function createPolice(game) {
       nearestPolice = Math.min(nearestPolice, dist);
       const wantedHeading = Math.atan2(-dz, dx);
       let diff = wantedHeading - car.heading;
-      while (diff > Math.PI) diff -= Math.PI * 2;
-      while (diff < -Math.PI) diff += Math.PI * 2;
+      while (diff > PI) diff -= PI * 2;
+      while (diff < -PI) diff += PI * 2;
       car.heading += Math.max(-1.8 * dt, Math.min(1.8 * dt, diff * 2));
       car.speed = Math.min(CAR.policeTopSpeed, car.speed + 14 * dt);
       const nx = car.pos.x + Math.cos(car.heading) * car.speed * dt;

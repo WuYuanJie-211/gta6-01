@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import{V3,PI}from'./geo.js';
 import { STEP, WORLD, PLAYER, WEAPONS } from './config.js';
 import { createRandom } from './random.js';
 import { buildRoads } from './roads.js';
@@ -25,7 +26,7 @@ class Game {
     this.rng = createRandom(seed);
     this.cash = WORLD.startCash;
     this.screen = 'title';
-    this.cameraAngle = Math.PI;
+    this.cameraAngle = PI;
     this.camDist = 9;
     this.camPitch = 0.32;
     this.lastDragAt = -10;
@@ -43,10 +44,10 @@ class Game {
     const sun = new THREE.DirectionalLight(0xffd9a0, 3.0);
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
-    sun.shadow.camera.left = -60;
-    sun.shadow.camera.right = 60;
-    sun.shadow.camera.top = 60;
-    sun.shadow.camera.bottom = -60;
+    sun.shadow.camera.left = -25;
+    sun.shadow.camera.right = 25;
+    sun.shadow.camera.top = 25;
+    sun.shadow.camera.bottom = -25;
     sun.shadow.camera.far = 400;
     this.scene.add(sun);
     this.scene.add(new THREE.HemisphereLight(0xbfd9ff, 0x8a7a5a, 0.6));
@@ -63,8 +64,8 @@ class Game {
     this.shops = createShops(this);
     this.player = {
       mesh: createPlayerMesh(),
-      pos: new THREE.Vector3(this.city.landmarks.plaza.x, 0, this.city.landmarks.plaza.z),
-      heading: Math.PI,
+      pos: new V3(this.city.landmarks.plaza.x, 0, this.city.landmarks.plaza.z),
+      heading: PI,
       health: PLAYER.maxHealth,
       lastHitAt: -100,
       onFoot: true,
@@ -319,8 +320,8 @@ class Game {
     if (this.time - this.lastDragAt > 2.5) {
       const wanted = Math.atan2(-fx, -fz);
       let diff = wanted - this.cameraAngle;
-      while (diff > Math.PI) diff -= Math.PI * 2;
-      while (diff < -Math.PI) diff += Math.PI * 2;
+      while (diff > PI) diff -= PI * 2;
+      while (diff < -PI) diff += PI * 2;
       this.cameraAngle += diff * Math.min(1, 1.6 * dt);
     }
     const dist = this.player.car ? this.camDist + 3 : this.camDist;

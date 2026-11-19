@@ -1,20 +1,21 @@
 import * as THREE from 'three';
+import{BX,CG,MB,MS,SG,ME,V3,GP,PI,AB,SP}from'./geo.js';
 import { PLAYER, WEAPONS, ECONOMY, EFFECTS } from './config.js';
-const B=(g,w,h,d,m,x=0,y=0,z=0)=>{const q=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);q.position.set(x,y,z);g.add(q);return q;};
-const mt=(c,r=0.9)=>new THREE.MeshStandardMaterial({color:c,roughness:r});
+const B=(g,w,h,d,m,x=0,y=0,z=0)=>{const q=new ME(new BX(w,h,d),m);q.position.set(x,y,z);g.add(q);return q;};
+const mt=(c,r=0.9)=>new MS({color:c,roughness:r});
 function createThugMesh() {
-  const group = new THREE.Group();
+  const group = new GP();
   const shirt = mt(0x7b241c);
   const skin = mt(0xc98d5f);
   const torso = B(group, 0.75, 0.9, 0.42, shirt, 0, 1.15, 0);
   torso.castShadow = true;
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.26, 12, 10), skin);
+  const head = new ME(new SG(0.26, 12, 10), skin);
   head.position.y = 1.85;
   group.add(head);
-  const hair = new THREE.Mesh(new THREE.SphereGeometry(0.27, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), mt(0x1a1a1a, 1));
+  const hair = new ME(new SG(0.27, 12, 8, 0, PI * 2, 0, PI / 2), mt(0x1a1a1a, 1));
   hair.position.y = 1.9;
   group.add(hair);
-  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, 0.18, 8), skin);
+  const neck = new ME(new CG(0.09, 0.11, 0.18, 8), skin);
   neck.position.y = 1.68;
   group.add(neck);
   const legL = B(group, 0.26, 0.7, 0.3, mt(0x222222, 1), -0.19, 0.35, 0);
@@ -25,8 +26,8 @@ function createThugMesh() {
   const armR = armL.clone();
   armR.position.x = 0.48;
   group.add(armR);
-  const barBg = B(group, 1.1, 0.12, 0.05, new THREE.MeshBasicMaterial({ color: 0x881111 }), 0, 2.35, 0);
-  const barFg = B(group, 1.06, 0.08, 0.06, new THREE.MeshBasicMaterial({ color: 0x33dd33 }), 0, 2.35, 0);
+  const barBg = B(group, 1.1, 0.12, 0.05, new MB({ color: 0x881111 }), 0, 2.35, 0);
+  const barFg = B(group, 1.06, 0.08, 0.06, new MB({ color: 0x33dd33 }), 0, 2.35, 0);
   group.userData.barFg = barFg;
   group.userData.torso = torso;
   group.userData.legL = legL;
@@ -41,10 +42,10 @@ function createGunmanMesh() {
   group.children[0].material = mt(0x1a1a2e);
   B(group, 0.56, 0.12, 0.56, mt(0xd21f2b, 0.8), 0, 1.98, 0);
   B(group, 0.78, 0.5, 0.46, mt(0x7b1a1a), 0, 1.2, 0);
-  const gunMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.4, metalness: 0.5 });
+  const gunMat = new MS({ color: 0x111111, roughness: 0.4, metalness: 0.5 });
   B(group, 0.09, 0.14, 0.9, gunMat, 0.35, 1.2, 0.35);
-  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.4, 8), gunMat);
-  barrel.rotation.x = Math.PI / 2;
+  const barrel = new ME(new CG(0.025, 0.025, 0.4, 8), gunMat);
+  barrel.rotation.x = PI / 2;
   barrel.position.set(0.35, 1.22, 0.95);
   group.add(barrel);
   return group;
@@ -59,54 +60,54 @@ export function createCombat(game) {
     parts.push({ mesh, vel: vel.clone(), life, maxLife: life, grow, grav });
   }
   function spawnFlash(pos) {
-    const flash = new THREE.Sprite(new THREE.SpriteMaterial({ map: game.textures.fireball, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+    const flash = new SP(new THREE.SpriteMaterial({ map: game.textures.fireball, transparent: true, blending: AB, depthWrite: false }));
     flash.scale.set(.6,.6,1);
-    addPart(flash, pos, new THREE.Vector3(0, 0, 0), EFFECTS.flashLife);
+    addPart(flash, pos, new V3(0, 0, 0), EFFECTS.flashLife);
   }
   function spawnCasing(pos, heading) {
-    const casing = new THREE.Mesh(
-      new THREE.BoxGeometry(0.06, 0.03, 0.1),
-      new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.7, roughness: 0.4 }),
+    const casing = new ME(
+      new BX(0.06, 0.03, 0.1),
+      new MS({ color: 0xd4af37, metalness: 0.7, roughness: 0.4 }),
     );
-    casing.rotation.y = Math.random() * Math.PI;
-    const side = new THREE.Vector3(Math.cos(heading), 0, -Math.sin(heading));
-    addPart(casing, new THREE.Vector3(pos.x + side.x * 0.4, 1.1, pos.z + side.z * 0.4), new THREE.Vector3(side.x * 1.5, 2.2, side.z * 1.5), EFFECTS.casingLife, 0, 12);
+    casing.rotation.y = Math.random() * PI;
+    const side = new V3(Math.cos(heading), 0, -Math.sin(heading));
+    addPart(casing, new V3(pos.x + side.x * 0.4, 1.1, pos.z + side.z * 0.4), new V3(side.x * 1.5, 2.2, side.z * 1.5), EFFECTS.casingLife, 0, 12);
   }
   function spawnSparks(pos, color = 0xffcc44, n = 6) {
     for (let i = 0; i < n; i += 1) {
-      const spark = new THREE.Mesh(
-        new THREE.BoxGeometry(0.12, 0.12, 0.12),
-        new THREE.MeshBasicMaterial({ color, transparent: true }),
+      const spark = new ME(
+        new BX(0.12, 0.12, 0.12),
+        new MB({ color, transparent: true }),
       );
-      const a = Math.random() * Math.PI * 2;
-      const b = Math.random() * Math.PI - Math.PI / 2;
-      addPart(spark, pos, new THREE.Vector3(Math.cos(a) * Math.cos(b) * 6, Math.abs(Math.sin(b)) * 5 + 1, Math.sin(a) * Math.cos(b) * 6), EFFECTS.sparkLife, 0, 9);
+      const a = Math.random() * PI * 2;
+      const b = Math.random() * PI - PI / 2;
+      addPart(spark, pos, new V3(Math.cos(a) * Math.cos(b) * 6, Math.abs(Math.sin(b)) * 5 + 1, Math.sin(a) * Math.cos(b) * 6), EFFECTS.sparkLife, 0, 9);
     }
   }
-  function spawnExplosion(pos) {
-    const origin = new THREE.Vector3(pos.x, pos.y + 1, pos.z);
+  function spawnExplosion(pos, so = 0.7) {
+    const origin = new V3(pos.x, pos.y + 1, pos.z);
     const fire = game.textures && game.textures.fireball;
     if (fire) {
-      const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: fire, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+      const sprite = new SP(new THREE.SpriteMaterial({ map: fire, transparent: true, blending: AB, depthWrite: false }));
       sprite.scale.set(3, 3, 1);
-      addPart(sprite, origin, new THREE.Vector3(0, 0.5, 0), EFFECTS.explosionLife, 6, 0);
+      addPart(sprite, origin, new V3(0, 0.5, 0), EFFECTS.explosionLife, 6, 0);
     } else {
       for (let i = 0; i < 8; i += 1) {
-        const ball = new THREE.Mesh(
-          new THREE.SphereGeometry(0.6, 8, 6),
-          new THREE.MeshBasicMaterial({ color: 0xff7711, transparent: true }),
+        const ball = new ME(
+          new SG(0.6, 8, 6),
+          new MB({ color: 0xff7711, transparent: true }),
         );
-        const a = (i / 8) * Math.PI * 2;
-        addPart(ball, origin, new THREE.Vector3(Math.cos(a) * 3, 1.5, Math.sin(a) * 3), EFFECTS.explosionLife, 2, 0);
+        const a = (i / 8) * PI * 2;
+        addPart(ball, origin, new V3(Math.cos(a) * 3, 1.5, Math.sin(a) * 3), EFFECTS.explosionLife, 2, 0);
       }
     }
     const smoke = game.textures && game.textures.smoke;
     for (let i = 0; i < 5; i += 1) {
       const puff = smoke
-        ? new THREE.Sprite(new THREE.SpriteMaterial({ map: smoke, transparent: true, opacity: 0.7, depthWrite: false }))
-        : new THREE.Mesh(new THREE.SphereGeometry(1.1, 8, 6), new THREE.MeshStandardMaterial({ color: 0x555555, roughness: 1, transparent: true, opacity: 0.7 }));
+        ? new SP(new THREE.SpriteMaterial({ map: smoke, transparent: true, opacity: so, depthWrite: false }))
+        : new ME(new SG(1.1, 8, 6), new MS({ color: 0x555555, roughness: 1, transparent: true, opacity: so }));
       if (smoke) puff.scale.set(2, 2, 1);
-      addPart(puff, new THREE.Vector3(pos.x + (i - 2) * 0.8, pos.y + 2 + i * 0.5, pos.z), new THREE.Vector3(0, 1.2, 0), EFFECTS.explosionLife * 1.4, 2.5, 0);
+      addPart(puff, new V3(pos.x + (i - 2) * 0.8 - 1.2, pos.y + 2 + i * 0.5, pos.z), new V3(0, 1.2, 0), EFFECTS.explosionLife * 1.4, 2.5, 0);
     }
     game.hud.shake();
   }
@@ -116,11 +117,11 @@ export function createCombat(game) {
     game.scene.add(mesh);
     const enemy = {
       mesh, kind: 'thug',
-      pos: new THREE.Vector3(x, 0, z),
+      pos: new V3(x, 0, z),
       health: 30, maxHealth: 30,
       punchTimer: 0, shootTimer: 0,
       alive: true,
-      phase: game.rng.range(0, Math.PI * 2),
+      phase: game.rng.range(0, PI * 2),
     };
     enemies.push(enemy);
     return enemy;
@@ -131,22 +132,22 @@ export function createCombat(game) {
     game.scene.add(mesh);
     const enemy = {
       mesh, kind: 'gunman',
-      pos: new THREE.Vector3(x, 0, z),
+      pos: new V3(x, 0, z),
       health: 40, maxHealth: 40,
       punchTimer: 0, shootTimer: 1,
       alive: true,
-      phase: game.rng.range(0, Math.PI * 2),
+      phase: game.rng.range(0, PI * 2),
     };
     enemies.push(enemy);
     return enemy;
   }
   function spawnTracer(from, to, color = 0xffe14d) {
-    const dir = new THREE.Vector3().subVectors(to, from);
+    const dir = new V3().subVectors(to, from);
     const len = Math.min(dir.length(), 3);
     if (len < 0.1) return;
-    const tracer = new THREE.Mesh(
-      new THREE.BoxGeometry(0.05, 0.05, len),
-      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.6 }),
+    const tracer = new ME(
+      new BX(0.05, 0.05, len),
+      new MB({ color, transparent: true, opacity: 0.6 }),
     );
     tracer.position.copy(from).addScaledVector(dir.normalize(), len / 2);
     tracer.lookAt(to);
@@ -201,7 +202,7 @@ export function createCombat(game) {
     game.audio.gunshot();
     const fx = Math.sin(player.heading);
     const fz = Math.cos(player.heading);
-    const muzzle = new THREE.Vector3(player.pos.x + fx * 0.8, 1.2, player.pos.z + fz * 0.8);
+    const muzzle = new V3(player.pos.x + fx * 0.8, 1.2, player.pos.z + fz * 0.8);
     const range = PLAYER.shootRange;
     let bestDist = range;
     let bestEnemy = null;
@@ -236,7 +237,7 @@ export function createCombat(game) {
         bestEnemy = null;
       }
     }
-    const end = new THREE.Vector3(player.pos.x + fx * bestDist, 1.2, player.pos.z + fz * bestDist);
+    const end = new V3(player.pos.x + fx * bestDist, 1.2, player.pos.z + fz * bestDist);
     spawnTracer(muzzle, end, game.player.weapon === 'rifle' ? 0xff9500 : 0xffe14d);
     spawnFlash(muzzle);
     spawnCasing(player.pos, player.heading);
@@ -251,7 +252,7 @@ export function createCombat(game) {
       if (bestCar.health <= 0) {
         bestCar.wrecked = true;
         bestCar.speed = 0;
-        spawnExplosion(new THREE.Vector3(bestCar.pos.x, 1, bestCar.pos.z));
+        spawnExplosion(new V3(bestCar.pos.x, 1, bestCar.pos.z));
         game.audio.explosion();
         if (bestCar.kind === 'police') game.hud.flash('Police car disabled.');
       }
@@ -279,7 +280,7 @@ export function createCombat(game) {
     if (enemy.health <= 0) {
       enemy.alive = false;
       enemy.fallT = 1.0;
-      enemy.mesh.rotation.x = -Math.PI / 2 * 0.85;
+      enemy.mesh.rotation.x = -PI / 2 * 0.85;
       const drop = enemy.kind === 'gunman' ? ECONOMY.gunmanDrop : ECONOMY.thugDrop;
       game.cash += drop;
       game.hud.flash(`${enemy.kind === 'gunman' ? 'Gunman' : 'Thug'} down. +$${drop}.`);
@@ -322,8 +323,8 @@ export function createCombat(game) {
         enemy.mesh.position.copy(enemy.pos);
         if (enemy.shootTimer <= 0 && dist < 42) {
           enemy.shootTimer = 1.2;
-          const from = new THREE.Vector3(enemy.pos.x, 1.4, enemy.pos.z);
-          const to = new THREE.Vector3(game.player.pos.x, 1.2, game.player.pos.z);
+          const from = new V3(enemy.pos.x, 1.4, enemy.pos.z);
+          const to = new V3(game.player.pos.x, 1.2, game.player.pos.z);
           spawnTracer(from, to, 0xff6644);
           spawnFlash(from);
           game.audio.gunshot();

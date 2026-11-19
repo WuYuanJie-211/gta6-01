@@ -1,9 +1,9 @@
-import * as THREE from 'three';
+import{BX,CG,MB,MS,SG,ME,GP,PI,OG,DS}from'./geo.js';
 import { WORLD, ECONOMY } from './config.js';
 import { enterCar } from './vehicles.js';
 import { randomNode } from './roads.js';
-const B=(g,w,h,d,m,x=0,y=0,z=0)=>{const q=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);q.position.set(x,y,z);g.add(q);return q;};
-const mt=(c,r=0.9)=>new THREE.MeshStandardMaterial({color:c,roughness:r});
+const B=(g,w,h,d,m,x=0,y=0,z=0)=>{const q=new ME(new BX(w,h,d),m);q.position.set(x,y,z);g.add(q);return q;};
+const mt=(c,r=0.9)=>new MS({color:c,roughness:r});
 export const MISSIONS = [
   {
     title: 'First Fare',
@@ -62,15 +62,15 @@ export const MISSIONS = [
   },
 ];
 function createBeacon() {
-  const group = new THREE.Group();
-  const pillar = new THREE.Mesh(
-    new THREE.CylinderGeometry(1.2, 1.2, 40, 12, 1, true),
-    new THREE.MeshBasicMaterial({ color: 0xffe14d, transparent: true, opacity: 0.18, side: THREE.DoubleSide, depthWrite: false }),
+  const group = new GP();
+  const pillar = new ME(
+    new CG(1.2, 1.2, 40, 12, 1, true),
+    new MB({ color: 0xffe14d, transparent: true, opacity: 0.18, side: DS, depthWrite: false }),
   );
   pillar.position.y = 20;
-  const diamond = new THREE.Mesh(
-    new THREE.OctahedronGeometry(0.9),
-    new THREE.MeshStandardMaterial({ color: 0xffe14d, emissive: 0xaa8800, roughness: 0.3 }),
+  const diamond = new ME(
+    new OG(0.9),
+    new MS({ color: 0xffe14d, emissive: 0xaa8800, roughness: 0.3 }),
   );
   diamond.position.y = 6;
   group.add(pillar, diamond);
@@ -81,17 +81,17 @@ export function createMissions(game) {
   const beacon = createBeacon();
   beacon.visible = false;
   game.scene.add(beacon);
-  const clientMesh = new THREE.Group();
+  const clientMesh = new GP();
   {
     const jacket = mt(0xf1c40f);
     const skin = mt(0xd9a066);
     const torso = B(clientMesh, 0.6, 0.8, 0.34, jacket, 0, 1.1, 0);
     torso.castShadow = true;
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 10), skin);
+    const head = new ME(new SG(0.24, 12, 10), skin);
     head.position.y = 1.72;
-    const hair = new THREE.Mesh(new THREE.SphereGeometry(0.25, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), mt(0x4a2a1a, 1));
+    const hair = new ME(new SG(0.25, 12, 8, 0, PI * 2, 0, PI / 2), mt(0x4a2a1a, 1));
     hair.position.y = 1.76;
-    const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, 0.18, 8), skin);
+    const neck = new ME(new CG(0.09, 0.11, 0.18, 8), skin);
     neck.position.y = 1.52;
     const legL = B(clientMesh, 0.22, 0.7, 0.28, mt(0x333333, 1), -0.15, 0.35, 0);
     const legR = legL.clone();

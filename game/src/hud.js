@@ -188,7 +188,7 @@ export function createHud(game) {
     });
     const weapon = game.player.weapon || 'fists';
     if (weapon === 'fists') {
-      weaponText.textContent = 'Fists';
+      weaponText.textContent = game.shotMode ? '' : 'Fists';
     } else {
       const name = weapon === 'pistol' ? 'Pistol' : 'Rifle';
       weaponText.textContent = `${name} ${game.player.mag}/${game.player.ammo}`;
@@ -225,6 +225,6 @@ export function createHud(game) {
     overText.textContent = text;
     overMenu.classList.toggle('hidden', !show);
   }
-  function setShotMode(on, showCash = false) { document.body.classList.toggle('shot-mode', on); document.body.classList.toggle('shot-cash', on && showCash); }
+  function setShotMode(on, showCash = false) { game.shotMode = on; document.body.classList.toggle('shot-mode', on); document.body.classList.toggle('shot-cash', on && showCash); }
   return { flash, hideToast, showMissionCard, hideMissionCard, shake, takeShake, hitmark, update, setPrompt, showMenu, showPause, showOver, setShotMode };
 }

@@ -118,7 +118,7 @@ export const TEXTURES = {
   redPaint: T('red-paint-512'),
   taxiPaint: T('taxi-paint-512'),
   fireball: T('fireball-512'),
-  smoke: T('smoke-512'),
+  smoke: 'textures/smoke-512.png',
   marble: T('marble-512'),
   glassDark: T('glass-dark-1024'),
   brickBrown: T('brick-brown-1024'),
