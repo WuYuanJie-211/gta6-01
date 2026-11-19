@@ -42,13 +42,20 @@ helicopter, and watch the wanted stars cool off when you lay low.
 - **Open city** — a 13×11 road grid across four districts: glass downtown
   towers, the container port with cranes, low suburbs with gardens, and the
   old town, beach, sea, marina and striped lighthouse, all built in three.js.
+  The facades and ground wear real textures (glass curtain wall, brick,
+  stucco, asphalt, sidewalk, grass, sand, container steel), generated on a
+  GPU with SDXL and shipped as local files under `game/textures/` — no
+  network, and a flat-colour fallback if a file is ever missing.
 - **On foot and by car** — walk, run, drive, and steal parked cars (E). Nine
   car models with their own shapes, speeds and prices — sedan, compact, taxi,
   van, pickup, truck, bus, muscle, the Comet GT sports car, and the armored
-  van — plus damage and repair.
-- **Traffic and pedestrians** — 20 cars drive the grid; 36 people stroll the
-  sidewalks, wait at bus stops, chat in groups, and scatter when a car comes
-  at them.
+  van — plus damage and repair. Cars have hub-capped wheels, grilles,
+  bumpers, mirrors and roofs; a car at 0 bodywork is a wreck — it stops and
+  throws you out, and the garage is the only way back.
+- **Traffic and pedestrians** — 20 cars drive the grid (easing off at
+  intersections); 36 people stroll the sidewalks, wait at bus stops, chat in
+  groups, and scatter when a car comes at them. People have arms that swing,
+  hair, necks, hats and bags; thugs and gunmen too.
 - **Wanted level and police** — crimes earn stars; police cars chase, ram and
   cut you off from ahead; at 3 stars a roadblock goes up in front of you; at
   4 stars a police helicopter joins and the heat never cools off while it is
@@ -87,6 +94,7 @@ helicopter, and watch the wanted stars cool off when you lay low.
 | Click / G | Shoot (when armed) |
 | Q | Switch weapon |
 | R | Reload |
+| H | Horn (in a car) |
 | M | Music on/off |
 | P / Esc | Pause and save |
 

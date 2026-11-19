@@ -1,9 +1,5 @@
-// Combat v2: fists stay; a pistol or rifle from the gun shop adds
-// magazines, reloads and tracers. Thugs swing, gunmen shoot back;
-// every enemy shows a health bar and drops cash.
 import * as THREE from 'three';
 import { PLAYER, WEAPONS, ECONOMY } from './config.js';
-
 function createThugMesh() {
   const group = new THREE.Group();
   const shirt = new THREE.MeshStandardMaterial({ color: 0x7b241c, roughness: 0.9 });
@@ -15,12 +11,22 @@ function createThugMesh() {
   const head = new THREE.Mesh(new THREE.SphereGeometry(0.26, 12, 10), skin);
   head.position.y = 1.85;
   group.add(head);
+  const hair = new THREE.Mesh(new THREE.SphereGeometry(0.27, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 1 }));
+  hair.position.y = 1.9;
+  group.add(hair);
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, 0.18, 8), skin);
+  neck.position.y = 1.68;
+  group.add(neck);
   const legL = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.7, 0.3), new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 1 }));
   legL.position.set(-0.19, 0.35, 0);
   const legR = legL.clone();
   legR.position.x = 0.19;
   group.add(legL, legR);
-  // Health bar: a red strip with a green strip on top that shrinks.
+  const armL = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.65, 0.22), shirt);
+  armL.position.set(-0.48, 1.15, 0);
+  const armR = armL.clone();
+  armR.position.x = 0.48;
+  group.add(armL, armR);
   const barBg = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.12, 0.05), new THREE.MeshBasicMaterial({ color: 0x881111 }));
   barBg.position.y = 2.35;
   const barFg = new THREE.Mesh(new THREE.BoxGeometry(1.06, 0.08, 0.06), new THREE.MeshBasicMaterial({ color: 0x33dd33 }));
@@ -29,10 +35,10 @@ function createThugMesh() {
   group.userData.barFg = barFg;
   group.userData.legL = legL;
   group.userData.legR = legR;
+  group.userData.armL = armL;
+  group.userData.armR = armR;
   return group;
 }
-
-/** A gunman: a thug in a dark vest, holding a rifle, who shoots from range. */
 function createGunmanMesh() {
   const group = createThugMesh();
   group.children[0].material = new THREE.MeshStandardMaterial({ color: 0x1a1a2e, roughness: 0.9 });
@@ -42,12 +48,9 @@ function createGunmanMesh() {
   group.add(rifle);
   return group;
 }
-
 export function createCombat(game) {
   const enemies = [];
   const tracers = [];
-
-  /** Spawn a thug at a spot; he walks at Rook and swings when he is close. */
   function spawnThug(x, z) {
     const mesh = createThugMesh();
     mesh.position.set(x, 0, z);
@@ -63,8 +66,6 @@ export function createCombat(game) {
     enemies.push(enemy);
     return enemy;
   }
-
-  /** Spawn a gunman: he keeps his distance and shoots at Rook. */
   function spawnGunman(x, z) {
     const mesh = createGunmanMesh();
     mesh.position.set(x, 0, z);
@@ -80,8 +81,6 @@ export function createCombat(game) {
     enemies.push(enemy);
     return enemy;
   }
-
-  /** A tracer line from `from` to `to`, fading out in a tenth of a second. */
   function spawnTracer(from, to, color = 0xffe14d) {
     const dir = new THREE.Vector3().subVectors(to, from);
     const len = dir.length();
@@ -95,8 +94,6 @@ export function createCombat(game) {
     game.scene.add(tracer);
     tracers.push({ mesh: tracer, life: 0.09 });
   }
-
-  /** Rook throws a punch: anything in front, in range, takes damage. */
   function playerPunch() {
     const player = game.player;
     if (player.punchTimer > 0 || !player.onFoot) return;
@@ -114,7 +111,6 @@ export function createCombat(game) {
       if (dot < 0.3) continue;
       damageEnemy(enemy, PLAYER.punchDamage);
     }
-    // Punching a bystander is a crime too.
     for (const ped of game.peds) {
       if (!ped.alive) continue;
       const dx = ped.pos.x - player.pos.x;
@@ -129,12 +125,6 @@ export function createCombat(game) {
       game.hud.flash('You hit a pedestrian! The cops are coming.');
     }
   }
-
-  /**
-   * Rook fires the equipped gun: a hit scan along his facing direction. The
-   * nearest enemy or car in front, inside range, takes the hit; a tracer shows
-   * the shot. An empty magazine means a click and an automatic reload.
-   */
   function playerShoot() {
     const player = game.player;
     const weapon = WEAPONS[player.weapon];
@@ -192,15 +182,14 @@ export function createCombat(game) {
     else if (bestCar) {
       bestCar.health = Math.max(0, (bestCar.health || 0) - weapon.damage);
       if (bestCar.kind === 'police') game.police.commitCrime(1);
-      if (bestCar.health <= 0 && bestCar.kind === 'police') {
+      if (bestCar.health <= 0) {
+        bestCar.wrecked = true;
         bestCar.speed = 0;
-        game.hud.flash('Police car disabled.');
+        if (bestCar.kind === 'police') game.hud.flash('Police car disabled.');
       }
     }
     game.hud.update();
   }
-
-  /** Move bullets from reserve into the magazine, over one second. */
   function reloadWeapon() {
     const player = game.player;
     const weapon = WEAPONS[player.weapon];
@@ -213,7 +202,6 @@ export function createCombat(game) {
     player.ammo -= taken;
     player.mag += taken;
   }
-
   function damageEnemy(enemy, amount) {
     enemy.health -= amount;
     const scale = Math.max(0, enemy.health / enemy.maxHealth);
@@ -229,8 +217,6 @@ export function createCombat(game) {
       game.hud.update();
     }
   }
-
-  /** Thugs close in and swing; gunmen keep their distance and shoot. */
   function update(dt) {
     for (const enemy of enemies) {
       if (!enemy.alive) continue;
@@ -242,7 +228,6 @@ export function createCombat(game) {
       if (!game.player.onFoot || dist > 80) continue;
       enemy.mesh.rotation.y = Math.atan2(dx, dz);
       if (enemy.kind === 'gunman') {
-        // Hold 12-24 m away and shoot: one hit every 1.2 s, 6 damage.
         if (dist > 24) {
           enemy.pos.x += (dx / dist) * 4 * dt;
           enemy.pos.z += (dz / dist) * 4 * dt;
@@ -270,6 +255,8 @@ export function createCombat(game) {
         const swing = Math.sin(game.time * 9 + enemy.phase) * 0.4;
         enemy.mesh.userData.legL.rotation.x = swing;
         enemy.mesh.userData.legR.rotation.x = -swing;
+        enemy.mesh.userData.armL.rotation.x = -swing;
+        enemy.mesh.userData.armR.rotation.x = swing;
       } else if (enemy.punchTimer <= 0) {
         enemy.punchTimer = 1.0;
         game.player.health = Math.max(0, game.player.health - 8);
@@ -279,7 +266,6 @@ export function createCombat(game) {
       }
       enemy.mesh.userData.barFg.lookAt(game.camera.position);
     }
-    // Tracers fade out fast.
     for (let i = tracers.length - 1; i >= 0; i -= 1) {
       const tracer = tracers[i];
       tracer.life -= dt;
@@ -290,6 +276,5 @@ export function createCombat(game) {
       }
     }
   }
-
   return { enemies, spawnThug, spawnGunman, playerPunch, playerShoot, reloadWeapon, update };
 }

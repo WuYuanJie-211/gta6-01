@@ -1,10 +1,6 @@
-// Rook on foot, v2: walks, runs, punches, and holds a pistol or rifle
-// when armed. Boxes and a sphere, posed by the controller.
 import * as THREE from 'three';
 import { PLAYER } from './config.js';
 import { resolveBuildingCollision } from './city.js';
-
-/** Build Rook: jacket torso, head, legs that swing while walking, a punching arm, and two guns. */
 export function createPlayerMesh() {
   const group = new THREE.Group();
   const jacket = new THREE.MeshStandardMaterial({ color: 0x2e4053, roughness: 0.8 });
@@ -14,24 +10,32 @@ export function createPlayerMesh() {
   torso.position.y = 1.15;
   torso.castShadow = true;
   group.add(torso);
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.26, 12, 10), skin);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.26, 14, 12), skin);
   head.position.y = 1.85;
   head.castShadow = true;
   group.add(head);
   const hair = new THREE.Mesh(new THREE.SphereGeometry(0.27, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 1 }));
   hair.position.y = 1.9;
   group.add(hair);
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, 0.18, 8), skin);
+  neck.position.y = 1.68;
+  group.add(neck);
   const legL = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.7, 0.3), jeans);
   legL.position.set(-0.18, 0.35, 0);
   const legR = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.7, 0.3), jeans);
   legR.position.set(0.18, 0.35, 0);
   group.add(legL, legR);
+  const shoeMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.9 });
+  const shoeL = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.12, 0.42), shoeMat);
+  shoeL.position.set(-0.18, 0.06, 0.06);
+  const shoeR = shoeL.clone();
+  shoeR.position.x = 0.18;
+  group.add(shoeL, shoeR);
   const armL = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.7, 0.22), jacket);
   armL.position.set(-0.48, 1.2, 0);
   const armR = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.7, 0.22), jacket);
   armR.position.set(0.48, 1.2, 0);
   group.add(armL, armR);
-  // Guns in the right hand, pointing forward (+Z); hidden until armed.
   const gunMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.4, metalness: 0.5 });
   const pistol = new THREE.Group();
   const pistolBody = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.14, 0.4), gunMat);
@@ -52,20 +56,18 @@ export function createPlayerMesh() {
   group.add(pistol, rifle);
   group.userData.legL = legL;
   group.userData.legR = legR;
+  group.userData.armL = armL;
   group.userData.armR = armR;
   group.userData.pistol = pistol;
   group.userData.rifle = rifle;
   return group;
 }
-
-/** Walk/run with WASD relative to the camera, colliding with buildings. */
 export function updatePlayerOnFoot(game, dt) {
   const player = game.player;
   const input = game.input;
   const drive = input.drive();
   const steer = input.steer();
   const speed = input.run() ? PLAYER.runSpeed : PLAYER.walkSpeed;
-  // Camera-relative movement: forward is away from the camera.
   const camAngle = game.cameraAngle;
   const moveAngle = camAngle + Math.PI - Math.atan2(steer, drive);
   const moving = drive !== 0 || steer !== 0;
@@ -74,7 +76,6 @@ export function updatePlayerOnFoot(game, dt) {
     player.pos.x += Math.sin(moveAngle) * step;
     player.pos.z += Math.cos(moveAngle) * step;
     resolveBuildingCollision(player.pos, PLAYER.radius, game.city.colliders);
-    // Face where we walk.
     let diff = moveAngle - player.heading;
     while (diff > Math.PI) diff -= Math.PI * 2;
     while (diff < -Math.PI) diff += Math.PI * 2;
@@ -82,11 +83,10 @@ export function updatePlayerOnFoot(game, dt) {
   }
   player.mesh.position.copy(player.pos);
   player.mesh.rotation.y = player.heading;
-  // Legs swing while walking; the right arm snaps out while punching, and
-  // stays raised, aiming, while the player holds a gun.
   const swing = moving ? Math.sin(game.time * 10) * 0.5 : 0;
   player.mesh.userData.legL.rotation.x = swing;
   player.mesh.userData.legR.rotation.x = -swing;
+  player.mesh.userData.armL.rotation.x = -swing;
   const punchT = Math.max(0, player.punchTimer);
   const armed = player.weapon && player.weapon !== 'fists';
   player.mesh.userData.armR.rotation.x = punchT > 0 ? -1.4 : armed ? -1.4 : 0;

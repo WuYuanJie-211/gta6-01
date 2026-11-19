@@ -1,9 +1,5 @@
-// The shops: dealer sells cars, gun shop sells guns and ammo, garage
-// repairs bodywork, diner restores health, chop shop buys stolen cars.
-// Press E near a shop (on foot, or in a car at garage/chop shop).
 import { WEAPONS, ECONOMY, CAR_MODELS } from './config.js';
 import { enterCar } from './vehicles.js';
-
 export function createShops(game) {
   const SHOPS = [
     { key: 'dealer', name: 'Auto Dealer', at: 'dealer' },
@@ -12,11 +8,7 @@ export function createShops(game) {
     { key: 'diner', name: 'Diner', at: 'diner' },
     { key: 'chopShop', name: 'Chop Shop', at: 'chopShop' },
   ];
-
-  /** The shop the player is standing (or parked) next to (within 6 m), or null. */
   function nearShop() {
-    // In a car, the car's position counts: the garage and the chop shop are
-    // drive-in businesses.
     const p = game.player.car ? game.player.car.pos : game.player.pos;
     for (const shop of SHOPS) {
       const spot = game.city.landmarks[shop.at];
@@ -24,8 +16,6 @@ export function createShops(game) {
     }
     return null;
   }
-
-  /** The car for sale nearest the player on the dealer lot, or null. */
   function nearestSaleCar() {
     const p = game.player.pos;
     let best = null;
@@ -40,7 +30,6 @@ export function createShops(game) {
     }
     return best;
   }
-
   function buyCar() {
     const car = nearestSaleCar();
     if (!car) {
@@ -59,7 +48,6 @@ export function createShops(game) {
     game.audio.payout();
     return true;
   }
-
   function buyGun() {
     const player = game.player;
     if (!player.ownedWeapons.includes('pistol')) {
@@ -90,7 +78,6 @@ export function createShops(game) {
       game.audio.pickup();
       return true;
     }
-    // Owns both: buy ammo for the weapon in hand.
     const weapon = WEAPONS[player.weapon] || WEAPONS.pistol;
     if (game.cash < weapon.ammoPrice) {
       game.hud.flash(`Ammo is $${weapon.ammoPrice}. Come back with more cash.`);
@@ -102,7 +89,6 @@ export function createShops(game) {
     game.audio.pickup();
     return true;
   }
-
   function repair() {
     const car = game.player.car;
     if (!car) {
@@ -119,11 +105,11 @@ export function createShops(game) {
     }
     game.cash -= ECONOMY.garageRepair;
     car.health = 100;
+    car.wrecked = false;
     game.hud.flash('Repaired to 100%.');
     game.audio.pickup();
     return true;
   }
-
   function heal() {
     if (game.player.health >= 100) {
       game.hud.flash('You feel fine already.');
@@ -139,7 +125,6 @@ export function createShops(game) {
     game.audio.pickup();
     return true;
   }
-
   function sellCar() {
     const car = game.player.car;
     if (!car) {
@@ -154,7 +139,8 @@ export function createShops(game) {
       game.hud.flash('The chop shop only buys hot cars.');
       return true;
     }
-    const pay = game.rng.int(ECONOMY.chopSellMin, ECONOMY.chopSellMax);
+    let pay = game.rng.int(ECONOMY.chopSellMin, ECONOMY.chopSellMax);
+    if (car.wrecked || car.health <= 0) pay = Math.floor(pay / 2);
     game.cash += pay;
     game.scene.remove(car.mesh);
     game.player.car = null;
@@ -162,12 +148,10 @@ export function createShops(game) {
     game.player.pos.set(car.pos.x + 3, 0, car.pos.z + 3);
     game.player.mesh.visible = true;
     game.player.mesh.position.copy(game.player.pos);
-    game.hud.flash(`Sold for $${pay}. The chop shop never saw you.`);
+    game.hud.flash(car.wrecked || car.health <= 0 ? `Sold as a wreck for $${pay} — half price.` : `Sold for $${pay}. The chop shop never saw you.`);
     game.audio.payout();
     return true;
   }
-
-  /** E pressed near a shop: run that shop's deal. Returns true if handled. */
   function interact() {
     const shop = nearShop();
     if (!shop) return false;
@@ -178,6 +162,5 @@ export function createShops(game) {
     if (shop.key === 'chopShop') return sellCar();
     return false;
   }
-
   return { nearShop, interact };
 }

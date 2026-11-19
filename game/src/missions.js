@@ -1,12 +1,7 @@
-// Seven missions, one arc: prove himself, steal the Comet GT, run the
-// lighthouse gauntlet, drive the taxi rank, hunt five packages, race the
-// bay circuit, finish with the bank job. Each stage has an objective
-// line, a 3D beacon and a payout; free roam goes on after.
 import * as THREE from 'three';
 import { WORLD, ECONOMY } from './config.js';
 import { enterCar } from './vehicles.js';
 import { randomNode } from './roads.js';
-
 export const MISSIONS = [
   {
     title: 'First Fare',
@@ -64,8 +59,6 @@ export const MISSIONS = [
     ],
   },
 ];
-
-/** A yellow light pillar plus a spinning diamond: the mission marker in the world. */
 function createBeacon() {
   const group = new THREE.Group();
   const pillar = new THREE.Mesh(
@@ -82,12 +75,10 @@ function createBeacon() {
   group.userData.diamond = diamond;
   return group;
 }
-
 export function createMissions(game) {
   const beacon = createBeacon();
   beacon.visible = false;
   game.scene.add(beacon);
-  // Mara, the client of mission 1: a person in a yellow jacket waiting at the plaza.
   const clientMesh = new THREE.Group();
   {
     const jacket = new THREE.MeshStandardMaterial({ color: 0xf1c40f, roughness: 0.9 });
@@ -97,9 +88,19 @@ export function createMissions(game) {
     torso.castShadow = true;
     const head = new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 10), skin);
     head.position.y = 1.72;
-    const legs = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.7, 0.3), new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 1 }));
-    legs.position.y = 0.35;
-    clientMesh.add(torso, head, legs);
+    const hair = new THREE.Mesh(new THREE.SphereGeometry(0.25, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x4a2a1a, roughness: 1 }));
+    hair.position.y = 1.76;
+    const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, 0.18, 8), skin);
+    neck.position.y = 1.52;
+    const legL = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.7, 0.28), new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 1 }));
+    legL.position.set(-0.15, 0.35, 0);
+    const legR = legL.clone();
+    legR.position.x = 0.15;
+    const armL = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.65, 0.18), jacket);
+    armL.position.set(-0.4, 1.1, 0);
+    const armR = armL.clone();
+    armR.position.x = 0.4;
+    clientMesh.add(torso, head, hair, neck, legL, legR, armL, armR);
     clientMesh.position.set(game.city.landmarks.clientSpot.x, 0, game.city.landmarks.clientSpot.z);
     game.scene.add(clientMesh);
   }
@@ -108,7 +109,7 @@ export function createMissions(game) {
     stage: 0,
     done: false,
     objectiveText: '',
-    marker: null, // {x, z} or null
+    marker: null, 
     escaping: false,
     timerText: '',
     fareDone: 0,
@@ -118,14 +119,12 @@ export function createMissions(game) {
     collected: [false, false, false, false, false],
     raceCp: 0,
     raceTime: 0,
+    bestRaceTime: null,
     spawnedForStage: '',
   };
-
   function mission() {
     return MISSIONS[state.index];
   }
-
-  /** The nearest waiting pedestrian (a taxi fare), or null. */
   function nearestWaitingPed() {
     const p = game.player.car ? game.player.car.pos : game.player.pos;
     let best = null;
@@ -140,8 +139,6 @@ export function createMissions(game) {
     }
     return best;
   }
-
-  /** The nearest uncollected package, or null. */
   function nearestPackage() {
     const p = game.player.pos;
     let best = null;
@@ -156,8 +153,6 @@ export function createMissions(game) {
     });
     return best;
   }
-
-  /** Where the current stage points: a world position, or null. */
   function stageTarget() {
     const L = game.city.landmarks;
     const stage = mission().stages[state.stage];
@@ -172,9 +167,8 @@ export function createMissions(game) {
     }
     if (key === 'collect') return nearestPackage();
     if (key === 'race') return L.race[state.raceCp];
-    return null; // escape: no marker, just lose the heat
+    return null; 
   }
-
   function refreshObjective() {
     if (state.done) {
       state.objectiveText = 'Solara Bay is yours. Free roam — the city never sleeps.';
@@ -195,7 +189,6 @@ export function createMissions(game) {
       beacon.visible = false;
     }
   }
-
   function startMission(index) {
     state.index = index;
     state.stage = 0;
@@ -213,7 +206,6 @@ export function createMissions(game) {
     refreshObjective();
     game.hud.showMissionCard(mission().title, mission().story);
   }
-
   function completeStage() {
     game.audio.pickup();
     state.stage += 1;
@@ -235,8 +227,6 @@ export function createMissions(game) {
     }
     refreshObjective();
   }
-
-  /** E pressed: pickups, stealing, fares, packages, and anything else the current stage needs. */
   function interact() {
     if (state.done) return false;
     const stage = mission().stages[state.stage];
@@ -304,8 +294,6 @@ export function createMissions(game) {
     }
     return false;
   }
-
-  /** Arrival checks, the race clock and the escape stage, run every frame. */
   function update(dt) {
     clientMesh.visible = state.index === 0 && state.stage === 0;
     if (state.done) return;
@@ -318,7 +306,7 @@ export function createMissions(game) {
     if (key === 'deliver' && target) {
       const d = Math.hypot(target.x - pos.x, target.z - pos.z);
       if (d < 12) {
-        if (state.index === 0 && !game.player.car) return; // Mara rides in a car
+        if (state.index === 0 && !game.player.car) return; 
         completeStage();
       }
     }
@@ -330,7 +318,6 @@ export function createMissions(game) {
         game.hud.flash(`Fare dropped off. +$${fare}. (${state.fareDone + 1}/3)`);
         game.audio.payout();
         state.fareDone += 1;
-        // The fare gets out and walks away.
         if (state.farePed) {
           state.farePed.pos.set(state.fareDest.x + 3, 0, state.fareDest.z + 3);
           state.farePed.mesh.position.copy(state.farePed.pos);
@@ -347,7 +334,6 @@ export function createMissions(game) {
     }
     if (key === 'race') {
       if (state.raceTime <= 0 && state.raceCp === 0) {
-        // The clock starts when the stage starts.
         state.raceTime = stage.timeLimit;
       }
       state.raceTime -= dt;
@@ -367,6 +353,11 @@ export function createMissions(game) {
           state.raceCp += 1;
           game.audio.pickup();
           if (state.raceCp >= stage.count) {
+            const lap = stage.timeLimit - state.raceTime;
+            if (state.bestRaceTime === null || lap < state.bestRaceTime) {
+              state.bestRaceTime = lap;
+              game.hud.flash(`New best lap: ${Math.floor(lap / 60)}:${String(Math.floor(lap % 60)).padStart(2, '0')}!`);
+            }
             state.timerText = '';
             completeStage();
           } else {
@@ -379,11 +370,9 @@ export function createMissions(game) {
     if (key === 'escape' && game.police.state.wanted === 0) {
       completeStage();
     }
-    // Heat: the moment the delivery stage starts, the city turns.
     if (stage.heat && game.police.state.wanted < stage.heat) {
       game.police.commitCrime(stage.heat - game.police.state.wanted);
     }
-    // Muscle at the chop shop: thugs (mission 2), gunmen (bank job).
     const stageId = `${state.index}-${state.stage}`;
     if ((stage.thugs || stage.gunmen) && state.spawnedForStage !== stageId && game.combat.enemies.filter((e) => e.alive).length === 0) {
       state.spawnedForStage = stageId;
@@ -401,14 +390,10 @@ export function createMissions(game) {
       }
     }
   }
-
-  /** The key of the current stage ('pickup', 'steal', 'deliver', 'escape', ...). */
   function stageKey() {
     if (state.done) return '';
     return mission().stages[state.stage].key;
   }
-
-  /** Jump to a mission and stage (used by saves and screenshot scenes). */
   function setProgress(index, stage) {
     state.index = Math.min(index, MISSIONS.length - 1);
     state.stage = Math.min(stage, MISSIONS[state.index].stages.length - 1);
@@ -426,7 +411,6 @@ export function createMissions(game) {
     }
     refreshObjective();
   }
-
   startMission(0);
   return { state, interact, update, startMission, setProgress, stageKey };
 }

@@ -1,15 +1,9 @@
-// The people of Solara Bay v2: 36, varied heights, builds, skin tones
-// and clothes; they stroll, wait at bus stops, or chat in groups. They
-// scatter when a car comes at them; hitting one earns a wanted star.
 import * as THREE from 'three';
 import { CITY } from './config.js';
 import { isOnRoad } from './roads.js';
-
 const SHIRTS = [0xe74c3c, 0x3498db, 0x2ecc71, 0xf39c12, 0x9b59b6, 0xecf0f1, 0x1abc9c, 0xe67e22];
 const PANTS = [0x333333, 0x2c3e50, 0x5a4a3a, 0x7f8c8d, 0x2e4053];
 const SKINS = [0xd9a066, 0xc98a5a, 0x8a5a3a, 0xe8b88a, 0xf0c8a0];
-
-/** One pedestrian mesh, with a random height, build, skin and outfit. */
 function createPedestrianMesh(rng) {
   const group = new THREE.Group();
   const shirt = new THREE.MeshStandardMaterial({ color: rng.pick(SHIRTS), roughness: 0.9 });
@@ -21,11 +15,16 @@ function createPedestrianMesh(rng) {
   torso.position.y = 1.05;
   torso.castShadow = true;
   group.add(torso);
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), skin);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 10), skin);
   head.position.y = 1.65;
   group.add(head);
+  const hair = new THREE.Mesh(new THREE.SphereGeometry(0.23, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: rng.pick([0x1a1a1a, 0x4a2a1a, 0x8a6a3a, 0x666666]), roughness: 1 }));
+  hair.position.y = 1.69;
+  group.add(hair);
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 0.16, 8), skin);
+  neck.position.y = 1.48;
+  group.add(neck);
   if (rng.chance(0.3)) {
-    // A hat: a flat disc on top of the head.
     const hat = new THREE.Mesh(
       new THREE.CylinderGeometry(0.28, 0.3, 0.08, 10),
       new THREE.MeshStandardMaterial({ color: rng.pick([0x8a1a1a, 0x2a4a6a, 0xf1c40f]), roughness: 0.9 }),
@@ -34,7 +33,6 @@ function createPedestrianMesh(rng) {
     group.add(hat);
   }
   if (rng.chance(0.25)) {
-    // A bag slung on the back.
     const bag = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.4, 0.12), new THREE.MeshStandardMaterial({ color: 0x6a4a2a, roughness: 1 }));
     bag.position.set(0, 1.1, -0.22);
     group.add(bag);
@@ -44,13 +42,18 @@ function createPedestrianMesh(rng) {
   const legR = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.6, 0.24), legs);
   legR.position.set(0.14, 0.3, 0);
   group.add(legL, legR);
+  const armL = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.55, 0.18), shirt);
+  armL.position.set(-0.38, 1.05, 0);
+  const armR = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.55, 0.18), shirt);
+  armR.position.set(0.38, 1.05, 0);
+  group.add(armL, armR);
   group.userData.legL = legL;
   group.userData.legR = legR;
+  group.userData.armL = armL;
+  group.userData.armR = armR;
   group.scale.set(1, height, 1);
   return group;
 }
-
-/** A sidewalk waypoint: just off a road, at a random spot along it. */
 function randomSidewalkPoint(rng) {
   const line = rng.pick(CITY.roadLines);
   const along = rng.range(-360, 360);
@@ -58,10 +61,6 @@ function randomSidewalkPoint(rng) {
   if (rng.chance(0.5)) return { x: line + side, z: along };
   return { x: along, z: line + side };
 }
-
-/** Scatter the pedestrians: 24 strollers, 6 waiting at the three bus stops,
- * and two chatty groups of 3 near the plaza and the beach. Waiting peds are
- * the taxi fares: drive a taxi up to one and they flag you down. */
 export function spawnPedestrians(game, count) {
   const rng = game.rng;
   const stops = game.city.landmarks.busStops;
@@ -70,12 +69,10 @@ export function spawnPedestrians(game, count) {
     let mode = 'stroll';
     let point = randomSidewalkPoint(rng);
     if (i < 6) {
-      // Waiters: two at each bus stop.
       mode = 'wait';
       const stop = stops[i % stops.length];
       point = { x: stop.x + rng.range(-1.5, 1.5), z: stop.z + rng.range(-1.5, 1.5) };
     } else if (i < 12) {
-      // Chatters: two groups of three, standing in a loose circle.
       mode = 'chat';
       const spot = chatSpots[Math.floor((i - 6) / 3)];
       const angle = ((i - 6) % 3) * (Math.PI * 2 / 3);
@@ -93,24 +90,19 @@ export function spawnPedestrians(game, count) {
       alive: true,
       phase: rng.range(0, Math.PI * 2),
       mode,
-      // Waiting peds flag a taxi down; once picked up they ride along.
       waiting: mode === 'wait',
       chatSpot: mode === 'chat' ? chatSpots[Math.floor((i - 6) / 3)] : null,
     });
   }
 }
-
-/** Walk to the next sidewalk point; run away from a fast car that gets close. */
 export function updatePedestrians(game, dt) {
   for (const ped of game.peds) {
     if (!ped.alive) continue;
-    // Waiting and chatting peds stay put.
     if ((ped.mode === 'wait' && ped.waiting) || ped.mode === 'chat') {
       const bob = Math.sin(game.time * 2 + ped.phase) * 0.03;
       ped.mesh.position.y = bob;
       continue;
     }
-    // Flee: a car barrelling at a ped sends them running off the road.
     const car = game.player.car;
     let fleeing = false;
     if (car && Math.abs(car.speed) > 5) {
@@ -139,10 +131,10 @@ export function updatePedestrians(game, dt) {
     const swing = Math.sin(game.time * 8 + ped.phase) * 0.45;
     ped.mesh.userData.legL.rotation.x = swing;
     ped.mesh.userData.legR.rotation.x = -swing;
-    // Pedestrians stay out of the sea and off the road middle where they can.
+    ped.mesh.userData.armL.rotation.x = -swing;
+    ped.mesh.userData.armR.rotation.x = swing;
     if (ped.pos.z > 300) ped.target = randomSidewalkPoint(game.rng);
     if (isOnRoad(ped.pos.x, ped.pos.z) && !fleeing) {
-      // Crossing: keep going, it reads as a real crossing.
     }
   }
 }

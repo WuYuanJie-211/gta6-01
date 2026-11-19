@@ -2,15 +2,18 @@
 //
 // The game lives in this directory's game/ folder: plain static files that a
 // desktop browser loads offline — game/index.html plus its ES modules, three.js
-// vendored under game/vendor/, no library fetched from a network and no request
-// made at all. This program hands the game in: it copies game/ and screenshots/
-// from beside this file into the output directory and writes dossier.json there,
-// the summary the judge reads, using the vendored make.fun library.
+// vendored under game/vendor/, and the Kaggle-generated textures under
+// game/textures/ (local JPGs, no network). No library is fetched from a
+// network and no request is made at all. This program hands the game in: it
+// copies game/ and screenshots/ from beside this file into the output
+// directory and writes dossier.json there, the summary the judge reads,
+// using the vendored make.fun library.
 //
 // v2 grew the city to four districts, nine car models, 36 pedestrians, seven
 // missions, guns and gunmen, a helicopter and roadblocks, and five shops — but
 // the hand-in is unchanged: the same folders, the same caps, the same
-// byte-identical output on every run.
+// byte-identical output on every run. v3 (modeling upgrade) adds Kaggle
+// textures and refined geometry; the hand-in is still the same folders.
 //
 // The grader runs this program twice and demands byte-identical output, so it
 // does nothing time- or randomness-dependent: it copies files and builds the

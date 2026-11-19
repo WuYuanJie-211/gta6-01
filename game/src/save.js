@@ -1,9 +1,4 @@
-// Save/load through localStorage: cash, health, mission, weapons, ammo,
-// cars bought, packages found, player position. An unreadable save is
-// treated as no save. v2 has its own key (v1 saves could never load).
 import { SAVE_KEY } from './config.js';
-
-/** Write the current progress down. Returns true when it stuck. */
 export function saveGame(game) {
   try {
     const data = {
@@ -17,6 +12,7 @@ export function saveGame(game) {
       mag: game.player.mag,
       ownedCars: game.ownedCars || [],
       collected: game.missions.state.collected,
+      bestRaceTime: game.missions.state.bestRaceTime || null,
       playerX: game.player.pos.x,
       playerZ: game.player.pos.z,
       playerHeading: game.player.heading,
@@ -28,8 +24,6 @@ export function saveGame(game) {
     return false;
   }
 }
-
-/** Read a save back, or null when there is none (or it is broken). */
 export function loadSave() {
   try {
     const raw = window.localStorage.getItem(SAVE_KEY);
@@ -41,8 +35,6 @@ export function loadSave() {
     return null;
   }
 }
-
-/** True when a save exists to continue from. */
 export function hasSave() {
   return loadSave() !== null;
 }

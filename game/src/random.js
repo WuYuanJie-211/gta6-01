@@ -1,5 +1,3 @@
-// A tiny seeded random generator (mulberry32): one stream, so the same
-// seed always builds the same city and the same screenshot frame.
 export function createRandom(seed) {
   let state = seed >>> 0;
   function next() {
@@ -11,23 +9,28 @@ export function createRandom(seed) {
   }
   return {
     next,
-    /** Float in [min, max). */
     range(min, max) {
       return min + next() * (max - min);
     },
-    /** Integer in [min, max]. */
     int(min, max) {
       return Math.floor(this.range(min, max + 1));
     },
-    /** One item from an array. */
     pick(items) {
       return items[Math.floor(next() * items.length)];
     },
-    /** True with probability p. */
     chance(p) {
       return next() < p;
     },
-    /** A shuffled copy of an array (Fisher-Yates, same seed, same order). */
+    pickWeighted(items, weights) {
+      let total = 0;
+      for (const w of weights) total += w;
+      let roll = next() * total;
+      for (let i = 0; i < items.length; i += 1) {
+        roll -= weights[i];
+        if (roll <= 0) return items[i];
+      }
+      return items[items.length - 1];
+    },
     shuffle(items) {
       const out = [...items];
       for (let i = out.length - 1; i > 0; i -= 1) {

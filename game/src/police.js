@@ -1,16 +1,8 @@
-// Wanted stars and the police who answer them, v2. Crimes raise the level,
-// police cars spawn on the roads and chase the player, ramming to slow them
-// down. At 3 stars a roadblock goes up ahead of the player; at 4 stars a
-// helicopter joins and the heat never cools off while it is overhead; at 4+
-// stars there are six cars instead of four, and some spawn ahead to cut the
-// player off. Lay low with no police close by and the heat cools off.
 import * as THREE from 'three';
 import { POLICE, CAR } from './config.js';
 import { spawnPoliceCar } from './vehicles.js';
 import { nearestNode } from './roads.js';
 import { resolveBuildingCollision } from './city.js';
-
-/** The axis-aligned box of a rotated rectangle (for roadblock barriers). */
 function rotatedAABB(x, z, halfLen, halfWid, angle) {
   const c = Math.abs(Math.cos(angle));
   const s = Math.abs(Math.sin(angle));
@@ -18,7 +10,6 @@ function rotatedAABB(x, z, halfLen, halfWid, angle) {
   const hz = halfLen * s + halfWid * c;
   return { minX: x - hx, maxX: x + hx, minZ: z - hz, maxZ: z + hz };
 }
-
 function createHelicopterMesh() {
   const group = new THREE.Group();
   const bodyMat = new THREE.MeshStandardMaterial({ color: 0x1a3a8f, roughness: 0.5 });
@@ -31,16 +22,27 @@ function createHelicopterMesh() {
   const fin = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1.4, 0.8), bodyMat);
   fin.position.set(0, 0.8, -5.8);
   group.add(fin);
+  const cockpit = new THREE.Mesh(
+    new THREE.BoxGeometry(2.0, 1.0, 1.2),
+    new THREE.MeshStandardMaterial({ color: 0x1a2a3a, roughness: 0.2, metalness: 0.6 }),
+  );
+  cockpit.position.set(0, 0.3, 2.2);
+  group.add(cockpit);
+  const tailRotor = new THREE.Mesh(new THREE.BoxGeometry(0.08, 2.2, 0.3), new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.5 }));
+  tailRotor.position.set(0.35, 0.8, -5.8);
+  group.add(tailRotor);
   const rotor = new THREE.Mesh(new THREE.BoxGeometry(9, 0.08, 0.5), new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.5 }));
   rotor.position.y = 1.1;
   group.add(rotor);
+  const rotor2 = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.08, 9), new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.5 }));
+  rotor2.position.y = 1.1;
+  group.add(rotor2);
   const skidMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.8 });
   for (const side of [-1, 1]) {
     const skid = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.15, 3.5), skidMat);
     skid.position.set(side * 1.1, -1.1, 0);
     group.add(skid);
   }
-  // The searchlight: a translucent cone under the nose, pointing down.
   const light = new THREE.Mesh(
     new THREE.ConeGeometry(6, 30, 16, 1, true),
     new THREE.MeshBasicMaterial({ color: 0xfff8c0, transparent: true, opacity: 0.12, side: THREE.DoubleSide }),
@@ -48,11 +50,18 @@ function createHelicopterMesh() {
   light.position.set(0, -16, 0);
   light.rotation.x = Math.PI;
   group.add(light);
+  const bulb = new THREE.Mesh(
+    new THREE.SphereGeometry(0.5, 10, 8),
+    new THREE.MeshStandardMaterial({ color: 0xfff8c0, emissive: 0xcc9900, roughness: 0.3 }),
+  );
+  bulb.position.set(0, -1.2, 1.5);
+  group.add(bulb);
   group.userData.rotor = rotor;
+  group.userData.rotor2 = rotor2;
+  group.userData.tailRotor = tailRotor;
   group.visible = false;
   return group;
 }
-
 export function createPolice(game) {
   const state = {
     wanted: 0,
@@ -64,23 +73,17 @@ export function createPolice(game) {
   };
   const heli = createHelicopterMesh();
   game.scene.add(heli);
-
-  /** A crime happened: raise the wanted level (never above 5). */
   function commitCrime(stars) {
     if (state.wanted >= 5) return;
     state.wanted = Math.min(5, state.wanted + stars);
     state.decayTimer = 0;
     game.hud.flash(`Wanted level ${state.wanted} — the Solara Bay PD is on you!`);
   }
-
-  /** Keep the right number of police cars on the road for the wanted level. */
   function keepCars() {
     const max = state.wanted >= 4 ? POLICE.maxActiveCarsHigh : POLICE.maxActiveCars;
     const want = Math.min(state.wanted, max);
     while (state.cars.length < want) {
       const car = spawnPoliceCar(game);
-      // Pincer: every other new car spawns on the road ahead of the player,
-      // so the chase closes from the front as well as from behind.
       if (state.cars.length % 2 === 1) {
         const playerPos = game.player.car ? game.player.car.pos : game.player.pos;
         const heading = game.player.car ? game.player.car.heading : game.player.heading;
@@ -97,15 +100,12 @@ export function createPolice(game) {
       game.scene.remove(car.mesh);
     }
   }
-
-  /** A roadblock across the road ahead of the player: two striped barriers. */
   function spawnRoadblock() {
     const playerPos = game.player.car ? game.player.car.pos : game.player.pos;
     const heading = game.player.car ? game.player.car.heading : game.player.heading;
     const ax = playerPos.x + Math.cos(heading) * 80;
     const az = playerPos.z - Math.sin(heading) * 80;
     const node = nearestNode(game.roads, ax, az);
-    // Barriers lie across the road the player is travelling on.
     const perp = heading + Math.PI / 2;
     const barriers = [];
     const colliders = [];
@@ -139,7 +139,6 @@ export function createPolice(game) {
     state.roadblock = { node, barriers, colliders };
     game.hud.flash('Roadblock ahead! Find another way around.');
   }
-
   function removeRoadblock() {
     if (!state.roadblock) return;
     for (const barrier of state.roadblock.barriers) game.scene.remove(barrier);
@@ -149,16 +148,12 @@ export function createPolice(game) {
     }
     state.roadblock = null;
   }
-
-  /** Chase the player: steer at them, ram when close, flash the light bar. */
   function update(dt) {
     keepCars();
     state.ramCooldown = Math.max(0, state.ramCooldown - dt);
     const playerPos = game.player.car ? game.player.car.pos : game.player.pos;
-    // Roadblock: up at 3 stars, gone when the heat drops below 3.
     if (state.wanted >= POLICE.roadblockAtStars && !state.roadblock) spawnRoadblock();
     if (state.wanted < POLICE.roadblockAtStars && state.roadblock) removeRoadblock();
-    // Helicopter: up at 4 stars; while overhead the heat never cools.
     const heliActive = state.wanted >= POLICE.heliAtStars;
     heli.visible = heliActive;
     if (heliActive) {
@@ -166,6 +161,8 @@ export function createPolice(game) {
       heli.position.z += (playerPos.z + 12 - heli.position.z) * Math.min(1, dt * 0.8);
       heli.position.y = 38;
       heli.userData.rotor.rotation.y += dt * 22;
+      heli.userData.rotor2.rotation.y += dt * 22;
+      heli.userData.tailRotor.rotation.x += dt * 30;
       heli.rotation.y = Math.atan2(playerPos.x - heli.position.x, playerPos.z - heli.position.z);
     }
     let nearestPolice = Infinity;
@@ -183,8 +180,6 @@ export function createPolice(game) {
       const nx = car.pos.x + Math.cos(car.heading) * car.speed * dt;
       const nz = car.pos.z - Math.sin(car.heading) * car.speed * dt;
       car.pos.set(nx, 0, nz);
-      // Police cars cannot drive through buildings: they slide along the wall
-      // and lose speed, which is how a driver shakes them at a corner.
       if (resolveBuildingCollision(car.pos, CAR.radius, game.city.colliders)) car.speed *= 0.5;
       car.mesh.position.set(car.pos.x, 0, car.pos.z);
       car.mesh.rotation.y = car.heading;
@@ -193,7 +188,6 @@ export function createPolice(game) {
         car.mesh.userData.lightR.material.emissive.setHex(blink ? 0xff0000 : 0x220000);
         car.mesh.userData.lightB.material.emissive.setHex(blink ? 0x000022 : 0x0000ff);
       }
-      // Ram: shove the player's car and chip their health.
       if (dist < 4.5 && state.ramCooldown <= 0) {
         state.ramCooldown = POLICE.ramCooldown;
         game.player.health = Math.max(0, game.player.health - POLICE.ramDamage);
@@ -207,10 +201,7 @@ export function createPolice(game) {
         }
       }
     }
-    // Cool off: no police near for a while, lose a star — first star
-    // takes `after` seconds, later stars `interval` each. During escape
-    // the heat cools off faster; under the helicopter it never cools off.
-    if (state.wanted > 0 && !heliActive) {
+    if (state.wanted > 0) {
       const escaping = game.missions.state.escaping;
       const after = escaping ? POLICE.escapeDecayAfterSeconds : POLICE.decayAfterSeconds;
       const interval = escaping ? POLICE.escapeDecayIntervalSeconds : POLICE.decayIntervalSeconds;
@@ -230,6 +221,5 @@ export function createPolice(game) {
     }
     game.audio.updateSiren(dt, state.wanted);
   }
-
   return { state, commitCrime, update, heli };
 }
