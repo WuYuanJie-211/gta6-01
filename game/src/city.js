@@ -323,7 +323,7 @@ export function buildCity(scene, rng, textures = {}) {
       { x: 7.5, z: 60 },
       { x: -127.5, z: -120 },
       { x: 247.5, z: 120 },
-      { x: 187.5, z: -172 },
+      { x: 7.5, z: -172 },
     ],
   };
   const ground = new THREE.Mesh(

@@ -70,7 +70,7 @@ export function createCombat(game) {
   }
   function spawnFlash(pos) {
     const flash = new THREE.Mesh(
-      new THREE.OctahedronGeometry(0.4),
+      new THREE.OctahedronGeometry(0.6),
       new THREE.MeshBasicMaterial({ color: 0xffdd55, transparent: true }),
     );
     addPart(flash, pos, new THREE.Vector3(0, 0, 0), EFFECTS.flashLife);
@@ -87,7 +87,7 @@ export function createCombat(game) {
   function spawnSparks(pos, color = 0xffcc44, n = 6) {
     for (let i = 0; i < n; i += 1) {
       const spark = new THREE.Mesh(
-        new THREE.BoxGeometry(0.05, 0.05, 0.05),
+        new THREE.BoxGeometry(0.12, 0.12, 0.12),
         new THREE.MeshBasicMaterial({ color, transparent: true }),
       );
       const a = Math.random() * Math.PI * 2;
@@ -157,7 +157,7 @@ export function createCombat(game) {
     const len = dir.length();
     if (len < 0.1) return;
     const tracer = new THREE.Mesh(
-      new THREE.BoxGeometry(0.06, 0.06, len),
+      new THREE.BoxGeometry(0.1, 0.1, len),
       new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9 }),
     );
     tracer.position.copy(from).addScaledVector(dir, 0.5);

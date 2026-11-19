@@ -45,7 +45,7 @@ function createHelicopterMesh() {
   }
   const light = new THREE.Mesh(
     new THREE.ConeGeometry(6, 30, 16, 1, true),
-    new THREE.MeshBasicMaterial({ color: 0xfff8c0, transparent: true, opacity: 0.12, side: THREE.DoubleSide }),
+    new THREE.MeshBasicMaterial({ color: 0xfff8c0, transparent: true, opacity: 0.25, side: THREE.DoubleSide }),
   );
   light.position.set(0, -16, 0);
   light.rotation.x = Math.PI;
