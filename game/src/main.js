@@ -149,7 +149,7 @@ class Game {
     }
     this.setScreen('playing');
     console.log('Solara Bay v3');
-    this.hud.flash('Welcome to Solara Bay. Mara waits at the plaza.');
+    this.hud.flash('Welcome to Solara Bay. Mara waits.');
   }
   setScreen(screen) {
     this.screen = screen;
@@ -171,7 +171,7 @@ class Game {
         if (car === this.cars.comet && !car.stolen) {
           car.stolen = true;
           this.police.commitCrime(1);
-          this.hud.flash('You stole the Comet GT! The cops are coming.');
+          this.hud.flash('You stole the Comet! The cops are coming.');
         }
         if (car.forSale) {
           this.hud.flash(`For sale — $${car.salePrice}. Press E at the dealer counter to buy it.`);
@@ -186,7 +186,7 @@ class Game {
   cycleWeapon() {
     const owned = this.player.ownedWeapons;
     if (!owned.length) {
-      this.hud.flash('No guns yet — the gun shop is downtown.');
+      this.hud.flash('No guns yet — gun shop is downtown.');
       return;
     }
     const order = ['fists', ...owned];

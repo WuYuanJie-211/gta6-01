@@ -86,7 +86,7 @@ function makeDashTexture() {
   canvas.height = 16;
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, 128, 16);
-  ctx.fillStyle = '#cfcfc6';
+  ctx.fillStyle = '#b0b0a6';
   ctx.fillRect(0, 0, 64, 16);
   const tex = new CT(canvas);
   tex.wrapS = RW;
@@ -345,13 +345,13 @@ export function buildCity(scene, rng, tx = {}) {
     scene.add(dashLine);
   }
   const cv=(w,h,f)=>{const c=document.createElement('canvas');c.width=w;c.height=h;f(c.getContext('2d'));const t=new CT(c);t.colorSpace=SC;t.wrapS=t.wrapT=RW;return t;};
-  const zebra=cv(128,64,(x)=>{x.fillStyle='#9d9d94';for(let i=0;i<6;i++)x.fillRect(8+i*20,4,10,42);x.fillRect(0,54,128,8);});
-  const arrow=cv(64,64,(x)=>{x.fillStyle='#cfcfc6';x.fillRect(26,34,12,26);x.beginPath();x.moveTo(32,4);x.lineTo(52,30);x.lineTo(12,30);x.closePath();x.fill();});
-  const railT=cv(64,32,(x)=>{x.fillStyle='rgba(90,95,100,0.45)';x.fillRect(0,0,64,32);x.fillStyle='#3a3e44';for(let i=0;i<8;i++)x.fillRect(1+i*8,0,6,32);x.fillStyle='#2c2f34';x.fillRect(0,0,64,5);x.fillRect(0,27,64,5);});
+  const zebra=cv(128,64,(x)=>{x.fillStyle='#8a8a80';for(let i=0;i<6;i++)x.fillRect(8+i*20,4,10,42);x.fillRect(0,54,128,8);});
+  const arrow=cv(64,64,(x)=>{x.fillStyle='#b0b0a6';x.fillRect(26,34,12,26);x.beginPath();x.moveTo(32,4);x.lineTo(52,30);x.lineTo(12,30);x.closePath();x.fill();});
+  const railT=cv(64,32,(x)=>{x.fillStyle='#565b60';x.fillRect(0,0,64,32);x.fillStyle='#3a3e44';for(let i=0;i<8;i++)x.fillRect(1+i*8,0,6,32);x.fillStyle='#2c2f34';x.fillRect(0,0,64,5);x.fillRect(0,27,64,5);});
   const flat=(w,d,m,x,z,rz=0,y=0.08)=>{const p=new ME(new PG(w,d),m);p.rotation.x=-PI/2;p.rotation.z=rz;p.position.set(x,y,z);scene.add(p);};
   const zebraM=new MB({map:zebra,transparent:true});
   const arrowM=new MB({map:arrow,transparent:true});
-  const lineM=new MB({color:0xb8b8ae});
+  const lineM=new MB({color:0x8a8a80});
   for(const [ix,iz] of [[0,-180],[120,-180],[180,-180],[240,-180],[240,-120],[240,0],[0,0],[60,-180]]){flat(4.5,12,zebraM,ix+9,iz,0,0.09);flat(4.5,12,zebraM,ix,iz-9,PI/2,0.09);flat(1.2,6,lineM,ix+15,iz-3,0,.09);}
   for(const [ax,az,ar] of [[60,-180,-PI/2],[180,-180,-PI/2],[-120,-180,PI/2],[0,120,0]])flat(2.2,4,arrowM,ax,az,ar);
   for(const [cx,cz,az] of [[240,-60,1],[0,-180,0],[0,-60,1]]){

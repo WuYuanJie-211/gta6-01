@@ -33,7 +33,7 @@ export function createShops(game) {
   function buyCar() {
     const car = nearestSaleCar();
     if (!car) {
-      game.hud.flash('For sale: Comet $2500, Muscle $1800, Van $1100. Press E by one.');
+      game.hud.flash('For sale: Comet $2500, Muscle $1800, Van $1100. Press E.');
       return true;
     }
     if (game.cash < car.salePrice) {
@@ -60,7 +60,7 @@ export function createShops(game) {
       player.weapon = 'pistol';
       player.mag = WEAPONS.pistol.mag;
       player.ammo = 12;
-      game.hud.flash('Pistol bought! Q switches weapons, R reloads, click to shoot.');
+      game.hud.flash('Pistol bought! Q switches, R reloads, click to shoot.');
       game.audio.pickup();
       return true;
     }
@@ -74,7 +74,7 @@ export function createShops(game) {
       player.weapon = 'rifle';
       player.mag = WEAPONS.rifle.mag;
       player.ammo = 30;
-      game.hud.flash('Rifle bought! Q switches weapons, R reloads, click to shoot.');
+      game.hud.flash('Rifle bought! Q switches, R reloads, click to shoot.');
       game.audio.pickup();
       return true;
     }
@@ -92,7 +92,7 @@ export function createShops(game) {
   function repair() {
     const car = game.player.car;
     if (!car) {
-      game.hud.flash('Drive a car in to repair it — $60 for a full fix.');
+      game.hud.flash('Drive in to repair — $60 for a full fix.');
       return true;
     }
     if (car.health >= 100) {
@@ -128,11 +128,11 @@ export function createShops(game) {
   function sellCar() {
     const car = game.player.car;
     if (!car) {
-      game.hud.flash('Bring a stolen car here and the chop shop will pay for it.');
+      game.hud.flash('Bring a stolen car here — the chop shop pays.');
       return true;
     }
     if (car.kind === 'comet' || car.kind === 'armored') {
-      game.hud.flash('This one is spoken for — the boss wants it whole.');
+      game.hud.flash('Spoken for — the boss wants it whole.');
       return true;
     }
     if (!car.stolen) {

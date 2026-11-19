@@ -108,10 +108,10 @@ function stageChase(game) {
     heli.scale.setScalar(1.5);
     heli.rotation.y = 0.4;
     heli.children[0].material.color.set(0x2a2f36);
-    beam(game, new V3(vx + 8, 13.15, vz - 20), new V3(vx + 1.2, 2.4, vz + 14), .3, 2.4, .2);
+    beam(game, new V3(vx + 8, 13.15, vz - 20), new V3(vx + 1.2, 2.4, vz + 14), .3, 2.4, .12);
     beam(game, new V3(vx + 8, 13.15, vz - 20), new V3(vx + 1.2, 2.4, vz + 14), .15, .6, .45);
     const rp=pool(game,vx+1.2,vz+14,1,.6,2.45);if(rp)rp.scale.set(1,.6,1);
-    const st = new ME(new BX(1.8, .06, .06), new MB({ color: 0xffe9c4, emissive: 0xffe9c4, emissiveIntensity: 1 }));
+    const st = new ME(new BX(1.8, .06, .06), new MB({ color: 0xe8f0ff, emissive: 0xe8f0ff, emissiveIntensity: 1 }));
     st.position.set(vx + 1.2, 2.5, vz + 13.2); game.scene.add(st);
     const rl = new THREE.PointLight(0xffd9a0, .9, 3.5); rl.position.set(vx + 1.2, 3.2, vz + 14); game.scene.add(rl);
   }
@@ -126,21 +126,21 @@ function stageGunfight(game) {
   player.mag = 30;
   player.ammo = 60;
   player.pos.set(-180.5, 0, 193.3);
-  player.heading = 0.39;
+  player.heading = 0.67;
   player.mesh.position.copy(player.pos);
   player.mesh.rotation.y = player.heading;
-  player.mesh.rotation.x = 0.1;
+  player.mesh.rotation.x = 0;
   player.mesh.scale.y = 0.85;
   const rifle = player.mesh.userData.rifle;
   rifle.position.set(0.15, 1.62, 0.75);
-  rifle.rotation.set(-0.05, -0.15, 0);
-  rifle.scale.setScalar(1.8);
+  rifle.rotation.set(-0.05, -0.41, 0);
+  rifle.scale.setScalar(1.4);
   if (game.textures.shadow) { const s = new ME(new PG(1.4, 1.1), new MB({ map: game.textures.shadow, transparent: true, opacity: .85, depthWrite: false })); s.rotation.x = -PI / 2; s.position.set(-180.5, .1, 193.3); game.scene.add(s); }
   const barrier = new ME(new BX(3, 0.65, 0.7), new MS({ map: game.textures.concrete, roughness: 0.9 }));
   barrier.position.set(-180.5, 0.325, 194.1);
   barrier.castShadow = true;
   game.scene.add(barrier);
-  game.combat.spawnGunman(-179.8, 194.9);
+  game.combat.spawnGunman(-179.3, 196.1);
   const g2 = game.combat.spawnGunman(-183, 190);
   g2.mesh.rotation.y = .6;
   const th = game.combat.spawnThug(-185, 188);
@@ -150,12 +150,14 @@ function stageGunfight(game) {
   game.police.state.wanted = 4;
   camB(game);
   game.cameraAngle = -0.25;
-  game.camDist = 9;
+  game.camDist = 10;
   game.camPitch = 0.16;
+  game.camX = -0.4;
   for (const [cx, cz] of [[-180, 192.4], [-181.5, 191.9], [-179.5, 192.6], [-181, 193]]) game.combat.spawnCasing(new V3(cx, 0.1, cz), player.heading);
   skid(game, -180.5, 196);
   game.input.fireAction(ACTION_SHOOT);
   game.step(STEP);
+  game.combat.spawnSparks(new V3(-179.4, 0.7, 194.1), 0xffcc44, 4);
   for (const c of game.police.state.cars) place(c, 0, 300, 0);
 }
 function stageDowntown(game) {
@@ -174,8 +176,8 @@ function stageDowntown(game) {
     { x: 180, z: -177, prev: '120,-180', target: '240,-180', h: PI },
     { x: 220, z: -177, prev: '180,-180', target: '300,-180', h: PI },
     { x: 300, z: -177, prev: '240,-180', target: '360,-180', h: PI },
-    { x: 260, z: -183, prev: '240,-180', target: '300,-180', h: PI },
-    { x: 265, z: -183, prev: '240,-180', target: '300,-180', h: PI },
+    { x: 0, z: 300, prev: '240,-180', target: '300,-180', h: PI },
+    { x: 0, z: 300, prev: '240,-180', target: '300,-180', h: PI },
   ];
   game.cars.traffic.slice(0, 5).forEach((t, i) => {
     place(t, spots[i].x, spots[i].z, spots[i].h);
@@ -224,10 +226,10 @@ function stageSunset(game) {
   p.mesh.position.copy(p.pos);
   p.mesh.rotation.y = p.heading;
   p.mesh.visible = false;
-  const bc = pc(game, 13, -188.5, PI, 0);
+  const bc = pc(game, 17, -189, PI, 0);
   const bm = bc.mesh.children;
   bm[7].material.color.setHex(0x241a14);bm[8].material=new MS({color:0x141018,roughness:.9});bm[1].material=new MS({color:0x0a0a0c,roughness:.9});bc.mesh.position.y=-.15;
-  for (const [ex, ez] of [[13, -188.5], [12.2, -187.8], [13.8, -189.2]]) game.combat.spawnExplosion(new V3(ex, 0, ez), 0.22);
+  for (const [ex, ez] of [[17, -189], [16.2, -188.3], [17.8, -189.7]]) game.combat.spawnExplosion(new V3(ex, 0, ez), 0.22);
   pc(game, 9, -189.5, PI, 0);
   const heli = game.police.heli;
   if (heli) {

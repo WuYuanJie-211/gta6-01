@@ -245,7 +245,7 @@ export function createMissions(game) {
         if (d < 4) {
           enterCar(game, car);
           game.police.commitCrime(state.index === 6 ? 3 : 2);
-          game.hud.flash(state.index === 6 ? 'The van is yours — and so is the heat!' : 'The Comet is yours — and so is the heat!');
+          game.hud.flash('Yours now — and so is the heat!');
           if (state.index === 6) {
             const bank = game.city.landmarks.bank;
             game.combat.spawnExplosion({ x: bank.x, y: 2, z: bank.z });
@@ -359,7 +359,7 @@ export function createMissions(game) {
             const lap = stage.timeLimit - state.raceTime;
             if (state.bestRaceTime === null || lap < state.bestRaceTime) {
               state.bestRaceTime = lap;
-              game.hud.flash(`New best lap: ${Math.floor(lap / 60)}:${String(Math.floor(lap % 60)).padStart(2, '0')}!`);
+              game.hud.flash(`New best lap: ${(lap / 60).toFixed(1)}s!`);
             }
             state.timerText = '';
             completeStage();
@@ -389,7 +389,7 @@ export function createMissions(game) {
         for (let i = 0; i < stage.gunmen; i += 1) {
           game.combat.spawnGunman(-196 + i * 14, 224 - i * 14);
         }
-        game.hud.flash('Armed guards at the chop shop! Get a gun or run.');
+        game.hud.flash('Armed guards! Get a gun or run.');
       }
     }
   }

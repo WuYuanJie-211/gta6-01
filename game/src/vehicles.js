@@ -36,12 +36,12 @@ export function createCarMesh(color, kind = 'sedan') {
     }
     if (kind === 'armored') {
       B(len - 0.5, 0.8, 2.2, new MS({ color: 0x6a6f75, roughness: 0.5, metalness: 0.6 }), 0, 1.5, 0);
-      B(0.4, 0.25, 1.4, VM(0xffe14d,1,0x886600), 0, bodyH + 0.6, 0);
       const dm = VM(0x222222, 0.6);
-      for (const s of [-0.55, 0.55]) B(0.04, 1.4, 0.08, dm, len / 2 + 0.04, 1.4, s);
-      B(0.04, 0.08, 1.9, dm, len / 2 + 0.04, 2.05, 0);
-      B(0.04, 0.5, 1.8, dm, len / 2 + 0.04, 0.95, 0);
-      B(0.04, 0.22, 0.55, VM(0xf2f2f2, 0.5), len / 2 + 0.04, 0.55, 0);
+      for (const s of [-0.55, 0.55]) B(0.08, 1.6, 0.1, dm, len / 2 + 0.04, 1.4, s);
+      B(0.04, 0.12, 1.9, dm, len / 2 + 0.04, 2.05, 0);
+      B(0.04, 0.6, 1.8, dm, len / 2 + 0.04, 0.95, 0);
+      B(0.04, 0.3, 0.7, VM(0xf2f2f2, 0.5), len / 2 + 0.04, 0.55, 0);
+      for (const s of [-0.7, 0.7]) B(0.06, 0.18, 0.3, VM(0xfff2cc, 1, 0xaa8800), len / 2 + 0.04, 1.35, s);
     }
   } else {
     const body = B(len, 0.55, 2, paint, 0, 0.55, 0, true);
