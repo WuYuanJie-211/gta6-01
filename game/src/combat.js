@@ -33,6 +33,7 @@ function createThugMesh() {
   group.userData.legR = legR;
   group.userData.armL = armL;
   group.userData.armR = armR;
+  B(group,0.9,.02,0.7,mt(0,1),0,.09,0);
   return group;
 }
 function createGunmanMesh() {
@@ -59,6 +60,7 @@ export function createCombat(game) {
   }
   function spawnFlash(pos) {
     const flash = new THREE.Sprite(new THREE.SpriteMaterial({ map: game.textures.fireball, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+    flash.scale.set(.6,.6,1);
     addPart(flash, pos, new THREE.Vector3(0, 0, 0), EFFECTS.flashLife);
   }
   function spawnCasing(pos, heading) {
@@ -140,13 +142,13 @@ export function createCombat(game) {
   }
   function spawnTracer(from, to, color = 0xffe14d) {
     const dir = new THREE.Vector3().subVectors(to, from);
-    const len = dir.length();
+    const len = Math.min(dir.length(), 3);
     if (len < 0.1) return;
     const tracer = new THREE.Mesh(
-      new THREE.BoxGeometry(0.16, 0.16, len),
-      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.95 }),
+      new THREE.BoxGeometry(0.05, 0.05, len),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.6 }),
     );
-    tracer.position.copy(from).addScaledVector(dir, 0.5);
+    tracer.position.copy(from).addScaledVector(dir.normalize(), len / 2);
     tracer.lookAt(to);
     game.scene.add(tracer);
     tracers.push({ mesh: tracer, life: 0.16 });
@@ -352,7 +354,7 @@ export function createCombat(game) {
     for (let i = tracers.length - 1; i >= 0; i -= 1) {
       const tracer = tracers[i];
       tracer.life -= dt;
-      tracer.mesh.material.opacity = Math.max(0, Math.min(1, tracer.life / 0.16)) * 0.95;
+      tracer.mesh.material.opacity = Math.max(0, Math.min(1, tracer.life / 0.16)) * 0.6;
       if (tracer.life <= 0) {
         game.scene.remove(tracer.mesh);
         tracers.splice(i, 1);

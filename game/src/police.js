@@ -26,11 +26,10 @@ function createHelicopterMesh() {
   const skidMat = mt(0x333333, 0.8);
   for (const side of [-1, 1]) B(group, 0.15, 0.15, 3.5, skidMat, side * 1.1, -1.1, 0);
   const light = new THREE.Mesh(
-    new THREE.ConeGeometry(6, 30, 16, 1, true),
-    new THREE.MeshBasicMaterial({ color: 0xfff8c0, transparent: true, opacity: 0.4, side: THREE.DoubleSide }),
+    new THREE.ConeGeometry(3, 12, 16, 1, true),
+    new THREE.MeshBasicMaterial({ color: 0xfff8c0, transparent: true, opacity: 0.22, side: THREE.FrontSide }),
   );
-  light.position.set(0, -16, 0);
-  light.rotation.x = Math.PI;
+  light.position.set(0, -6, 0);
   group.add(light);
   const bulb = new THREE.Mesh(
     new THREE.SphereGeometry(0.5, 10, 8),

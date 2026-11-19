@@ -109,6 +109,7 @@ export function createCarMesh(color, kind = 'sedan') {
   }
   group.userData.wheels = wheels;
   group.userData.bodyLen = len;
+  B(len+0.4,.02,2.6,VM(0,1),0,.09,0);
   return group;
 }
 export function makeCarState(mesh, x, z, heading, kind, topSpeed, model = 'sedan') {

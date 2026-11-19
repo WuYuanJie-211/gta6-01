@@ -161,11 +161,9 @@ function makeTrafficLight(state){
   box(g,0.5,1.3,0.4,M(0x1a1a1a,0.6),0,4.9,3.6);
   const cols=[0xff2222,0xffcc00,0x33cc33],on=state==='G'?2:0;
   for(let i=0;i<3;i+=1){
-    const lamp=new THREE.Mesh(new THREE.SphereGeometry(0.15,8,6),SM({color:cols[i],emissive:cols[i],emissiveIntensity:i===on?1.8:0.08}));
+    const lamp=new THREE.Mesh(new THREE.SphereGeometry(0.15,8,6),SM({color:i===on?cols[i]:0x191919,emissive:cols[i],emissiveIntensity:i===on?1.8:0}));
     lamp.position.set(0,5.35-i*0.4,3.82);g.add(lamp);
   }
-  const pc=state==='G'?0xff2222:0x33cc33;
-  box(g,0.3,0.5,0.12,SM({color:pc,emissive:pc,emissiveIntensity:1.5}),0,2.4,0.15);
   return g;
 }
 function makeHydrant() {
@@ -232,8 +230,8 @@ function makeBillboard(text, fg, bg) {
   group.add(face);
   return group;
 }
-export function buildCity(scene, rng, textures = {}) {
-  const colliders = [];
+export function buildCity(scene, rng, tx = {}) {
+  const col = [];
   const landmarks = {
     plaza: { x: 0, z: 12 },
     clientSpot: { x: 6, z: 12 },
@@ -277,14 +275,14 @@ export function buildCity(scene, rng, textures = {}) {
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = true;
   scene.add(ground);
-  const beachMat = TM(textures.sand, 20, 2);
+  const beachMat = TM(tx.sand, 20, 2);
   const beach = new THREE.Mesh(new THREE.PlaneGeometry(560, 60), beachMat);
   beach.rotation.x = -Math.PI / 2;
   beach.position.set(0, 0.03, 276);
   beach.receiveShadow = true;
   scene.add(beach);
   {
-    const plaza = new THREE.Mesh(new THREE.PlaneGeometry(24, 24), TM(textures.cobble, 3, 3));
+    const plaza = new THREE.Mesh(new THREE.PlaneGeometry(24, 24), TM(tx.cobble, 3, 3));
     plaza.rotation.x = -Math.PI / 2;
     plaza.position.set(0, 0.04, 12);
     plaza.receiveShadow = true;
@@ -297,8 +295,8 @@ export function buildCity(scene, rng, textures = {}) {
   sea.rotation.x = -Math.PI / 2;
   sea.position.set(0, 0.02, 456);
   scene.add(sea);
-  const roadMat = TM(textures.asphalt, 60, 1);
-  const walkMat = TM(textures.sidewalk, 60, 1);
+  const roadMat = TM(tx.asphalt, 60, 1);
+  const walkMat = TM(tx.sidewalk, 60, 1);
   const dashTex = makeDashTexture();
   const roadLenX = 780;
   const roadLenZ = 660;
@@ -348,12 +346,12 @@ export function buildCity(scene, rng, textures = {}) {
   const cv=(w,h,f)=>{const c=document.createElement('canvas');c.width=w;c.height=h;f(c.getContext('2d'));const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;t.wrapS=t.wrapT=THREE.RepeatWrapping;return t;};
   const zebra=cv(128,64,(x)=>{x.fillStyle='#f5f5f0';for(let i=0;i<6;i++)x.fillRect(8+i*20,4,10,42);x.fillRect(0,54,128,8);});
   const arrow=cv(64,64,(x)=>{x.fillStyle='#f5f5f0';x.fillRect(26,34,12,26);x.beginPath();x.moveTo(32,4);x.lineTo(52,30);x.lineTo(12,30);x.closePath();x.fill();});
-  const railT=cv(64,32,(x)=>{x.fillStyle='rgba(200,205,212,0.45)';x.fillRect(0,0,64,32);x.fillStyle='#3a3e44';for(let i=0;i<8;i++)x.fillRect(1+i*8,0,6,32);x.fillStyle='#2c2f34';x.fillRect(0,0,64,5);x.fillRect(0,27,64,5);});
+  const railT=cv(64,32,(x)=>{x.fillStyle='rgba(90,95,100,0.45)';x.fillRect(0,0,64,32);x.fillStyle='#3a3e44';for(let i=0;i<8;i++)x.fillRect(1+i*8,0,6,32);x.fillStyle='#2c2f34';x.fillRect(0,0,64,5);x.fillRect(0,27,64,5);});
   const flat=(w,d,m,x,z,rz=0,y=0.08)=>{const p=new THREE.Mesh(new THREE.PlaneGeometry(w,d),m);p.rotation.x=-Math.PI/2;p.rotation.z=rz;p.position.set(x,y,z);scene.add(p);};
   const zebraM=new THREE.MeshBasicMaterial({map:zebra,transparent:true});
   const arrowM=new THREE.MeshBasicMaterial({map:arrow,transparent:true});
   const lineM=new THREE.MeshBasicMaterial({color:0xf5f5f0});
-  for(const [ix,iz] of [[0,-180],[120,-180],[180,-180],[240,-180],[240,-120],[240,0],[0,0],[60,-180]]){flat(4.5,12,zebraM,ix+9,iz,0,0.09);flat(4.5,12,zebraM,ix,iz-9,Math.PI/2,0.09);}
+  for(const [ix,iz] of [[0,-180],[120,-180],[180,-180],[240,-180],[240,-120],[240,0],[0,0],[60,-180]]){flat(4.5,12,zebraM,ix+9,iz,0,0.09);flat(4.5,12,zebraM,ix,iz-9,Math.PI/2,0.09);flat(.5,6,lineM,ix+11.5,iz-3,0,.09);}
   for(const [ax,az,ar] of [[60,-180,-Math.PI/2],[180,-180,-Math.PI/2],[300,-180,-Math.PI/2],[-120,-180,Math.PI/2],[240,-120,0],[0,120,0]])flat(2.2,4,arrowM,ax,az,ar);
   for(const [cx,cz,az] of [[240,-60,1],[0,-180,0],[0,-60,1]]){
     const L=az?660:780;
@@ -364,18 +362,18 @@ export function buildCity(scene, rng, textures = {}) {
   }
   const rail=(x1,z1,x2,z2)=>{
     const L=Math.hypot(x2-x1,z2-z1);
-    const p=new THREE.Mesh(new THREE.PlaneGeometry(L,0.85),new THREE.MeshBasicMaterial({map:tile(railT,L/2,1),transparent:true,side:THREE.DoubleSide}));
-    p.position.set((x1+x2)/2,0.72,(z1+z2)/2);p.rotation.y=x1===x2?Math.PI/2:0;scene.add(p);
+    const p=new THREE.Mesh(new THREE.PlaneGeometry(L,0.5),new THREE.MeshBasicMaterial({map:tile(railT,L/2,1),transparent:true,side:THREE.DoubleSide}));
+    p.position.set((x1+x2)/2,0.45,(z1+z2)/2);p.rotation.y=x1===x2?Math.PI/2:0;scene.add(p);
   };
-  for(let x=-330;x<330;x+=60)rail(x+14,-180,x+46,-180);
-  for(let z=-330;z<240;z+=60)rail(240,z+14,240,z+46);
-  for(let x=-330;x<330;x+=60){colliders.push({minX:x+14,maxX:x+23,minZ:-180.3,maxZ:-179.7});colliders.push({minX:x+37,maxX:x+46,minZ:-180.3,maxZ:-179.7});}
-  for(let z=-330;z<240;z+=60){colliders.push({minX:239.7,maxX:240.3,minZ:z+14,maxZ:z+23});colliders.push({minX:239.7,maxX:240.3,minZ:z+37,maxZ:z+46});}
+  for(let x=-330;x<330;x+=60)rail(x+14,-180,x+30,-180);
+  for(let z=-330;z<240;z+=60)rail(240,z+14,240,z+30);
+  for(let x=-330;x<330;x+=60){col.push({minX:x+14,maxX:x+23,minZ:-180.3,maxZ:-179.7});col.push({minX:x+23,maxX:x+30,minZ:-180.3,maxZ:-179.7});}
+  for(let z=-330;z<240;z+=60){col.push({minX:239.7,maxX:240.3,minZ:z+14,maxZ:z+23});col.push({minX:239.7,maxX:240.3,minZ:z+23,maxZ:z+30});}
   for(const [hx,hz] of [[120,-183],[180,-177],[237,-90],[0,-30],[60,-183],[243,30],[-60,-177],[300,-183]]){
     const hole=new THREE.Mesh(new THREE.CylinderGeometry(0.55,0.55,0.06,12),M(0x222222,0.9));
     hole.position.set(hx,0.09,hz);scene.add(hole);
   }
-  for(const [tx,tz,tr,ts] of [[8,-172,Math.PI,'R'],[-8,-188,0,'G'],[248,-172,Math.PI,'G'],[232,-188,0,'R'],[8,8,Math.PI,'G'],[-8,-8,0,'R'],[248,8,Math.PI,'R'],[232,-8,0,'G']]){
+  for(const [tx,tz,tr,ts] of [[8,-172,Math.PI,'R'],[-8,-188,0,'G'],[248,-172,Math.PI,'R'],[232,-188,0,'G'],[8,8,Math.PI,'G'],[-8,-8,0,'R'],[248,8,Math.PI,'R'],[232,-8,0,'G']]){
     const tl=makeTrafficLight(ts);tl.position.set(tx,0,tz);tl.rotation.y=tr;scene.add(tl);
   }
   for(const [hx,hz] of [[30,10],[-60,-40],[150,60],[210,-30],[120,-174],[180,-186],[240,-150],[0,-174]]){
@@ -396,22 +394,22 @@ export function buildCity(scene, rng, textures = {}) {
       scene.add(lamp);
     }
   }
-  const signTexs = ['signTaxi', 'sign24h', 'signHotel', 'signBar', 'signPizza', 'signAuto'].map((k) => textures[k]).filter(Boolean);
-  if (textures.neonSign) for (const [nx, nz] of [[180, -168], [120, -192], [300, -168]]) {
-    const n = new THREE.Mesh(new THREE.PlaneGeometry(5, 3.5), new THREE.MeshBasicMaterial({ map: textures.neonSign }));
+  const stex = ['signTaxi', 'sign24h', 'signHotel', 'signBar', 'signPizza', 'signAuto'].map((k) => tx[k]).filter(Boolean);
+  if (tx.neonSign) for (const [nx, nz] of [[180, -168], [120, -192], [300, -168]]) {
+    const n = new THREE.Mesh(new THREE.PlaneGeometry(5, 3.5), new THREE.MeshBasicMaterial({ map: tx.neonSign }));
     n.position.set(nx, 5, nz); n.rotation.y = Math.PI / 2; scene.add(n);
   }
-  const blockCentres = [];
+  const blocks = [];
   for (let bx = -330; bx <= 330; bx += 60) {
-    for (let bz = -330; bz <= 210; bz += 60) blockCentres.push([bx, bz]);
+    for (let bz = -330; bz <= 210; bz += 60) blocks.push([bx, bz]);
   }
-  const towerSigns = ['HOTEL', 'CASINO', 'MALL', 'BANK'];
-  let towerSignIdx = 0;
-  for (const [bx, bz] of blockCentres) {
+  const tsigns = ['HOTEL', 'CASINO', 'MALL', 'BANK'];
+  let tsi = 0;
+  for (const [bx, bz] of blocks) {
     const key = `${bx},${bz}`;
     const district = districtAt(bx, bz);
     if (PARK_BLOCKS.has(key)) {
-      const parkMat = TM(textures.grass, 4, 4);
+      const parkMat = TM(tx.grass, 4, 4);
       const park = new THREE.Mesh(new THREE.PlaneGeometry(46, 46), parkMat);
       park.rotation.x = -Math.PI / 2;
       park.position.set(bx, 0.07, bz);
@@ -442,25 +440,25 @@ export function buildCity(scene, rng, textures = {}) {
           const useTex = rng.chance(0.6);
           const cont = new THREE.Mesh(
             new THREE.BoxGeometry(6, 2.6, 2.6),
-            useTex ? TM(textures.container, 2, 1, 0.8) : SM({ color: rng.pick(COLOURS.container), roughness: 0.8 }),
+            useTex ? TM(tx.container, 2, 1, 0.8) : SM({ color: rng.pick(COLOURS.container), roughness: 0.8 }),
           );
           cont.position.set(cx, 1.3 + s * 2.6, cz);
           cont.rotation.y = rng.chance(0.5) ? 0 : Math.PI / 2;
           cont.castShadow = true;
           scene.add(cont);
         }
-        colliders.push({ minX: cx - 3.2, maxX: cx + 3.2, minZ: cz - 3.2, maxZ: cz + 3.2 });
+        col.push({ minX: cx - 3.2, maxX: cx + 3.2, minZ: cz - 3.2, maxZ: cz + 3.2 });
       }
       const ww = rng.range(26, 34);
       const wd = rng.range(16, 22);
       const wh = rng.range(8, 11);
-      const wm = TM(textures.metal, 3, 1, 0.9);
+      const wm = TM(tx.metal, 3, 1, 0.9);
       box(scene, ww, wh, wd, wm, bx + 8, wh / 2, bz + 8, true);
       const saw1 = box(scene, ww + 0.4, 0.3, wd / 2 + 0.2, M(0x5a4a3a), bx + 8, wh + 0.8, bz + 8 - wd / 4);
       saw1.rotation.x = 0.18;
       const saw2 = box(scene, ww + 0.4, 0.3, wd / 2 + 0.2, M(0x5a4a3a), bx + 8, wh + 0.8, bz + 8 + wd / 4);
       saw2.rotation.x = -0.18;
-      colliders.push({ minX: bx - 7, maxX: bx + 23, minZ: bz - 2, maxZ: bz + 18 });
+      col.push({ minX: bx - 7, maxX: bx + 23, minZ: bz - 2, maxZ: bz + 18 });
       continue;
     }
     if (district === 'DOWNTOWN') {
@@ -471,7 +469,7 @@ export function buildCity(scene, rng, textures = {}) {
       const h = landmark ? rng.range(105, 120) : dc < 90 ? rng.range(70, 110) : dc < 170 ? rng.range(45, 75) : rng.range(25, 50);
       const x = bx + rng.range(-6, 6);
       const z = bz + rng.range(-6, 6);
-      const glassTex = rng.chance(0.5) ? textures.glassDark : textures.glass;
+      const glassTex = rng.chance(0.5) ? tx.glassDark : tx.glass;
       const tex = tile(glassTex, Math.max(1, Math.round(w / 8)), Math.max(1, Math.round(h / 10)));
       const towerMat = SM({ map: tex, roughness: 0.55, metalness: 0.15 });
       const tower = box(scene, w, h, d, towerMat, x, h / 2, z, true);
@@ -479,11 +477,11 @@ export function buildCity(scene, rng, textures = {}) {
       for (const [fx, fz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) box(scene, 0.7, h, 0.7, M(0x14202c, 0.4, { metalness: 0.5 }), x + fx * (w / 2 - 0.2), h / 2, z + fz * (d / 2 - 0.2));
       box(scene, w + 0.6, 0.5, d + 0.6, M(0x3a3f45), x, h - 0.25, z);
       for (const [pw, pd, px, pz] of [[w + 0.4, 0.5, 0, d / 2], [w + 0.4, 0.5, 0, -d / 2], [0.5, d + 0.4, w / 2, 0], [0.5, d + 0.4, -w / 2, 0]]) box(scene, pw, 0.8, pd, M(0x3a3f45), x + px, h + 0.4, z + pz);
-      box(scene, w + 1.5, 4.5, d + 1.5, TM(textures.concrete, 2, 1, 0.8), x, 2.25, z, true);
+      box(scene, w + 1.5, 4.5, d + 1.5, TM(tx.concrete, 2, 1, 0.8), x, 2.25, z, true);
       box(scene, w * 0.8, 3.2, 0.2, M(0x0e1a24, 0.25, { metalness: 0.5 }), x, 1.6, z + d / 2 + 0.85);
-      const awn = box(scene, w * 0.85, 0.18, 2.4, TM(textures.awning, 3, 1, 0.9), x, 3.7, z + d / 2 + 1.9);
+      const awn = box(scene, w * 0.85, 0.18, 2.4, TM(tx.awning, 3, 1, 0.9), x, 3.7, z + d / 2 + 1.9);
       awn.rotation.x = 0.22;
-      if (signTexs.length) { const sg = new THREE.Mesh(new THREE.PlaneGeometry(9, 2.2), new THREE.MeshBasicMaterial({ map: rng.pick(signTexs) })); sg.position.set(x, 5.6, z + d / 2 + 0.95); scene.add(sg); }
+      if (stex.length) { const sg = new THREE.Mesh(new THREE.PlaneGeometry(9, 2.2), new THREE.MeshBasicMaterial({ map: rng.pick(stex) })); sg.position.set(x, 5.6, z + d / 2 + 0.95); scene.add(sg); }
       const tierMat = SM({ map: tile(glassTex, 2, 1), roughness: 0.6, metalness: 0.1 });
       let tw = w, td = d, ty = h;
       const tiers = h >= 60 ? 3 : h >= 35 ? 2 : 1;
@@ -510,13 +508,13 @@ export function buildCity(scene, rng, textures = {}) {
         beacon.position.set(x + tw * 0.3, ty + 6.2, z + td * 0.2);
         scene.add(beacon);
       }
-      if (towerSignIdx < towerSigns.length && rng.chance(0.6)) {
-        const sign = makeSign(towerSigns[towerSignIdx], '#ffffff', '#1a1a2e', 12, 3);
+      if (tsi < tsigns.length && rng.chance(0.6)) {
+        const sign = makeSign(tsigns[tsi], '#ffffff', '#1a1a2e', 12, 3);
         sign.position.set(x, h - 6, z + d / 2 + 0.1);
         scene.add(sign);
-        towerSignIdx += 1;
+        tsi += 1;
       }
-      colliders.push({ minX: x - (w + 1.5) / 2, maxX: x + (w + 1.5) / 2, minZ: z - (d + 1.5) / 2, maxZ: z + (d + 1.5) / 2 });
+      col.push({ minX: x - (w + 1.5) / 2, maxX: x + (w + 1.5) / 2, minZ: z - (d + 1.5) / 2, maxZ: z + (d + 1.5) / 2 });
       continue;
     }
     if (district === 'SUBURBS') {
@@ -527,8 +525,8 @@ export function buildCity(scene, rng, textures = {}) {
         const h = rng.range(5, 8);
         const x = bx + rng.range(-14, 14);
         const z = bz + rng.range(-14, 14);
-        const tex = rng.chance(0.4) ? tile(textures.plaster, 2, 1)
-          : rng.chance(0.5) ? tile(textures.wood, 2, 1) : tile(textures.stucco, 2, 1);
+        const tex = rng.chance(0.4) ? tile(tx.plaster, 2, 1)
+          : rng.chance(0.5) ? tile(tx.wood, 2, 1) : tile(tx.stucco, 2, 1);
         const house = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), SM({ map: tex, roughness: 0.95 }));
         house.position.set(x, h / 2, z);
         house.castShadow = true;
@@ -554,7 +552,7 @@ export function buildCity(scene, rng, textures = {}) {
         );
         porch.position.set(x, 0.08, z + d / 2 + 0.6);
         scene.add(porch);
-        const gardenMat = TM(textures.grass, 2, 2);
+        const gardenMat = TM(tx.grass, 2, 2);
         const garden = new THREE.Mesh(new THREE.PlaneGeometry(w + 6, d + 6), gardenMat);
         garden.rotation.x = -Math.PI / 2;
         garden.position.set(x, 0.04, z);
@@ -562,7 +560,7 @@ export function buildCity(scene, rng, textures = {}) {
         const tree = makeTree(rng);
         tree.position.set(x + w / 2 + 3, 0, z + d / 2 + 2);
         scene.add(tree);
-        colliders.push({ minX: x - w / 2, maxX: x + w / 2, minZ: z - d / 2, maxZ: z + d / 2 });
+        col.push({ minX: x - w / 2, maxX: x + w / 2, minZ: z - d / 2, maxZ: z + d / 2 });
       }
       continue;
     }
@@ -575,7 +573,7 @@ export function buildCity(scene, rng, textures = {}) {
       const h = tall ? rng.range(20, 55) : rng.range(8, 24);
       const x = bx + rng.range(-12, 12);
       const z = bz + rng.range(-12, 12);
-      const brickTex = rng.chance(0.5) ? textures.brickBrown : textures.brick;
+      const brickTex = rng.chance(0.5) ? tx.brickBrown : tx.brick;
       const tex = tile(brickTex, Math.max(1, Math.round(w / 8)), Math.max(1, Math.round(h / 8)));
       const building = box(scene, w, h, d, SM({ map: tex, roughness: 0.9 }), x, h / 2, z, true);
       building.receiveShadow = true;
@@ -591,12 +589,12 @@ export function buildCity(scene, rng, textures = {}) {
       }
       if (h < 16 && rng.chance(0.6)) {
         box(scene, w * 0.7, 3, 0.2, M(0x1a2a1a, 0.3, { metalness: 0.4 }), x, 1.5, z + d / 2 + 0.1);
-        const awn2 = box(scene, w * 0.75, 0.15, 2, TM(textures.awning, 2, 1, 0.9), x, 3.4, z + d / 2 + 1);
+        const awn2 = box(scene, w * 0.75, 0.15, 2, TM(tx.awning, 2, 1, 0.9), x, 3.4, z + d / 2 + 1);
         awn2.rotation.x = 0.22;
-        if (signTexs.length) { const sg2 = new THREE.Mesh(new THREE.PlaneGeometry(7, 1.8), new THREE.MeshBasicMaterial({ map: rng.pick(signTexs) })); sg2.position.set(x, 4.8, z + d / 2 + 0.2); scene.add(sg2); }
+        if (stex.length) { const sg2 = new THREE.Mesh(new THREE.PlaneGeometry(7, 1.8), new THREE.MeshBasicMaterial({ map: rng.pick(stex) })); sg2.position.set(x, 4.8, z + d / 2 + 0.2); scene.add(sg2); }
       }
       if (rng.chance(0.4)) cyl(scene, 1, 1, 2, 10, M(0x7a6a58, 0.9), x - w / 4, h + 1.4, z - d / 4, true);
-      colliders.push({ minX: x - w / 2, maxX: x + w / 2, minZ: z - d / 2, maxZ: z + d / 2 });
+      col.push({ minX: x - w / 2, maxX: x + w / 2, minZ: z - d / 2, maxZ: z + d / 2 });
     }
   }
   const boats = [];
@@ -638,7 +636,7 @@ export function buildCity(scene, rng, textures = {}) {
     const sign = makeSign('CHOP SHOP', '#ffe14d', '#222222');
     sign.position.set(-210, 9.5, 199);
     scene.add(sign);
-    colliders.push({ minX: -225, maxX: -195, minZ: 200, maxZ: 220 });
+    col.push({ minX: -225, maxX: -195, minZ: 200, maxZ: 220 });
   }
   {
     const base = new THREE.Mesh(
@@ -648,7 +646,7 @@ export function buildCity(scene, rng, textures = {}) {
     base.position.set(-216, 0.75, -216);
     base.castShadow = true;
     scene.add(base);
-    const towerMat = SM({ map: tile(textures.marble, 3, 1), roughness: 0.8 });
+    const towerMat = SM({ map: tile(tx.marble, 3, 1), roughness: 0.8 });
     const stripeMat = M(0xd21f2b,0.8);
     for (let i = 0; i < 4; i += 1) {
       const seg = new THREE.Mesh(
@@ -671,7 +669,7 @@ export function buildCity(scene, rng, textures = {}) {
     );
     cap.position.set(-216, 32.2, -216);
     scene.add(cap);
-    colliders.push({ minX: -227, maxX: -205, minZ: -227, maxZ: -205 });
+    col.push({ minX: -227, maxX: -205, minZ: -227, maxZ: -205 });
   }
   function shopFront(bx, bz, w, h, d, color, signText, signFg, signBg) {
     const shop = new THREE.Mesh(
@@ -700,7 +698,7 @@ export function buildCity(scene, rng, textures = {}) {
     );
     door.position.set(bx, 1.5, bz - d / 2 - 0.05);
     scene.add(door);
-    colliders.push({ minX: bx - w / 2, maxX: bx + w / 2, minZ: bz - d / 2, maxZ: bz + d / 2 });
+    col.push({ minX: bx - w / 2, maxX: bx + w / 2, minZ: bz - d / 2, maxZ: bz + d / 2 });
   }
   shopFront(210, -150, 24, 7, 16, 0x4a6a8a, 'AUTO DEALER', '#ffffff', '#1a3a5f');
   shopFront(150, -210, 16, 6, 12, 0x5a4a3a, 'GUN SHOP', '#ffe14d', '#222222');
@@ -834,7 +832,7 @@ export function buildCity(scene, rng, textures = {}) {
     scene.add(cloud);
     clouds.push(cloud);
   }
-  return { colliders, landmarks, sea, boats, clouds, collectibleMeshes };
+  return { colliders: col, landmarks, sea, boats, clouds, collectibleMeshes };
 }
 export function resolveBuildingCollision(pos, radius, colliders) {
   let hit = false;

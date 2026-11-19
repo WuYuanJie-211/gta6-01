@@ -3,7 +3,7 @@ import { MISSIONS } from './missions.js';
 export function createHud(game) {
   const el = (id) => document.getElementById(id);
   const [healthFill, healthText, cashText, starsBox, objectiveText, missionList, weaponText, durabilityText, districtText, timerText, promptText, toast, missionCard, missionTitle, missionStory, menu, pauseMenu, overMenu, overText, minimap, speedText] = ['health-fill', 'health-text', 'cash', 'stars', 'objective-text', 'mission-list', 'weapon', 'durability', 'district', 'timer', 'prompt', 'toast', 'mission-card', 'mission-title', 'mission-story', 'menu', 'pause-menu', 'over-menu', 'over-text', 'minimap', 'speed'].map(el);
-  const mapCtx = minimap.getContext('2d');
+  const c = minimap.getContext('2d');
   let toastTimer = null;
   let shakeTime = 0;
   const missionRows = MISSIONS.map((m, i) => {
@@ -52,46 +52,46 @@ export function createHud(game) {
     const size = minimap.width;
     const scale = size / (CITY.halfSize * 2 + 80);
     const toMap = (x, z) => [(x + CITY.halfSize + 40) * scale, (z + CITY.halfSize + 40) * scale];
-    mapCtx.fillStyle = '#0e2a3a';
-    mapCtx.fillRect(0, 0, size, size);
+    c.fillStyle = '#0e2a3a';
+    c.fillRect(0, 0, size, size);
     const [, seaY] = toMap(0, CITY.seaStart);
-    mapCtx.fillStyle = '#2e7fb8';
-    mapCtx.fillRect(0, seaY, size, size - seaY);
+    c.fillStyle = '#2e7fb8';
+    c.fillRect(0, seaY, size, size - seaY);
     const [, beachY] = toMap(0, CITY.beachStart);
-    mapCtx.fillStyle = '#e8d49a';
-    mapCtx.fillRect(0, beachY, size, seaY - beachY);
-    mapCtx.fillStyle = '#3a3f45';
+    c.fillStyle = '#e8d49a';
+    c.fillRect(0, beachY, size, seaY - beachY);
+    c.fillStyle = '#3a3f45';
     const [gx, gy] = toMap(-CITY.halfSize, -CITY.halfSize);
-    mapCtx.fillRect(gx, gy, CITY.halfSize * 2 * scale, (CITY.halfSize + 270) * scale);
-    mapCtx.fillStyle = '#3e8f4f';
+    c.fillRect(gx, gy, CITY.halfSize * 2 * scale, (CITY.halfSize + 270) * scale);
+    c.fillStyle = '#3e8f4f';
     for (const [bx, bz] of [[-150, -150], [150, -150], [-150, 150], [270, 150]]) {
       const [x, y] = toMap(bx - 23, bz - 23);
-      mapCtx.fillRect(x, y, 46 * scale, 46 * scale);
+      c.fillRect(x, y, 46 * scale, 46 * scale);
     }
-    mapCtx.strokeStyle = '#565d66';
-    mapCtx.lineWidth = Math.max(2, CITY.roadWidth * scale);
+    c.strokeStyle = '#565d66';
+    c.lineWidth = Math.max(2, CITY.roadWidth * scale);
     for (const line of CITY.roadLinesX) {
       const [x1, y1] = toMap(line, -CITY.halfSize);
       const [, y2] = toMap(line, 270);
-      mapCtx.beginPath();
-      mapCtx.moveTo(x1, y1);
-      mapCtx.lineTo(x1, y2);
-      mapCtx.stroke();
+      c.beginPath();
+      c.moveTo(x1, y1);
+      c.lineTo(x1, y2);
+      c.stroke();
     }
     for (const line of CITY.roadLinesZ) {
       const [x1, y1] = toMap(-CITY.halfSize, line);
       const [x2] = toMap(CITY.halfSize, line);
-      mapCtx.beginPath();
-      mapCtx.moveTo(x1, y1);
-      mapCtx.lineTo(x2, y1);
-      mapCtx.stroke();
+      c.beginPath();
+      c.moveTo(x1, y1);
+      c.lineTo(x2, y1);
+      c.stroke();
     }
-    mapCtx.fillStyle = 'rgba(255,255,255,0.55)';
-    mapCtx.font = 'bold 8px system-ui, sans-serif';
-    mapCtx.textAlign = 'center';
+    c.fillStyle = 'rgba(255,255,255,0.55)';
+    c.font = 'bold 8px system-ui, sans-serif';
+    c.textAlign = 'center';
     for (const [name, x, z] of [['DOWNTOWN', 225, -225], ['PORT', -315, -315], ['SUBURBS', 315, 105], ['OLD TOWN', -60, 105], ['BEACH', 0, 258]]) {
       const [mx, my] = toMap(x, z);
-      mapCtx.fillText(name, mx, my);
+      c.fillText(name, mx, my);
     }
     const L = game.city.landmarks;
     const shops = [
@@ -100,56 +100,56 @@ export function createHud(game) {
     ];
     for (const [spot, color] of shops) {
       const [x, y] = toMap(spot.x, spot.z);
-      mapCtx.fillStyle = color;
-      mapCtx.fillRect(x - 3, y - 3, 6, 6);
+      c.fillStyle = color;
+      c.fillRect(x - 3, y - 3, 6, 6);
     }
-    mapCtx.fillStyle = '#33dd66';
+    c.fillStyle = '#33dd66';
     L.collectibles.forEach((spot, i) => {
       if (game.missions.state.collected[i]) return;
       const [x, y] = toMap(spot.x, spot.z);
-      mapCtx.beginPath();
-      mapCtx.arc(x, y, 3, 0, Math.PI * 2);
-      mapCtx.fill();
+      c.beginPath();
+      c.arc(x, y, 3, 0, Math.PI * 2);
+      c.fill();
     });
-    mapCtx.strokeStyle = '#ff8800';
-    mapCtx.lineWidth = 2;
+    c.strokeStyle = '#ff8800';
+    c.lineWidth = 2;
     for (const cp of L.race) {
       const [x, y] = toMap(cp.x, cp.z);
-      mapCtx.beginPath();
-      mapCtx.arc(x, y, 4, 0, Math.PI * 2);
-      mapCtx.stroke();
+      c.beginPath();
+      c.arc(x, y, 4, 0, Math.PI * 2);
+      c.stroke();
     }
-    mapCtx.fillStyle = '#ffffff';
+    c.fillStyle = '#ffffff';
     for (const car of game.cars.traffic) {
       const [x, y] = toMap(car.pos.x, car.pos.z);
-      mapCtx.fillRect(x - 1.5, y - 1.5, 3, 3);
+      c.fillRect(x - 1.5, y - 1.5, 3, 3);
     }
-    mapCtx.fillStyle = '#ff3333';
+    c.fillStyle = '#ff3333';
     for (const car of game.police.state.cars) {
       const [x, y] = toMap(car.pos.x, car.pos.z);
-      mapCtx.beginPath();
-      mapCtx.arc(x, y, 3.5, 0, Math.PI * 2);
-      mapCtx.fill();
+      c.beginPath();
+      c.arc(x, y, 3.5, 0, Math.PI * 2);
+      c.fill();
     }
     if (game.police.heli && game.police.heli.visible) {
       const [x, y] = toMap(game.police.heli.position.x, game.police.heli.position.z);
-      mapCtx.strokeStyle = '#ff3333';
-      mapCtx.lineWidth = 2;
-      mapCtx.beginPath();
-      mapCtx.arc(x, y, 6, 0, Math.PI * 2);
-      mapCtx.stroke();
+      c.strokeStyle = '#ff3333';
+      c.lineWidth = 2;
+      c.beginPath();
+      c.arc(x, y, 6, 0, Math.PI * 2);
+      c.stroke();
     }
     const marker = game.missions.state.marker;
     if (marker) {
       const [x, y] = toMap(marker.x, marker.z);
-      mapCtx.fillStyle = '#ffe14d';
-      mapCtx.beginPath();
-      mapCtx.moveTo(x, y - 6);
-      mapCtx.lineTo(x + 6, y);
-      mapCtx.lineTo(x, y + 6);
-      mapCtx.lineTo(x - 6, y);
-      mapCtx.closePath();
-      mapCtx.fill();
+      c.fillStyle = '#ffe14d';
+      c.beginPath();
+      c.moveTo(x, y - 6);
+      c.lineTo(x + 6, y);
+      c.lineTo(x, y + 6);
+      c.lineTo(x - 6, y);
+      c.closePath();
+      c.fill();
     }
     const p = game.player.car ? game.player.car.pos : game.player.pos;
     const [px, py] = toMap(p.x, p.z);
@@ -162,13 +162,13 @@ export function createHud(game) {
       fx = Math.sin(game.player.heading);
       fz = Math.cos(game.player.heading);
     }
-    mapCtx.fillStyle = '#ffffff';
-    mapCtx.beginPath();
-    mapCtx.moveTo(px + fx * 7, py + fz * 7);
-    mapCtx.lineTo(px - fz * 5 - fx * 4, py + fx * 5 - fz * 4);
-    mapCtx.lineTo(px + fz * 5 - fx * 4, py - fx * 5 - fz * 4);
-    mapCtx.closePath();
-    mapCtx.fill();
+    c.fillStyle = '#ffffff';
+    c.beginPath();
+    c.moveTo(px + fx * 7, py + fz * 7);
+    c.lineTo(px - fz * 5 - fx * 4, py + fx * 5 - fz * 4);
+    c.lineTo(px + fz * 5 - fx * 4, py - fx * 5 - fz * 4);
+    c.closePath();
+    c.fill();
   }
   function update() {
     const health = Math.max(0, Math.round(game.player.health));

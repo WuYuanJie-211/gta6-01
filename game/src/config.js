@@ -3,7 +3,6 @@ export const CITY = {
   roadLinesZ: [-360, -300, -240, -180, -120, -60, 0, 60, 120, 180, 240],
   roadLines: [-360, -300, -240, -180, -120, -60, 0, 60, 120, 180, 240, 300, 360],
   roadWidth: 12,
-  blockSize: 48,
   halfSize: 390,
   beachStart: 246,
   seaStart: 300,
@@ -63,7 +62,6 @@ export const CAR = {
 export const POLICE = {
   maxActiveCars: 4,
   maxActiveCarsHigh: 6, 
-  chaseRange: 220,
   ramDamage: 2,
   ramCooldown: 1.0,
   heliAtStars: 4, 

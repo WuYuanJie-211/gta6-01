@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { STEP } from './config.js';
 import { enterCar, spawnPoliceCar } from './vehicles.js';
 import { ACTION_SHOOT } from './input.js';
+function pool(g,x,z){const p=new THREE.Mesh(new THREE.CircleGeometry(2.6,16),new THREE.MeshBasicMaterial({color:0xfff2b0,transparent:true,opacity:.3,blending:THREE.AdditiveBlending,depthWrite:false}));p.rotation.x=-Math.PI/2;p.position.set(x,.07,z);g.scene.add(p);}
 function steerCarToward(game, tx, tz) {
   const car = game.player.car;
   if (!car) return;
@@ -38,7 +39,7 @@ function pc(game, x, z, h, s) {
   game.police.state.cars.push(c);
   return c;
 }
-function cameraBehind(game) {
+function camB(game) {
   let fx;
   let fz;
   if (game.player.car) {
@@ -58,17 +59,18 @@ function stageChase(game) {
   van.stolen = true;
   enterCar(game, van);
   game.police.state.wanted = 4;
-  for (const [x, z] of [[237, -62], [243, -72], [237, -82]]) pc(game, x, z, Math.PI / 2, 24);
+  for (const [x, z] of [[236, -92], [250, -105], [238, -118]]) pc(game, x, z, Math.PI / 2, 24);
   for (const [x, z] of [[231, -120], [255, -135]]) pc(game, x, z, Math.PI / 2, 24);
-  cameraBehind(game);
+  camB(game);
   driveFor(game, 1.5, (g) => steerCarToward(g, 243, -360));
   game.camDist = 14;
   game.camPitch = 0.28;
   const heli = game.police.heli;
   if (heli) {
     heli.visible = true;
-    heli.position.set(game.player.car.pos.x - 6, 10, game.player.car.pos.z - 18);
+    heli.position.set(game.player.car.pos.x, 11, game.player.car.pos.z);
     heli.scale.setScalar(1.5);
+    pool(game,heli.position.x,heli.position.z);
   }
 }
 function stageGunfight(game) {
@@ -83,7 +85,7 @@ function stageGunfight(game) {
   player.mesh.position.copy(player.pos);
   player.mesh.rotation.y = player.heading;
   player.mesh.scale.y = 0.68;
-  player.mesh.userData.rifle.position.y = 1.7;
+  player.mesh.userData.rifle.position.y = 1.9;
   const barrier = new THREE.Mesh(new THREE.BoxGeometry(3, 1.1, 0.7), new THREE.MeshStandardMaterial({ map: game.textures.concrete, roughness: 0.9 }));
   barrier.position.set(-181, 0.55, 194);
   game.scene.add(barrier);
@@ -92,7 +94,7 @@ function stageGunfight(game) {
   game.combat.spawnThug(-188, 204);
   pc(game, -196, 186, Math.PI / 2, 0);
   game.police.state.wanted = 4;
-  cameraBehind(game);
+  camB(game);
   game.cameraAngle = -0.25;
   game.camDist = 6;
   game.camPitch = 0.12;
@@ -103,29 +105,32 @@ function stageGunfight(game) {
 function stageDowntown(game) {
   game.missions.setProgress(3, 0);
   const taxi = game.cars.parked.find((c) => c.model === 'taxi') || game.cars.parked[0];
-  place(taxi, 258, -183, Math.PI);
+  place(taxi, 254, -183, Math.PI);
   game.police.state.wanted = 4;
   taxi.speed = 0;
   enterCar(game, taxi);
   for (const gz of [-183.8, -182.2]) {
     const g = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.25, 0.5), new THREE.MeshBasicMaterial({ color: 0xff2222, transparent: true, opacity: 0.85 }));
-    g.position.set(261, 0.75, gz);
+    g.position.set(257, 0.75, gz);
     game.scene.add(g);
   }
   const spots = [
     { x: 180, z: -177, prev: '120,-180', target: '240,-180', h: 0 },
-    { x: 240, z: -177, prev: '180,-180', target: '300,-180', h: 0 },
+    { x: 220, z: -177, prev: '180,-180', target: '300,-180', h: 0 },
     { x: 300, z: -177, prev: '240,-180', target: '360,-180', h: 0 },
-    { x: 150, z: -183, prev: '180,-180', target: '120,-180', h: Math.PI },
-    { x: 210, z: -183, prev: '240,-180', target: '180,-180', h: Math.PI },
-    { x: 270, z: -183, prev: '300,-180', target: '240,-180', h: Math.PI },
+    { x: 235, z: -177, prev: '180,-180', target: '300,-180', h: 0 },
+    { x: 245, z: -177, prev: '240,-180', target: '300,-180', h: 0 },
+    { x: 228, z: -177, prev: '180,-180', target: '240,-180', h: 0 },
+    { x: 240, z: -174, prev: '240,-120', target: '240,-180', h: Math.PI / 2 },
   ];
-  game.cars.traffic.slice(0, 6).forEach((t, i) => {
+  game.cars.traffic.slice(0, 7).forEach((t, i) => {
     place(t, spots[i].x, spots[i].z, spots[i].h);
     t.prevNode = game.roads.byKey.get(spots[i].prev);
     t.targetNode = game.roads.byKey.get(spots[i].target);
     t.speed = 0;
   });
+  game.cars.traffic.slice(7).forEach(t=>{place(t,0,300,0);});
+  game.cars.parked.forEach(c=>{if(c!==taxi)place(c,0,300,0);});
   const walkers = [[120, -172], [150, -188], [180, -172], [200, -188]];
   game.peds.slice(0, 4).forEach((p, i) => {
     p.pos.set(walkers[i][0], 0, walkers[i][1]);
@@ -134,7 +139,7 @@ function stageDowntown(game) {
     p.mode = 'chat';
     p.waiting = false;
   });
-  cameraBehind(game);
+  camB(game);
   game.camDist = 6.5;
   game.camPitch = 0.25;
 }
@@ -143,7 +148,7 @@ function stageSunset(game) {
   const comet = game.cars.comet;
   place(comet, 30, -180, Math.PI);
   comet.stolen = true;
-  comet.speed = 28;
+  comet.speed = 0;
   enterCar(game, comet);
   game.police.state.wanted = 5;
   game.cash = 2000000;
@@ -154,15 +159,18 @@ function stageSunset(game) {
     game.scene.fog.color.set(0x8a4a6a);
   }
   game.sun.color.set(0xff7733);
-  cameraBehind(game);
-  for (const [dx, dz] of [[8, 2], [6, -6]]) pc(game, 30 + dx, -180 + dz, Math.PI, 26);
+  camB(game);
+  for (const [dx, dz] of [[-2, 9], [-2, -9]]) pc(game, 30 + dx, -180 + dz, Math.PI, 26);
   pc(game, 15, -185, Math.PI, 24);
   for (const [ex, ez] of [[15, -185], [16.5, -184], [13.5, -186]]) game.combat.spawnExplosion(new THREE.Vector3(ex, 0, ez));
+  const r=game.combat.spawnGunman(17,-183.5);r.mesh.children[8].visible=r.mesh.children[9].visible=false;
+  const b=new THREE.Mesh(new THREE.BoxGeometry(.5,.35,.22),new THREE.MeshBasicMaterial({color:0x1f2a1a}));b.position.set(-.1,.8,-.4);r.mesh.add(b);
   const heli = game.police.heli;
   if (heli) {
     heli.visible = true;
-    heli.position.set(8, 7, -174);
-    heli.scale.setScalar(1.8);
+    heli.position.set(17, 10, -183);
+    heli.scale.setScalar(1.4);
+    pool(game,17,-183);
   }
   game.camDist = 11;
   game.camPitch = 0.15;

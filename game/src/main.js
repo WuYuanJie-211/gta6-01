@@ -38,18 +38,18 @@ class Game {
     this.textures = textures;
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x8ec9ee);
-    this.scene.fog = new THREE.Fog(0x8ec9ee, 260, 800);
+    this.scene.fog = new THREE.Fog(0x8ec9ee, 180, 700);
     this.camera = new THREE.PerspectiveCamera(60, 1, 0.1, 1500);
-    const sun = new THREE.DirectionalLight(0xffd9a0, 2.6);
+    const sun = new THREE.DirectionalLight(0xffd9a0, 3.0);
     sun.castShadow = true;
-    sun.shadow.mapSize.set(1024, 1024);
-    sun.shadow.camera.left = -90;
-    sun.shadow.camera.right = 90;
-    sun.shadow.camera.top = 90;
-    sun.shadow.camera.bottom = -90;
+    sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.camera.left = -60;
+    sun.shadow.camera.right = 60;
+    sun.shadow.camera.top = 60;
+    sun.shadow.camera.bottom = -60;
     sun.shadow.camera.far = 400;
     this.scene.add(sun);
-    this.scene.add(new THREE.HemisphereLight(0xbfd9ff, 0x8a7a5a, 0.9));
+    this.scene.add(new THREE.HemisphereLight(0xbfd9ff, 0x8a7a5a, 0.6));
     this.sun = sun;
     this.roads = buildRoads();
     this.city = buildCity(this.scene, this.rng, textures);
@@ -118,7 +118,6 @@ class Game {
       } else this.hud.flash('No save found.');
     });
     on('btn-restart', () => window.location.reload());
-    on('btn-quit', () => window.location.reload());
     on('btn-retry', () => window.location.reload());
     on('btn-menu-title', () => window.location.reload());
   }
@@ -334,7 +333,7 @@ class Game {
       target.z + Math.cos(this.cameraAngle) * horiz + shake,
     );
     this.camera.lookAt(target.x, 1.6, target.z);
-    this.sun.position.set(target.x + 120, 100, target.z + 40);
+    this.sun.position.set(target.x + 130, 75, target.z + 55);
     this.sun.target.position.set(target.x, 0, target.z);
     this.sun.target.updateMatrixWorld();
   }
