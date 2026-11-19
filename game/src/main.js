@@ -40,7 +40,7 @@ class Game {
     this.textures = textures;
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x8ec9ee);
-    this.scene.fog = new THREE.Fog(0x8ec9ee, 180, 700);
+    this.scene.fog = new THREE.Fog(0x8ec9ee, 150, 450);
     this.camera = new THREE.PerspectiveCamera(60, 1, 0.1, 1500);
     const sun = new THREE.DirectionalLight(0xffd9a0, 3.0);
     sun.castShadow = true;

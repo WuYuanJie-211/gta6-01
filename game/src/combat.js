@@ -52,7 +52,8 @@ function createGunmanMesh() {
   B(group, 0.78, 0.5, 0.46, mt(0x7b1a1a), 0, 1.2, 0);
   const gunMat = new MS({ color: 0x111111, roughness: 0.4, metalness: 0.5 });
   B(group, 0.09, 0.14, 0.9, gunMat, 0.35, 1.2, 0.35);
-  const barrel = new ME(new CG(0.025, 0.025, 0.4, 8), gunMat);
+  B(group, 0.06, 0.25, 0.12, gunMat, 0.35, 1.02, 0.5);
+  const barrel = new ME(new CG(0.05, 0.05, 0.4, 8), gunMat);
   barrel.rotation.x = PI / 2;
   barrel.position.set(0.35, 1.22, 0.95);
   group.add(barrel);
