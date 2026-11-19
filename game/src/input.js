@@ -1,11 +1,14 @@
-// Keyboard and mouse, read once per frame. WASD/arrows move, mouse drag orbits
-// the camera, wheel zooms, E interacts, F punches, P or Escape pauses.
-// The game also reads keys directly from this object, so a screenshot scene can
-// drive it by writing the same fields.
+// Keyboard and mouse, read once per frame. WASD/arrows move, drag orbits,
+// wheel zooms, E interacts, F punches, click (or G) shoots, Q cycles, R
+// reloads, M toggles music, P/Esc pauses. Scenes drive it the same way.
 export const ACTION_INTERACT = 1;
 export const ACTION_PUNCH = 2;
 export const ACTION_PAUSE = 4;
 export const ACTION_CONFIRM = 8;
+export const ACTION_SHOOT = 16;
+export const ACTION_CYCLE = 32;
+export const ACTION_RELOAD = 64;
+export const ACTION_MUSIC = 128;
 
 export function createInput(canvas) {
   const keys = new Set();
@@ -16,6 +19,8 @@ export function createInput(canvas) {
   let dragging = false;
   let lastX = 0;
   let lastY = 0;
+  let downX = 0;
+  let downY = 0;
 
   function onKeyDown(event) {
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(event.key)) event.preventDefault();
@@ -25,6 +30,10 @@ export function createInput(canvas) {
     if (event.key === 'f' || event.key === 'F') actions |= ACTION_PUNCH;
     if (event.key === 'p' || event.key === 'P' || event.key === 'Escape') actions |= ACTION_PAUSE;
     if (event.key === ' ' || event.key === 'Enter') actions |= ACTION_CONFIRM;
+    if (event.key === 'g' || event.key === 'G') actions |= ACTION_SHOOT;
+    if (event.key === 'q' || event.key === 'Q') actions |= ACTION_CYCLE;
+    if (event.key === 'r' || event.key === 'R') actions |= ACTION_RELOAD;
+    if (event.key === 'm' || event.key === 'M') actions |= ACTION_MUSIC;
   }
   function onKeyUp(event) {
     keys.delete(event.key.toLowerCase());
@@ -33,6 +42,8 @@ export function createInput(canvas) {
     dragging = true;
     lastX = event.clientX;
     lastY = event.clientY;
+    downX = event.clientX;
+    downY = event.clientY;
   }
   function onMouseMove(event) {
     if (!dragging) return;
@@ -41,8 +52,12 @@ export function createInput(canvas) {
     lastX = event.clientX;
     lastY = event.clientY;
   }
-  function onMouseUp() {
+  function onMouseUp(event) {
     dragging = false;
+    // A click (down and up within a few pixels) is a shot, not an orbit.
+    if (Math.hypot(event.clientX - downX, event.clientY - downY) < 6) {
+      actions |= ACTION_SHOOT;
+    }
   }
   function onWheel(event) {
     event.preventDefault();
@@ -98,6 +113,10 @@ export function createInput(canvas) {
     setKey(key, down) {
       if (down) keys.add(key);
       else keys.delete(key);
+    },
+    /** For scripted scenes: fire a one-shot action directly. */
+    fireAction(action) {
+      actions |= action;
     },
   };
 }

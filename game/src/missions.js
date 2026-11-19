@@ -1,35 +1,65 @@
-// The story of Solara Bay: three missions that chain into one arc — Rook the
-// wheelman proves himself, steals the Comet GT, then runs the lighthouse gauntlet.
-// Each mission is a stage with an objective line (shown in the HUD and on the
-// minimap), a 3D beacon in the world, and a payout. Finish all three and the
-// city is Rook's; free roam goes on after.
+// Seven missions, one arc: prove himself, steal the Comet GT, run the
+// lighthouse gauntlet, drive the taxi rank, hunt five packages, race the
+// bay circuit, finish with the bank job. Each stage has an objective
+// line, a 3D beacon and a payout; free roam goes on after.
 import * as THREE from 'three';
-import { WORLD } from './config.js';
+import { WORLD, ECONOMY } from './config.js';
 import { enterCar } from './vehicles.js';
+import { randomNode } from './roads.js';
 
-const MISSIONS = [
+export const MISSIONS = [
   {
     title: 'First Fare',
     story: 'Mara needs a ride to the Marina. Pick her up at the plaza, then drive her there. Drive like you mean it.',
     stages: [
-      { text: 'Pick up Mara at the plaza (walk to her, press E)', key: 'pickup' },
-      { text: 'Drive Mara to the Marina', key: 'deliver' },
+      { text: 'Pick up Mara at the plaza (walk to her, press E)', key: 'pickup', at: 'clientSpot' },
+      { text: 'Drive Mara to the Marina', key: 'deliver', to: 'marina' },
     ],
   },
   {
     title: 'Hot Wheels',
     story: 'The Comet GT is parked on Bay Street and nobody is watching. Steal it, shake the heat, and bring it to the chop shop.',
     stages: [
-      { text: 'Steal the Comet GT (press E by the red car)', key: 'steal' },
-      { text: 'Deliver the Comet GT to the Chop Shop', key: 'deliver' },
+      { text: 'Steal the Comet GT (press E by the red car)', key: 'steal', at: 'cometSpot' },
+      { text: 'Deliver the Comet GT to the Chop Shop', key: 'deliver', to: 'chopShop', thugs: 2 },
     ],
   },
   {
     title: 'The Lighthouse Run',
     story: 'One package, one lighthouse, every cop in the city. Deliver it and lose the tail — then Solara Bay is yours.',
     stages: [
-      { text: 'Pick up the package at the Chop Shop (press E)', key: 'pickup' },
-      { text: 'Deliver the package to the Lighthouse — 3 stars on you!', key: 'deliver' },
+      { text: 'Pick up the package at the Chop Shop (press E)', key: 'pickup', at: 'packageSpot' },
+      { text: 'Deliver the package to the Lighthouse — 3 stars on you!', key: 'deliver', to: 'lighthouse', heat: 3 },
+      { text: 'Lose the cops — get the wanted level to zero', key: 'escape' },
+    ],
+  },
+  {
+    title: 'Downtown Taxi',
+    story: 'Mara runs a taxi rank now. Fares wait at the bus stops — grab a taxi (one is parked by the plaza), pick up three fares and drop them across town. Every fare pays.',
+    stages: [
+      { text: 'Pick up 3 fares at the bus stops (drive a taxi, press E)', key: 'fare', count: 3 },
+    ],
+  },
+  {
+    title: 'Package Hunt',
+    story: 'Five green packages are hidden across the city — downtown, the port, the suburbs, the beach, the park. Find them all. Each one pays on the spot.',
+    stages: [
+      { text: 'Find the 5 hidden packages (press E by a green gem)', key: 'collect', count: 5 },
+    ],
+  },
+  {
+    title: 'Bay Street Grand Prix',
+    story: 'The bay street circuit: four checkpoints, one lap, three minutes on the clock. Beat it and the whole city hears your name.',
+    stages: [
+      { text: 'Race the 4 checkpoints — 3:00 on the clock!', key: 'race', count: 4, timeLimit: 180 },
+    ],
+  },
+  {
+    title: 'The Bank Job',
+    story: 'The armored van leaves the bank at noon, and Mara has the route. Take it, bring it to the chop shop — the whole city will be on you. This is the big one.',
+    stages: [
+      { text: 'Steal the armored van by the Bank (press E)', key: 'steal', at: 'armoredSpot' },
+      { text: 'Deliver the armored van to the Chop Shop — 4 stars on you!', key: 'deliver', to: 'chopShop', heat: 4, gunmen: 3 },
       { text: 'Lose the cops — get the wanted level to zero', key: 'escape' },
     ],
   },
@@ -79,23 +109,69 @@ export function createMissions(game) {
     done: false,
     objectiveText: '',
     marker: null, // {x, z} or null
-    clientVisible: false,
-    // Mara, the client of mission 1: a person mesh standing at the plaza.
-    client: null,
+    escaping: false,
+    timerText: '',
+    fareDone: 0,
+    farePicked: false,
+    fareDest: null,
+    farePed: null,
+    collected: [false, false, false, false, false],
+    raceCp: 0,
+    raceTime: 0,
+    spawnedForStage: '',
   };
 
   function mission() {
     return MISSIONS[state.index];
   }
 
+  /** The nearest waiting pedestrian (a taxi fare), or null. */
+  function nearestWaitingPed() {
+    const p = game.player.car ? game.player.car.pos : game.player.pos;
+    let best = null;
+    let bestD = Infinity;
+    for (const ped of game.peds) {
+      if (!ped.alive || !ped.waiting) continue;
+      const d = Math.hypot(ped.pos.x - p.x, ped.pos.z - p.z);
+      if (d < bestD) {
+        bestD = d;
+        best = ped;
+      }
+    }
+    return best;
+  }
+
+  /** The nearest uncollected package, or null. */
+  function nearestPackage() {
+    const p = game.player.pos;
+    let best = null;
+    let bestD = Infinity;
+    game.city.landmarks.collectibles.forEach((spot, i) => {
+      if (state.collected[i]) return;
+      const d = Math.hypot(spot.x - p.x, spot.z - p.z);
+      if (d < bestD) {
+        bestD = d;
+        best = { ...spot, index: i };
+      }
+    });
+    return best;
+  }
+
   /** Where the current stage points: a world position, or null. */
   function stageTarget() {
     const L = game.city.landmarks;
-    const key = mission().stages[state.stage].key;
-    if (state.index === 0) return key === 'pickup' ? L.clientSpot : L.marina;
-    if (state.index === 1) return key === 'steal' ? L.cometSpot : L.chopShop;
-    if (key === 'pickup') return L.packageSpot;
-    if (key === 'deliver') return L.lighthouse;
+    const stage = mission().stages[state.stage];
+    const key = stage.key;
+    if (key === 'pickup') return L[stage.at];
+    if (key === 'steal') return L[stage.at];
+    if (key === 'deliver') return L[stage.to];
+    if (key === 'fare') {
+      if (state.farePicked && state.fareDest) return state.fareDest;
+      const ped = nearestWaitingPed();
+      return ped ? { x: ped.pos.x, z: ped.pos.z } : null;
+    }
+    if (key === 'collect') return nearestPackage();
+    if (key === 'race') return L.race[state.raceCp];
     return null; // escape: no marker, just lose the heat
   }
 
@@ -103,11 +179,15 @@ export function createMissions(game) {
     if (state.done) {
       state.objectiveText = 'Solara Bay is yours. Free roam — the city never sleeps.';
       state.marker = null;
+      state.escaping = false;
+      state.timerText = '';
       beacon.visible = false;
       return;
     }
-    state.objectiveText = `${mission().title}: ${mission().stages[state.stage].text}`;
+    const stage = mission().stages[state.stage];
+    state.objectiveText = `${mission().title}: ${stage.text}`;
     state.marker = stageTarget();
+    state.escaping = stage.key === 'escape';
     if (state.marker) {
       beacon.visible = true;
       beacon.position.set(state.marker.x, 0, state.marker.z);
@@ -119,6 +199,17 @@ export function createMissions(game) {
   function startMission(index) {
     state.index = index;
     state.stage = 0;
+    state.fareDone = 0;
+    state.farePicked = false;
+    state.fareDest = null;
+    state.farePed = null;
+    state.collected = [false, false, false, false, false];
+    state.raceCp = 0;
+    state.raceTime = 0;
+    state.spawnedForStage = '';
+    if (game.city.collectibleMeshes) {
+      for (const gem of game.city.collectibleMeshes) gem.visible = true;
+    }
     refreshObjective();
     game.hud.showMissionCard(mission().title, mission().story);
   }
@@ -145,10 +236,11 @@ export function createMissions(game) {
     refreshObjective();
   }
 
-  /** E pressed: pickups, stealing, and anything else the current stage needs. */
+  /** E pressed: pickups, stealing, fares, packages, and anything else the current stage needs. */
   function interact() {
     if (state.done) return false;
-    const key = mission().stages[state.stage].key;
+    const stage = mission().stages[state.stage];
+    const key = stage.key;
     const target = stageTarget();
     const p = game.player.pos;
     if (key === 'pickup' && target) {
@@ -158,16 +250,54 @@ export function createMissions(game) {
         return true;
       }
     }
-    if (key === 'steal' && state.index === 1) {
-      const comet = game.cars.comet;
-      if (comet && !comet.stolen) {
-        const d = Math.hypot(comet.pos.x - p.x, comet.pos.z - p.z);
+    if (key === 'steal') {
+      const car = state.index === 6 ? game.cars.armored : game.cars.comet;
+      if (car && !car.stolen) {
+        const d = Math.hypot(car.pos.x - p.x, car.pos.z - p.z);
         if (d < 4) {
-          comet.stolen = true;
-          enterCar(game, comet);
-          game.police.commitCrime(2);
-          game.hud.flash('The Comet GT is yours — and so is the heat!');
+          enterCar(game, car);
+          game.police.commitCrime(state.index === 6 ? 3 : 2);
+          game.hud.flash(state.index === 6 ? 'The armored van is yours — and so is the heat!' : 'The Comet GT is yours — and so is the heat!');
           completeStage();
+          return true;
+        }
+      }
+    }
+    if (key === 'fare') {
+      if (!state.farePicked) {
+        const car = game.player.car;
+        if (!car || car.model !== 'taxi') {
+          game.hud.flash('You need a taxi for this — one is parked by the plaza.');
+          return false;
+        }
+        const ped = nearestWaitingPed();
+        if (ped) {
+          const d = Math.hypot(ped.pos.x - car.pos.x, ped.pos.z - car.pos.z);
+          if (d < 6) {
+            state.farePicked = true;
+            state.farePed = ped;
+            ped.waiting = false;
+            ped.mesh.visible = false;
+            state.fareDest = randomNode(game.roads, game.rng, { minX: 60, maxX: 360, minZ: -360, maxZ: -60 });
+            game.hud.flash('Fare aboard — take them downtown.');
+            refreshObjective();
+            return true;
+          }
+        }
+      }
+    }
+    if (key === 'collect') {
+      const pkg = nearestPackage();
+      if (pkg) {
+        const d = Math.hypot(pkg.x - p.x, pkg.z - p.z);
+        if (d < 4) {
+          state.collected[pkg.index] = true;
+          if (game.city.collectibleMeshes) game.city.collectibleMeshes[pkg.index].visible = false;
+          game.cash += ECONOMY.collectiblePay;
+          game.audio.pickup();
+          game.hud.flash(`Package found! +$${ECONOMY.collectiblePay} (${state.collected.filter(Boolean).length}/5).`);
+          if (state.collected.every(Boolean)) completeStage();
+          else refreshObjective();
           return true;
         }
       }
@@ -175,15 +305,14 @@ export function createMissions(game) {
     return false;
   }
 
-  /** Arrival checks and the escape stage, run every frame. */
+  /** Arrival checks, the race clock and the escape stage, run every frame. */
   function update(dt) {
-    void dt;
-    // Mara waits at the plaza until Rook picks her up.
     clientMesh.visible = state.index === 0 && state.stage === 0;
     if (state.done) return;
     beacon.userData.diamond.rotation.y += dt * 1.5;
     beacon.userData.diamond.position.y = 6 + Math.sin(game.time * 2) * 0.5;
-    const key = mission().stages[state.stage].key;
+    const stage = mission().stages[state.stage];
+    const key = stage.key;
     const target = stageTarget();
     const pos = game.player.car ? game.player.car.pos : game.player.pos;
     if (key === 'deliver' && target) {
@@ -193,22 +322,87 @@ export function createMissions(game) {
         completeStage();
       }
     }
+    if (key === 'fare' && state.farePicked && state.fareDest) {
+      const d = Math.hypot(state.fareDest.x - pos.x, state.fareDest.z - pos.z);
+      if (d < 12) {
+        const fare = game.rng.int(ECONOMY.taxiFareMin, ECONOMY.taxiFareMax);
+        game.cash += fare;
+        game.hud.flash(`Fare dropped off. +$${fare}. (${state.fareDone + 1}/3)`);
+        game.audio.payout();
+        state.fareDone += 1;
+        // The fare gets out and walks away.
+        if (state.farePed) {
+          state.farePed.pos.set(state.fareDest.x + 3, 0, state.fareDest.z + 3);
+          state.farePed.mesh.position.copy(state.farePed.pos);
+          state.farePed.mesh.visible = true;
+          state.farePed.mode = 'stroll';
+          state.farePed.target = { x: state.fareDest.x + 20, z: state.fareDest.z + 20 };
+        }
+        state.farePed = null;
+        state.farePicked = false;
+        state.fareDest = null;
+        if (state.fareDone >= stage.count) completeStage();
+        else refreshObjective();
+      }
+    }
+    if (key === 'race') {
+      if (state.raceTime <= 0 && state.raceCp === 0) {
+        // The clock starts when the stage starts.
+        state.raceTime = stage.timeLimit;
+      }
+      state.raceTime -= dt;
+      const mins = Math.max(0, Math.floor(state.raceTime / 60));
+      const secs = Math.max(0, Math.floor(state.raceTime % 60));
+      state.timerText = `${mins}:${String(secs).padStart(2, '0')}`;
+      if (state.raceTime <= 0) {
+        state.raceCp = 0;
+        state.raceTime = stage.timeLimit;
+        game.hud.flash('Too slow — the lap restarts.');
+        refreshObjective();
+        return;
+      }
+      if (target) {
+        const d = Math.hypot(target.x - pos.x, target.z - pos.z);
+        if (d < 12) {
+          state.raceCp += 1;
+          game.audio.pickup();
+          if (state.raceCp >= stage.count) {
+            state.timerText = '';
+            completeStage();
+          } else {
+            game.hud.flash(`Checkpoint ${state.raceCp}/${stage.count} — keep going!`);
+            refreshObjective();
+          }
+        }
+      }
+    }
     if (key === 'escape' && game.police.state.wanted === 0) {
       completeStage();
     }
-    // Mission 3 heat: the moment the package is picked up, the city turns.
-    if (state.index === 2 && state.stage === 1 && game.police.state.wanted < 3) {
-      game.police.commitCrime(3 - game.police.state.wanted);
+    // Heat: the moment the delivery stage starts, the city turns.
+    if (stage.heat && game.police.state.wanted < stage.heat) {
+      game.police.commitCrime(stage.heat - game.police.state.wanted);
     }
-    // Mission 2 muscle: thugs show up at the chop shop.
-    if (state.index === 1 && state.stage === 1 && game.combat.enemies.length === 0) {
-      game.combat.spawnThug(-196, 196);
-      game.combat.spawnThug(-224, 224);
-      game.hud.flash('Chop shop muscle is here. F to fight!');
+    // Muscle at the chop shop: thugs (mission 2), gunmen (bank job).
+    const stageId = `${state.index}-${state.stage}`;
+    if ((stage.thugs || stage.gunmen) && state.spawnedForStage !== stageId && game.combat.enemies.filter((e) => e.alive).length === 0) {
+      state.spawnedForStage = stageId;
+      if (stage.thugs) {
+        for (let i = 0; i < stage.thugs; i += 1) {
+          game.combat.spawnThug(-196 + i * 14, 196 + i * 14);
+        }
+        game.hud.flash('Chop shop muscle is here. F to fight!');
+      }
+      if (stage.gunmen) {
+        for (let i = 0; i < stage.gunmen; i += 1) {
+          game.combat.spawnGunman(-196 + i * 14, 224 - i * 14);
+        }
+        game.hud.flash('Armed guards at the chop shop! Get a gun or run.');
+      }
     }
   }
 
-  /** The key of the current stage ('pickup', 'steal', 'deliver', 'escape'). */
+  /** The key of the current stage ('pickup', 'steal', 'deliver', 'escape', ...). */
   function stageKey() {
     if (state.done) return '';
     return mission().stages[state.stage].key;
@@ -219,6 +413,17 @@ export function createMissions(game) {
     state.index = Math.min(index, MISSIONS.length - 1);
     state.stage = Math.min(stage, MISSIONS[state.index].stages.length - 1);
     state.done = false;
+    state.fareDone = 0;
+    state.farePicked = false;
+    state.fareDest = null;
+    state.farePed = null;
+    state.collected = [false, false, false, false, false];
+    state.raceCp = 0;
+    state.raceTime = 0;
+    state.spawnedForStage = '';
+    if (game.city.collectibleMeshes) {
+      for (const gem of game.city.collectibleMeshes) gem.visible = true;
+    }
     refreshObjective();
   }
 

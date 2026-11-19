@@ -1,11 +1,10 @@
-// Rook on foot: a small stylised person who walks, runs, turns with the camera
-// and throws a punch. The mesh is boxes and a sphere, built once and posed by
-// the controller, so the outline in the dossier says what each part does.
+// Rook on foot, v2: walks, runs, punches, and holds a pistol or rifle
+// when armed. Boxes and a sphere, posed by the controller.
 import * as THREE from 'three';
 import { PLAYER } from './config.js';
 import { resolveBuildingCollision } from './city.js';
 
-/** Build Rook: jacket torso, head, legs that swing while walking, a punching arm. */
+/** Build Rook: jacket torso, head, legs that swing while walking, a punching arm, and two guns. */
 export function createPlayerMesh() {
   const group = new THREE.Group();
   const jacket = new THREE.MeshStandardMaterial({ color: 0x2e4053, roughness: 0.8 });
@@ -32,9 +31,30 @@ export function createPlayerMesh() {
   const armR = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.7, 0.22), jacket);
   armR.position.set(0.48, 1.2, 0);
   group.add(armL, armR);
+  // Guns in the right hand, pointing forward (+Z); hidden until armed.
+  const gunMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.4, metalness: 0.5 });
+  const pistol = new THREE.Group();
+  const pistolBody = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.14, 0.4), gunMat);
+  const pistolGrip = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.18, 0.1), gunMat);
+  pistolGrip.position.set(0, -0.12, -0.1);
+  pistol.add(pistolBody, pistolGrip);
+  pistol.position.set(0.48, 0.9, 0.35);
+  pistol.visible = false;
+  const rifle = new THREE.Group();
+  const rifleBody = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.14, 0.9), gunMat);
+  const rifleStock = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.16, 0.3), gunMat);
+  rifleStock.position.set(0, -0.05, -0.45);
+  const rifleMag = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.2, 0.12), gunMat);
+  rifleMag.position.set(0, -0.14, 0.05);
+  rifle.add(rifleBody, rifleStock, rifleMag);
+  rifle.position.set(0.48, 0.9, 0.4);
+  rifle.visible = false;
+  group.add(pistol, rifle);
   group.userData.legL = legL;
   group.userData.legR = legR;
   group.userData.armR = armR;
+  group.userData.pistol = pistol;
+  group.userData.rifle = rifle;
   return group;
 }
 
@@ -62,11 +82,17 @@ export function updatePlayerOnFoot(game, dt) {
   }
   player.mesh.position.copy(player.pos);
   player.mesh.rotation.y = player.heading;
-  // Legs swing while walking; the right arm snaps out while punching.
+  // Legs swing while walking; the right arm snaps out while punching, and
+  // stays raised, aiming, while the player holds a gun.
   const swing = moving ? Math.sin(game.time * 10) * 0.5 : 0;
   player.mesh.userData.legL.rotation.x = swing;
   player.mesh.userData.legR.rotation.x = -swing;
   const punchT = Math.max(0, player.punchTimer);
-  player.mesh.userData.armR.rotation.x = punchT > 0 ? -1.4 : 0;
+  const armed = player.weapon && player.weapon !== 'fists';
+  player.mesh.userData.armR.rotation.x = punchT > 0 ? -1.4 : armed ? -1.4 : 0;
+  player.mesh.userData.pistol.visible = armed && player.weapon === 'pistol';
+  player.mesh.userData.rifle.visible = armed && player.weapon === 'rifle';
   player.punchTimer = Math.max(0, player.punchTimer - dt);
+  player.shootTimer = Math.max(0, (player.shootTimer || 0) - dt);
+  player.reloadTimer = Math.max(0, (player.reloadTimer || 0) - dt);
 }

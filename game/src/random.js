@@ -1,6 +1,5 @@
-// A tiny seeded random generator (mulberry32). The city, the traffic and the
-// screenshot scenes all draw from one seeded stream, so the same seed always
-// builds the same Solara Bay and the same frame.
+// A tiny seeded random generator (mulberry32): one stream, so the same
+// seed always builds the same city and the same screenshot frame.
 export function createRandom(seed) {
   let state = seed >>> 0;
   function next() {
@@ -27,6 +26,15 @@ export function createRandom(seed) {
     /** True with probability p. */
     chance(p) {
       return next() < p;
+    },
+    /** A shuffled copy of an array (Fisher-Yates, same seed, same order). */
+    shuffle(items) {
+      const out = [...items];
+      for (let i = out.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(next() * (i + 1));
+        [out[i], out[j]] = [out[j], out[i]];
+      }
+      return out;
     },
   };
 }

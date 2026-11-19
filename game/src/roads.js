@@ -1,6 +1,5 @@
-// The road network of Solara Bay: a regular grid. Roads run along the lines in
-// config; every crossing of an x-line and a z-line is a node, and traffic cars
-// hop from node to neighbouring node, so they always stay on a road.
+// The road network: a regular grid (13 lines on x, 11 on z, 60 m apart).
+// Every crossing is a node; traffic hops node to node, staying on roads.
 import { CITY } from './config.js';
 
 /** Build the network once; the result is plain data, no three.js in here. */
@@ -8,14 +7,14 @@ export function buildRoads() {
   const lines = CITY.roadLines;
   const nodes = [];
   const byKey = new Map();
-  for (const x of lines) {
-    for (const z of lines) {
+  for (const x of CITY.roadLinesX) {
+    for (const z of CITY.roadLinesZ) {
       const node = { x, z, key: `${x},${z}` };
       nodes.push(node);
       byKey.set(node.key, node);
     }
   }
-  return { lines, nodes, byKey };
+  return { lines, linesX: CITY.roadLinesX, linesZ: CITY.roadLinesZ, nodes, byKey };
 }
 
 /** The neighbouring intersections of a node (up to four, along the grid). */
@@ -43,34 +42,22 @@ export function nearestNode(roads, x, z) {
   return best;
 }
 
-/**
- * Closest point on any road centreline to (x, z), plus the road's direction.
- * Traffic and the autopilot steer toward this when they need to get back on tarmac.
- */
-export function nearestRoadPoint(x, z) {
-  let best = null;
-  let bestD = Infinity;
-  for (const line of CITY.roadLines) {
-    // Roads running north-south (constant x) and east-west (constant z).
-    const dX = Math.abs(x - line);
-    if (dX < bestD) {
-      bestD = dX;
-      best = { x: line, z, along: 'z' };
-    }
-    const dZ = Math.abs(z - line);
-    if (dZ < bestD) {
-      bestD = dZ;
-      best = { x, z: line, along: 'x' };
-    }
-  }
-  return best;
+/** A random intersection, optionally inside one district's bounds. */
+export function randomNode(roads, rng, bounds) {
+  const pool = bounds
+    ? roads.nodes.filter((n) => n.x >= bounds.minX && n.x <= bounds.maxX && n.z >= bounds.minZ && n.z <= bounds.maxZ)
+    : roads.nodes;
+  return rng.pick(pool.length ? pool : roads.nodes);
 }
 
 /** Is (x, z) on a road surface (within half the road width of a centreline)? */
 export function isOnRoad(x, z) {
   const half = CITY.roadWidth / 2;
-  for (const line of CITY.roadLines) {
-    if (Math.abs(x - line) <= half || Math.abs(z - line) <= half) return true;
+  for (const line of CITY.roadLinesX) {
+    if (Math.abs(x - line) <= half) return true;
+  }
+  for (const line of CITY.roadLinesZ) {
+    if (Math.abs(z - line) <= half) return true;
   }
   return false;
 }

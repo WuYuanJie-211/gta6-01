@@ -1,11 +1,9 @@
-// The screenshot scenes behind ?shot=chase|drive|walk|mission. Each one stages
-// a real game state — a car, a wanted level, police behind it, a mission in
-// progress — then plays the rules forward for a few seconds with a scripted
-// driver, so the frame is what a short game really looks like and the same
-// seed always gives the same frame. Nothing here is faked: the HUD, the
-// minimap and the traffic are all the live game.
+// Screenshot scenes (?shot=chase|gunfight|downtown|race): each stages a
+// real game state, then plays the rules forward a few seconds with a
+// scripted driver. Nothing is faked — HUD, minimap and traffic are live.
 import { STEP } from './config.js';
 import { enterCar, spawnPoliceCar } from './vehicles.js';
+import { ACTION_SHOOT } from './input.js';
 
 /** Steer the player's car toward a point: A when the nose must turn left, D for right. */
 function steerCarToward(game, tx, tz) {
@@ -57,18 +55,22 @@ function cameraBehind(game) {
   game.lastDragAt = game.time;
 }
 
-/** The cover: three stars, three police cars on the tail, the lighthouse run. */
+/**
+ * The cover: the bank job in downtown. Four stars, the police helicopter
+ * overhead, a roadblock going up ahead, four police cars on the tail, the
+ * armored van barrelling north between the towers.
+ */
 function stageChase(game) {
-  game.missions.setProgress(2, 1);
-  const comet = game.cars.comet;
-  comet.pos.set(0, 0, 120);
-  comet.heading = Math.PI / 2; // north, up the avenue
-  comet.mesh.position.copy(comet.pos);
-  comet.mesh.rotation.y = comet.heading;
-  comet.stolen = true;
-  enterCar(game, comet);
-  game.police.state.wanted = 3;
-  const tailSpots = [[2, 132], [-4, 148], [5, 165]];
+  game.missions.setProgress(6, 1);
+  const van = game.cars.armored;
+  van.pos.set(240, 0, -60);
+  van.heading = Math.PI / 2; // north, up the downtown avenue
+  van.mesh.position.copy(van.pos);
+  van.mesh.rotation.y = van.heading;
+  van.stolen = true;
+  enterCar(game, van);
+  game.police.state.wanted = 4;
+  const tailSpots = [[242, -48], [236, -32], [244, -16], [238, 0]];
   for (const [x, z] of tailSpots) {
     const pc = spawnPoliceCar(game);
     pc.pos.set(x, 0, z);
@@ -79,90 +81,118 @@ function stageChase(game) {
     game.police.state.cars.push(pc);
   }
   cameraBehind(game);
-  driveFor(game, 2.5, (g) => steerCarToward(g, 0, -240));
+  // 2.2 s north: the heli closes in, the roadblock appears ahead, and
+  // the van stops 25 m short of it, so the frame shows the chase.
+  driveFor(game, 2.2, (g) => steerCarToward(g, 240, -360));
+  // Frame the chase: a wider, lower camera (so the sky is in the frame) and
+  // the helicopter low and close ahead of the van, not high and far — a
+  // 30 m heli 45 m ahead sits above the frame, as the first version proved.
+  game.camDist = 14;
+  game.camPitch = 0.28;
+  const heli = game.police.heli;
+  if (heli) {
+    // Low, ahead and to the right: clear of the mission bar (top centre)
+    // and the minimap (top right), in front of the towers, searchlight
+    // reaching down toward the road.
+    heli.position.set(game.player.car.pos.x + 15, 10, game.player.car.pos.z - 25);
+  }
+  game.hud.hideToast();
   game.hud.hideMissionCard();
 }
 
-/** The coastal drive: beach and sea on the right, skyline ahead, traffic around. */
-function stageDrive(game) {
-  game.missions.setProgress(0, 1);
-  const car = game.cars.parked[0];
-  car.pos.set(-120, 0, 240);
-  car.heading = 0; // east, along the coast road
-  car.mesh.position.copy(car.pos);
-  car.mesh.rotation.y = car.heading;
-  enterCar(game, car);
-  // Two traffic cars on the coast road ahead of the player, driving east.
-  const coastSpots = [
-    { x: -50, prev: '-60,240', target: '0,240' },
-    { x: 40, prev: '0,240', target: '60,240' },
+/**
+ * The gunfight: Rook on foot with the rifle at the chop shop, three armed
+ * guards shooting back, tracers in the air, the bank-job beacon overhead.
+ */
+function stageGunfight(game) {
+  game.missions.setProgress(6, 1);
+  const player = game.player;
+  player.weapon = 'rifle';
+  player.ownedWeapons = ['pistol', 'rifle'];
+  player.mag = 30;
+  player.ammo = 60;
+  player.pos.set(-182, 0, 190);
+  player.heading = Math.atan2(-182 - player.pos.x, 214 - player.pos.z);
+  player.mesh.position.copy(player.pos);
+  player.mesh.rotation.y = player.heading;
+  game.combat.spawnGunman(-186, 216);
+  game.combat.spawnGunman(-178, 218);
+  game.combat.spawnGunman(-182, 224);
+  game.combat.spawnThug(-168, 200);
+  cameraBehind(game);
+  // Two rifle shots 0.2 s apart, then a final shot with no steps after
+  // it: the tracer is still in the air when the frame is taken.
+  for (let s = 0; s < 2; s += 1) {
+    game.input.fireAction(ACTION_SHOOT);
+    for (let i = 0; i < Math.round(0.2 / STEP); i += 1) game.step(STEP);
+  }
+  game.input.fireAction(ACTION_SHOOT);
+  game.step(STEP);
+  game.hud.hideMissionCard();
+}
+
+/**
+ * The downtown taxi run: a yellow cab on the downtown avenue, towers and a
+ * billboard around it, six traffic cars on the same roads, fares waiting.
+ */
+function stageDowntown(game) {
+  game.missions.setProgress(3, 0);
+  const taxi = game.cars.parked.find((c) => c.model === 'taxi') || game.cars.parked[0];
+  taxi.pos.set(120, 0, -180);
+  taxi.heading = 0; // east, along the downtown avenue
+  taxi.mesh.position.copy(taxi.pos);
+  taxi.mesh.rotation.y = taxi.heading;
+  enterCar(game, taxi);
+  // Six traffic cars on the downtown roads, driving east and west.
+  const spots = [
+    { x: 180, z: -180, prev: '120,-180', target: '180,-180' },
+    { x: 240, z: -120, prev: '180,-120', target: '240,-120' },
+    { x: 300, z: -240, prev: '240,-240', target: '300,-240' },
+    { x: 200, z: -60, prev: '240,-60', target: '180,-60' },
+    { x: 60, z: -120, prev: '120,-120', target: '60,-120' },
+    { x: 320, z: -180, prev: '360,-180', target: '300,-180' },
   ];
-  game.cars.traffic.slice(0, 2).forEach((t, i) => {
-    t.pos.set(coastSpots[i].x, 0, 240);
-    t.heading = 0;
-    t.prevNode = game.roads.byKey.get(coastSpots[i].prev);
-    t.targetNode = game.roads.byKey.get(coastSpots[i].target);
+  game.cars.traffic.slice(0, 6).forEach((t, i) => {
+    t.pos.set(spots[i].x, 0, spots[i].z);
+    t.heading = spots[i].x > 240 ? Math.PI : 0;
+    t.prevNode = game.roads.byKey.get(spots[i].prev);
+    t.targetNode = game.roads.byKey.get(spots[i].target);
     t.speed = 10;
     t.mesh.position.copy(t.pos);
     t.mesh.rotation.y = t.heading;
   });
   cameraBehind(game);
-  driveFor(game, 3, (g) => steerCarToward(g, 240, 240));
+  driveFor(game, 3, (g) => steerCarToward(g, 360, -180));
   game.hud.hideMissionCard();
 }
 
-/** On foot at a busy intersection: pedestrians, traffic, a car to steal. */
-function stageWalk(game) {
-  game.missions.setProgress(0, 0);
-  const player = game.player;
-  player.pos.set(65, 0, 88);
-  player.heading = Math.PI; // north, toward the intersection
-  player.mesh.position.copy(player.pos);
-  // A car parked right by the kerb, close enough for the prompt to show.
-  const car = game.cars.parked[0];
-  car.pos.set(68, 0, 82);
-  car.heading = Math.PI / 2;
-  car.mesh.position.copy(car.pos);
-  car.mesh.rotation.y = car.heading;
-  // A few pedestrians on the sidewalks around this corner.
-  const spots = [[54, 70], [66, 60], [52, 84], [70, 96]];
-  game.peds.slice(0, 4).forEach((ped, i) => {
-    ped.pos.set(spots[i][0], 0, spots[i][1]);
-    ped.target = { x: spots[i][0] + 20, z: spots[i][1] };
-    ped.mesh.position.copy(ped.pos);
-  });
-  cameraBehind(game);
-  walkFor(game, 1);
-  game.hud.hideMissionCard();
-}
-
-/** The steal: Rook beside the red Comet GT, chop-shop muscle closing in. */
-function stageMission(game) {
-  game.missions.setProgress(1, 0);
-  const player = game.player;
+/**
+ * The race: the Comet GT on the start line of the bay street circuit, the
+ * first checkpoint dead ahead, the clock running, the port on the left.
+ */
+function stageRace(game) {
+  game.missions.setProgress(5, 0);
   const comet = game.cars.comet;
-  // Stand south-west of the Comet, close enough for the prompt, off to the
-  // side so the car is not hidden behind Rook from the camera.
-  player.pos.set(-177, 0, 64);
-  // Face the Comet GT.
-  player.heading = Math.atan2(comet.pos.x - player.pos.x, comet.pos.z - player.pos.z);
-  player.mesh.position.copy(player.pos);
-  player.mesh.rotation.y = player.heading;
-  game.combat.spawnThug(-168, 82);
-  game.combat.spawnThug(-190, 56);
+  comet.pos.set(0, 0, -240);
+  comet.heading = Math.PI / 2; // north, toward checkpoint 1
+  comet.mesh.position.copy(comet.pos);
+  comet.mesh.rotation.y = comet.heading;
+  comet.stolen = true;
+  enterCar(game, comet);
   cameraBehind(game);
-  // Two seconds of the thugs closing in; the beacon spins over the Comet.
-  for (let i = 0; i < Math.round(2 / STEP); i += 1) game.step(STEP);
+  // 2.5 s north: the first checkpoint and its beacon stay ahead, the
+  // timer counts down, and the car never overshoots the circuit.
+  driveFor(game, 2.5, (g) => steerCarToward(g, 0, -360));
   game.hud.hideMissionCard();
 }
 
-/** Set `game` to the named scene (chase, drive, walk or mission; anything else is drive). */
+/** Set `game` to the named scene (chase, gunfight, downtown or race; anything else is downtown). */
 export function stageShot(name, game) {
   game.screen = 'playing';
   game.hud.showMenu(false);
   if (name === 'chase') stageChase(game);
-  else if (name === 'walk') stageWalk(game);
-  else if (name === 'mission') stageMission(game);
-  else stageDrive(game);
+  else if (name === 'gunfight') stageGunfight(game);
+  else if (name === 'race') stageRace(game);
+  else stageDowntown(game);
   game.hud.update();
 }

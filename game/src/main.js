@@ -1,21 +1,19 @@
-// Solara Bay: boot and the one loop. The game moves between four screens —
-// title, playing, paused and game over — and the world advances in fixed 1/60 s
-// steps so a fast or slow display never changes the simulation.
-// ?seed=N fixes the city. ?shot=chase|drive|walk|mission (with &seed=N) stages
-// that scene instead of running the loop, paints it twice and sets
-// window.__shotReady for a screenshot.
+// Solara Bay v2: boot and the one loop. Four screens; the world advances
+// in fixed 1/60 s steps. ?seed=N fixes the city; ?shot=... stages a
+// screenshot scene instead of running the loop.
 import * as THREE from 'three';
-import { STEP, CITY, WORLD, PLAYER } from './config.js';
+import { STEP, WORLD, PLAYER, WEAPONS } from './config.js';
 import { createRandom } from './random.js';
 import { buildRoads } from './roads.js';
 import { buildCity } from './city.js';
-import { createInput, ACTION_INTERACT, ACTION_PUNCH, ACTION_PAUSE, ACTION_CONFIRM } from './input.js';
+import { createInput, ACTION_INTERACT, ACTION_PUNCH, ACTION_PAUSE, ACTION_CONFIRM, ACTION_SHOOT, ACTION_CYCLE, ACTION_RELOAD, ACTION_MUSIC } from './input.js';
 import { createPlayerMesh, updatePlayerOnFoot } from './player.js';
 import { spawnCars, updateTraffic, updatePlayerCar, enterCar, exitCar, nearestStealableCar } from './vehicles.js';
 import { spawnPedestrians, updatePedestrians } from './pedestrians.js';
 import { createPolice } from './police.js';
 import { createCombat } from './combat.js';
 import { createMissions } from './missions.js';
+import { createShops } from './shops.js';
 import { createHud } from './hud.js';
 import { saveGame, loadSave, hasSave } from './save.js';
 import { createAudio } from './audio.js';
@@ -38,6 +36,7 @@ class Game {
     this.camDist = 9;
     this.camPitch = 0.32;
     this.lastDragAt = -10;
+    this.ownedCars = [];
 
     this.canvas = document.getElementById('game');
     this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, preserveDrawingBuffer: true });
@@ -46,11 +45,11 @@ class Game {
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x8ec9ee);
-    this.scene.fog = new THREE.Fog(0x8ec9ee, 220, 620);
+    this.scene.fog = new THREE.Fog(0x8ec9ee, 260, 800);
     this.camera = new THREE.PerspectiveCamera(60, 1, 0.1, 1500);
 
-    // Sun and sky light: one warm directional sun with shadows, one soft sky fill.
-    const sun = new THREE.DirectionalLight(0xfff2d8, 2.4);
+    // Sun and sky light: a low afternoon sun with long shadows.
+    const sun = new THREE.DirectionalLight(0xffd9a0, 2.6);
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
     sun.shadow.camera.left = -90;
@@ -71,6 +70,7 @@ class Game {
     this.police = createPolice(this);
     this.combat = createCombat(this);
     this.missions = createMissions(this);
+    this.shops = createShops(this);
 
     this.player = {
       mesh: createPlayerMesh(),
@@ -81,11 +81,17 @@ class Game {
       onFoot: true,
       car: null,
       punchTimer: 0,
+      shootTimer: 0,
+      reloadTimer: 0,
+      weapon: 'fists',
+      ownedWeapons: [],
+      mag: 0,
+      ammo: 0,
     };
     this.scene.add(this.player.mesh);
     this.player.mesh.position.copy(this.player.pos);
 
-    this.cars = { parked: [], traffic: [], comet: null };
+    this.cars = { parked: [], traffic: [], comet: null, armored: null };
     this.peds = [];
     spawnCars(this);
     spawnPedestrians(this, WORLD.pedestrians);
@@ -140,6 +146,17 @@ class Game {
       this.player.pos.set(save.playerX, 0, save.playerZ);
       this.player.heading = save.playerHeading;
       this.missions.setProgress(save.missionIndex, save.missionStage);
+      this.player.weapon = save.weapon || 'fists';
+      this.player.ownedWeapons = save.ownedWeapons || [];
+      this.player.ammo = save.ammo || 0;
+      this.player.mag = save.mag || 0;
+      this.ownedCars = save.ownedCars || [];
+      if (Array.isArray(save.collected)) {
+        this.missions.state.collected = save.collected;
+        this.city.collectibleMeshes.forEach((gem, i) => {
+          gem.visible = !save.collected[i];
+        });
+      }
       this.player.mesh.position.copy(this.player.pos);
     }
     this.setScreen('playing');
@@ -154,9 +171,10 @@ class Game {
     if (screen === 'playing') this.audio.unlock();
   }
 
-  /** What E does right now: mission pickups first, then cars, then getting out. */
+  /** What E does right now: missions first, then shops, then cars, then getting out. */
   interact() {
     if (this.missions.interact()) return;
+    if (this.shops.interact()) return;
     if (this.player.onFoot) {
       const car = nearestStealableCar(this);
       if (car) {
@@ -165,11 +183,29 @@ class Game {
           this.police.commitCrime(1);
           this.hud.flash('You stole the Comet GT! The cops are coming.');
         }
+        if (car.forSale) {
+          this.hud.flash(`For sale — $${car.salePrice}. Press E at the dealer counter to buy it.`);
+          return;
+        }
         enterCar(this, car);
       }
     } else {
       exitCar(this);
     }
+  }
+
+  /** Cycle through the weapons Rook owns: fists, pistol, rifle, back to fists. */
+  cycleWeapon() {
+    const owned = this.player.ownedWeapons;
+    if (!owned.length) {
+      this.hud.flash('No guns yet — the gun shop is downtown.');
+      return;
+    }
+    const order = ['fists', ...owned];
+    const idx = order.indexOf(this.player.weapon);
+    this.player.weapon = order[(idx + 1) % order.length];
+    const name = this.player.weapon === 'fists' ? 'Fists' : WEAPONS[this.player.weapon].name;
+    this.hud.flash(`Weapon: ${name}.`);
   }
 
   /** The one line of help at the bottom of the screen, for whatever is nearest. */
@@ -179,33 +215,76 @@ class Game {
       return;
     }
     if (!this.player.onFoot) {
+      const shop = this.shops.nearShop();
+      if (shop && shop.key === 'garage') {
+        this.hud.setPrompt('E — repair the car ($60) · WASD — drive · mouse — look around');
+        return;
+      }
+      if (shop && shop.key === 'chopShop') {
+        this.hud.setPrompt('E — sell this car · WASD — drive · mouse — look around');
+        return;
+      }
+      const marker = this.missions.state.marker;
+      if (this.missions.stageKey() === 'fare' && marker && this.player.car.model === 'taxi') {
+        const d = Math.hypot(marker.x - this.player.car.pos.x, marker.z - this.player.car.pos.z);
+        if (d < 6) {
+          this.hud.setPrompt('E — pick up the fare');
+          return;
+        }
+      }
       this.hud.setPrompt('E — get out of the car · WASD — drive · mouse — look around');
       return;
     }
     const target = this.missions.state.marker;
     const key = this.missions.stageKey();
-    if (target && (key === 'pickup' || key === 'steal')) {
+    if (target && (key === 'pickup' || key === 'steal' || key === 'collect')) {
       const d = Math.hypot(target.x - this.player.pos.x, target.z - this.player.pos.z);
       if (d < 6) {
-        this.hud.setPrompt(key === 'steal' ? 'E — steal the Comet GT' : 'E — pick it up');
+        if (key === 'steal') {
+          this.hud.setPrompt(this.missions.state.index === 6 ? 'E — steal the armored van' : 'E — steal the Comet GT');
+        } else if (key === 'collect') {
+          this.hud.setPrompt('E — grab the package');
+        } else {
+          this.hud.setPrompt('E — pick it up');
+        }
         return;
       }
     }
-    const car = nearestStealableCar(this);
-    if (car) {
-      this.hud.setPrompt(car === this.cars.comet ? 'E — steal the Comet GT' : 'E — get in the car');
+    const shop = this.shops.nearShop();
+    if (shop) {
+      const hints = {
+        dealer: 'E — buy a car',
+        gunShop: 'E — buy a gun / ammo',
+        garage: 'E — repair (drive a car in)',
+        diner: 'E — eat ($25, +50 health)',
+        chopShop: 'E — sell a stolen car (drive one in)',
+      };
+      this.hud.setPrompt(hints[shop.key] || 'E — shop');
       return;
     }
-    this.hud.setPrompt('WASD — walk · Shift — run · E — interact · F — punch · P — pause');
+    const car = nearestStealableCar(this);
+    if (car) {
+      this.hud.setPrompt(car === this.cars.comet ? 'E — steal the Comet GT' : car.forSale ? `E — get in the car (for sale $${car.salePrice})` : 'E — get in the car');
+      return;
+    }
+    this.hud.setPrompt('WASD — walk · Shift — run · E — interact · F — punch · click — shoot · Q — weapon · P — pause');
   }
 
   /** One fixed step of the world. */
   step(dt) {
     this.time += dt;
     const playing = this.screen === 'playing';
-    // Traffic and pedestrians keep the city alive even behind the title menu.
+    // Traffic, water and clouds keep the city alive behind the title menu.
     updateTraffic(this, dt);
     updatePedestrians(this, dt);
+    this.city.sea.position.y = 0.02 + Math.sin(this.time * 0.5) * 0.12;
+    for (const boat of this.city.boats) {
+      boat.position.y = 0.9 + Math.sin(this.time * 0.8 + boat.position.x) * 0.15;
+    }
+    for (const cloud of this.city.clouds) {
+      cloud.position.x += dt * 1.2;
+      if (cloud.position.x > 420) cloud.position.x = -420;
+    }
     if (!playing) return;
     const actions = this.input.takeActions();
     if (actions & ACTION_PAUSE) {
@@ -214,6 +293,13 @@ class Game {
     }
     if (actions & ACTION_INTERACT) this.interact();
     if (actions & ACTION_PUNCH) this.combat.playerPunch();
+    if (actions & ACTION_SHOOT) this.combat.playerShoot();
+    if (actions & ACTION_CYCLE) this.cycleWeapon();
+    if (actions & ACTION_RELOAD) this.combat.reloadWeapon();
+    if (actions & ACTION_MUSIC) {
+      const on = this.audio.toggleMusic();
+      this.hud.flash(on ? 'Music on.' : 'Music off.');
+    }
     if (this.player.onFoot) updatePlayerOnFoot(this, dt);
     else updatePlayerCar(this, dt);
     this.police.update(dt);
@@ -251,7 +337,7 @@ class Game {
       fx = Math.sin(this.player.heading);
       fz = Math.cos(this.player.heading);
     }
-    // Drift back behind the direction of travel unless the player just looked around.
+    // Drift back behind the travel direction unless the player just looked.
     if (this.time - this.lastDragAt > 2.5) {
       const wanted = Math.atan2(-fx, -fz);
       let diff = wanted - this.cameraAngle;
@@ -270,7 +356,7 @@ class Game {
     );
     this.camera.lookAt(target.x, 1.6, target.z);
     // The sun follows the player so shadows stay crisp wherever they go.
-    this.sun.position.set(target.x + 80, 140, target.z + 60);
+    this.sun.position.set(target.x + 120, 100, target.z + 40);
     this.sun.target.position.set(target.x, 0, target.z);
     this.sun.target.updateMatrixWorld();
   }

@@ -1,7 +1,7 @@
-// Save and load through localStorage: cash, health, mission progress and where
-// the player stands. A save that cannot be read is treated as no save, never as
-// an error, so a fresh player always gets a clean start.
-const SAVE_KEY = 'solara-bay-save-v1';
+// Save/load through localStorage: cash, health, mission, weapons, ammo,
+// cars bought, packages found, player position. An unreadable save is
+// treated as no save. v2 has its own key (v1 saves could never load).
+import { SAVE_KEY } from './config.js';
 
 /** Write the current progress down. Returns true when it stuck. */
 export function saveGame(game) {
@@ -9,8 +9,13 @@ export function saveGame(game) {
     const data = {
       cash: game.cash,
       health: game.player.health,
-      missionIndex: game.missions.index,
-      missionStage: game.missions.stage,
+      missionIndex: game.missions.state.index,
+      missionStage: game.missions.state.stage,
+      weapon: game.player.weapon,
+      ammo: game.player.ammo,
+      mag: game.player.mag,
+      ownedCars: game.ownedCars || [],
+      collected: game.missions.state.collected,
       playerX: game.player.pos.x,
       playerZ: game.player.pos.z,
       playerHeading: game.player.heading,

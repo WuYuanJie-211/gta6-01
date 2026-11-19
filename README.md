@@ -4,7 +4,7 @@
 
 # Solara Bay — an original open-world crime game
 
-A sunny coastal city, one wheelman, three jobs. **Solara Bay** is my entry for
+A sunny coastal city, one wheelman, seven jobs. **Solara Bay** is my entry for
 [make.fun's gta6-01](https://make.fun/c/gta6-01) ("Make GTA 6"): a complete
 open-world crime game that plays in a desktop browser from static files, with
 no network request at all.
@@ -14,37 +14,65 @@ No Rockstar names, characters, maps, art or music anywhere.
 
 ## The game
 
-You are **Rook**, a driver for hire in Solara Bay. The story runs in three
+You are **Rook**, a driver for hire in Solara Bay. The story runs in seven
 missions:
 
 1. **First Fare** — pick up Mara at the plaza and drive her to the Marina.
 2. **Hot Wheels** — steal the red Comet GT and deliver it to the Chop Shop,
    with the police on you and chop-shop muscle waiting.
 3. **The Lighthouse Run** — run a package to the Lighthouse with three wanted
-   stars on you, then lose the tail. Finish it and the Bay is yours.
+   stars on you, then lose the tail.
+4. **Downtown Taxi** — grab a taxi and run three fares from the bus stops
+   across town; every fare pays.
+5. **Package Hunt** — five green packages are hidden across the districts;
+   find them all.
+6. **Bay Street Grand Prix** — four checkpoints, one lap, three minutes on
+   the clock.
+7. **The Bank Job** — steal the armored van by the Bank, deliver it to the
+   Chop Shop with four stars on you, and lose the tail. Finish it and the
+   Bay is yours.
 
 Between and after the jobs, the city is free roam: walk the streets, steal any
-parked car, outrun the police, brawl with rivals, and watch the wanted stars
-cool off when you lay low.
+parked car, buy a car at the dealer, buy a gun at the gun shop, sell a hot car
+at the chop shop, get a meal at the diner, outrun the police and the
+helicopter, and watch the wanted stars cool off when you lay low.
 
 ## Systems
 
-- **Open city** — a 9×9 road grid with buildings, parks, palms, a beach, the
-  sea, a marina and a striped lighthouse, all built in three.js.
-- **On foot and by car** — walk, run, drive, and steal parked cars (E).
-- **Traffic and pedestrians** — cars drive the grid, people stroll the
-  sidewalks and scatter when a car comes at them.
-- **Wanted level and police** — crimes earn stars; police cars chase and ram;
-  laying low cools the heat off.
-- **Missions and story** — three chained jobs with objectives, a 3D beacon,
-  payouts and a story card for each.
-- **Combat** — fist fights (F) with rival thugs who guard the chop shop.
-- **HUD and minimap** — health, cash, wanted stars, speed, mission objective
-  and a live top-down map of the city, the police and the mission marker.
+- **Open city** — a 13×11 road grid across four districts: glass downtown
+  towers, the container port with cranes, low suburbs with gardens, and the
+  old town, beach, sea, marina and striped lighthouse, all built in three.js.
+- **On foot and by car** — walk, run, drive, and steal parked cars (E). Nine
+  car models with their own shapes, speeds and prices — sedan, compact, taxi,
+  van, pickup, truck, bus, muscle, the Comet GT sports car, and the armored
+  van — plus damage and repair.
+- **Traffic and pedestrians** — 20 cars drive the grid; 36 people stroll the
+  sidewalks, wait at bus stops, chat in groups, and scatter when a car comes
+  at them.
+- **Wanted level and police** — crimes earn stars; police cars chase, ram and
+  cut you off from ahead; at 3 stars a roadblock goes up in front of you; at
+  4 stars a police helicopter joins and the heat never cools off while it is
+  overhead; laying low cools the heat off.
+- **Missions and story** — seven chained jobs with objectives, a 3D beacon,
+  payouts and a story card for each, plus a mission list in the HUD.
+- **Combat** — fist fights (F) with rival thugs, and guns: buy a pistol or a
+  rifle at the gun shop, shoot (click / G), reload (R), switch weapons (Q).
+  Armed guards shoot back.
+- **Economy** — money has uses: buy cars and guns and ammo, repair at the
+  garage, eat at the diner; money has sources: missions, taxi fares, hidden
+  packages, selling hot cars, and dropping thugs.
+- **HUD and minimap** — health, cash, wanted stars, speed, weapon and ammo,
+  car bodywork, the district you are in, the race clock, the mission list and
+  objective, and a live top-down map with district names, shops,
+  collectibles, checkpoints, the helicopter, the police and the mission
+  marker.
 - **Start and save** — title menu, pause menu, and save / load through
-  localStorage.
-- **Sound** — a synthesized engine hum, police siren and effects (WebAudio,
-  no audio files).
+  localStorage (cash, health, mission progress, weapons, cars bought,
+  packages found).
+- **Sound** — a synthesized engine hum, a two-tone police siren (a second
+  siren joins at 4 stars), a looping music track (M toggles it), and effects
+  for gunshots, crashes, pickups, payouts and reloads (WebAudio, no audio
+  files).
 
 ## Controls
 
@@ -54,8 +82,12 @@ cool off when you lay low.
 | Shift | Run |
 | Mouse drag | Look around (orbit camera) |
 | Wheel | Zoom |
-| E | Get in / steal a car, pick things up, get out |
+| E | Get in / steal a car, pick things up, shop, get out |
 | F | Punch |
+| Click / G | Shoot (when armed) |
+| Q | Switch weapon |
+| R | Reload |
+| M | Music on/off |
 | P / Esc | Pause and save |
 
 ## Play it
@@ -68,7 +100,7 @@ node serve.ts
 Screenshot scenes (deterministic, same seed gives the same frame):
 
 ```sh
-# ?shot=chase | drive | walk | mission, with &seed=N
+# ?shot=chase | gunfight | downtown | race, with &seed=N
 http://localhost:8080/?shot=chase&seed=7
 ```
 

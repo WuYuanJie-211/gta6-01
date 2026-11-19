@@ -1,4 +1,4 @@
-// Solara Bay, my gta6-01 entry (Node 22, standard library only).
+// Solara Bay v2, my gta6-01 entry (Node 22, standard library only).
 //
 // The game lives in this directory's game/ folder: plain static files that a
 // desktop browser loads offline — game/index.html plus its ES modules, three.js
@@ -6,6 +6,11 @@
 // made at all. This program hands the game in: it copies game/ and screenshots/
 // from beside this file into the output directory and writes dossier.json there,
 // the summary the judge reads, using the vendored make.fun library.
+//
+// v2 grew the city to four districts, nine car models, 36 pedestrians, seven
+// missions, guns and gunmen, a helicopter and roadblocks, and five shops — but
+// the hand-in is unchanged: the same folders, the same caps, the same
+// byte-identical output on every run.
 //
 // The grader runs this program twice and demands byte-identical output, so it
 // does nothing time- or randomness-dependent: it copies files and builds the
@@ -38,6 +43,9 @@ const CAPS = {
   game_path_max_bytes: 1000,
 };
 
+if (!existsSync(join(here, 'game'))) {
+  throw new Error('main.ts: game/ is missing next to this file — nothing to hand in');
+}
 mkdirSync(out, { recursive: true });
 cpSync(join(here, 'game'), join(out, 'game'), { recursive: true });
 mkdirSync(join(out, 'screenshots'), { recursive: true });
