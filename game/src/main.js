@@ -148,6 +148,10 @@ class Game {
       this.missions.setProgress(save.missionIndex, save.missionStage);
       this.player.weapon = save.weapon || 'fists';
       this.player.ownedWeapons = save.ownedWeapons || [];
+      // Saves written before ownedWeapons was stored: keep the equipped gun.
+      if ((save.weapon === 'pistol' || save.weapon === 'rifle') && !this.player.ownedWeapons.includes(save.weapon)) {
+        this.player.ownedWeapons.push(save.weapon);
+      }
       this.player.ammo = save.ammo || 0;
       this.player.mag = save.mag || 0;
       this.ownedCars = save.ownedCars || [];

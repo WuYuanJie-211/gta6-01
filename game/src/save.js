@@ -12,6 +12,7 @@ export function saveGame(game) {
       missionIndex: game.missions.state.index,
       missionStage: game.missions.state.stage,
       weapon: game.player.weapon,
+      ownedWeapons: game.player.ownedWeapons || [],
       ammo: game.player.ammo,
       mag: game.player.mag,
       ownedCars: game.ownedCars || [],
