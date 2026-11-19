@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { CITY, COLOURS, DETAIL, TEXTURES, districtAt } from './config.js';
+const SM=(o)=>new THREE.MeshStandardMaterial(o);
 function tile(tex, rx, ry) {
   const t = tex.clone();
   t.needsUpdate = true;
@@ -10,7 +11,7 @@ const _mats = new Map();
 function M(color, rough = 1, extra = {}) {
   const k = `${color}|${rough}|${extra.metalness ?? 0}|${extra.emissive ?? 0}`;
   let m = _mats.get(k);
-  if (!m) { m = new THREE.MeshStandardMaterial({ color, roughness: rough, ...extra }); _mats.set(k, m); }
+  if (!m) { m = SM({ color, roughness: rough, ...extra }); _mats.set(k, m); }
   return m;
 }
 function box(parent, w, h, d, material, x, y, z, shadow = false) {
@@ -163,7 +164,7 @@ function makeSign(text, fg, bg, w = 10, h = 2.5) {
   tex.colorSpace = THREE.SRGBColorSpace;
   return new THREE.Mesh(
     new THREE.PlaneGeometry(w, h),
-    new THREE.MeshStandardMaterial({ map: tex }),
+    SM({ map: tex }),
   );
 }
 function makePalm(rng) {
@@ -203,7 +204,7 @@ function makeTree(rng) {
   for (let i = 0; i < 3; i += 1) {
     const puff = new THREE.Mesh(
       new THREE.IcosahedronGeometry(sizes[i], 1),
-      new THREE.MeshStandardMaterial({ color: greens[i], roughness: 1 }),
+      SM({ color: greens[i], roughness: 1 }),
     );
     puff.position.set(offsets[i][0] * DETAIL.treeSpread * 2, heights[i], offsets[i][1] * DETAIL.treeSpread * 2);
     group.add(puff);
@@ -217,11 +218,11 @@ function makeTrafficLight(state){
   box(g,0.5,1.3,0.4,M(0x1a1a1a,0.6),0,4.9,3.6);
   const cols=[0xff2222,0xffcc00,0x33cc33],on=state==='G'?2:0;
   for(let i=0;i<3;i+=1){
-    const lamp=new THREE.Mesh(new THREE.SphereGeometry(0.15,8,6),new THREE.MeshStandardMaterial({color:cols[i],emissive:cols[i],emissiveIntensity:i===on?1.8:0.08}));
+    const lamp=new THREE.Mesh(new THREE.SphereGeometry(0.15,8,6),SM({color:cols[i],emissive:cols[i],emissiveIntensity:i===on?1.8:0.08}));
     lamp.position.set(0,5.35-i*0.4,3.82);g.add(lamp);
   }
   const pc=state==='G'?0xff2222:0x33cc33;
-  box(g,0.3,0.5,0.12,new THREE.MeshStandardMaterial({color:pc,emissive:pc,emissiveIntensity:1.5}),0,2.4,0.15);
+  box(g,0.3,0.5,0.12,SM({color:pc,emissive:pc,emissiveIntensity:1.5}),0,2.4,0.15);
   return g;
 }
 function makeHydrant() {
@@ -328,14 +329,14 @@ export function buildCity(scene, rng, textures = {}) {
   };
   const ground = new THREE.Mesh(
     new THREE.PlaneGeometry(CITY.halfSize * 2 + 400, CITY.halfSize * 2 + 400),
-    new THREE.MeshStandardMaterial({ color: COLOURS.ground, roughness: 1 }),
+    SM({ color: COLOURS.ground, roughness: 1 }),
   );
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = true;
   scene.add(ground);
   const beachMat = textures.sand
-    ? new THREE.MeshStandardMaterial({ map: tile(textures.sand, 20, 2), roughness: 1 })
-    : new THREE.MeshStandardMaterial({ color: COLOURS.sand, roughness: 1 });
+    ? SM({ map: tile(textures.sand, 20, 2), roughness: 1 })
+    : SM({ color: COLOURS.sand, roughness: 1 });
   const beach = new THREE.Mesh(new THREE.PlaneGeometry(560, 60), beachMat);
   beach.rotation.x = -Math.PI / 2;
   beach.position.set(0, 0.03, 276);
@@ -344,7 +345,7 @@ export function buildCity(scene, rng, textures = {}) {
   if (textures.cobble) {
     const plaza = new THREE.Mesh(
       new THREE.PlaneGeometry(24, 24),
-      new THREE.MeshStandardMaterial({ map: tile(textures.cobble, 3, 3), roughness: 1 }),
+      SM({ map: tile(textures.cobble, 3, 3), roughness: 1 }),
     );
     plaza.rotation.x = -Math.PI / 2;
     plaza.position.set(0, 0.04, 12);
@@ -353,17 +354,17 @@ export function buildCity(scene, rng, textures = {}) {
   }
   const sea = new THREE.Mesh(
     new THREE.PlaneGeometry(900, 300),
-    new THREE.MeshStandardMaterial({ color: COLOURS.sea, roughness: 0.3, metalness: 0.1 }),
+    SM({ color: COLOURS.sea, roughness: 0.3, metalness: 0.1 }),
   );
   sea.rotation.x = -Math.PI / 2;
   sea.position.set(0, 0.02, 456);
   scene.add(sea);
   const roadMat = textures.asphalt
-    ? new THREE.MeshStandardMaterial({ map: tile(textures.asphalt, 60, 1), roughness: 1 })
-    : new THREE.MeshStandardMaterial({ color: COLOURS.asphalt, roughness: 1 });
+    ? SM({ map: tile(textures.asphalt, 60, 1), roughness: 1 })
+    : SM({ color: COLOURS.asphalt, roughness: 1 });
   const walkMat = textures.sidewalk
-    ? new THREE.MeshStandardMaterial({ map: tile(textures.sidewalk, 60, 1), roughness: 1 })
-    : new THREE.MeshStandardMaterial({ color: COLOURS.sidewalk, roughness: 1 });
+    ? SM({ map: tile(textures.sidewalk, 60, 1), roughness: 1 })
+    : SM({ color: COLOURS.sidewalk, roughness: 1 });
   const dashTex = makeDashTexture();
   const roadLenX = 780;
   const roadLenZ = 660;
@@ -485,8 +486,8 @@ export function buildCity(scene, rng, textures = {}) {
     const district = districtAt(bx, bz);
     if (PARK_BLOCKS.has(key)) {
       const parkMat = textures.grass
-        ? new THREE.MeshStandardMaterial({ map: tile(textures.grass, 4, 4), roughness: 1 })
-        : new THREE.MeshStandardMaterial({ color: COLOURS.grass, roughness: 1 });
+        ? SM({ map: tile(textures.grass, 4, 4), roughness: 1 })
+        : SM({ color: COLOURS.grass, roughness: 1 });
       const park = new THREE.Mesh(new THREE.PlaneGeometry(46, 46), parkMat);
       park.rotation.x = -Math.PI / 2;
       park.position.set(bx, 0.07, bz);
@@ -518,8 +519,8 @@ export function buildCity(scene, rng, textures = {}) {
           const cont = new THREE.Mesh(
             new THREE.BoxGeometry(6, 2.6, 2.6),
             useTex
-              ? new THREE.MeshStandardMaterial({ map: tile(textures.container, 2, 1), roughness: 0.8 })
-              : new THREE.MeshStandardMaterial({ color: rng.pick(COLOURS.container), roughness: 0.8 }),
+              ? SM({ map: tile(textures.container, 2, 1), roughness: 0.8 })
+              : SM({ color: rng.pick(COLOURS.container), roughness: 0.8 }),
           );
           cont.position.set(cx, 1.3 + s * 2.6, cz);
           cont.rotation.y = rng.chance(0.5) ? 0 : Math.PI / 2;
@@ -531,7 +532,7 @@ export function buildCity(scene, rng, textures = {}) {
       const ww = rng.range(26, 34);
       const wd = rng.range(16, 22);
       const wh = rng.range(8, 11);
-      const wm = textures.metal ? new THREE.MeshStandardMaterial({ map: tile(textures.metal, 3, 1), roughness: 0.9 }) : M(0x8a7a68);
+      const wm = textures.metal ? SM({ map: tile(textures.metal, 3, 1), roughness: 0.9 }) : M(0x8a7a68);
       box(scene, ww, wh, wd, wm, bx + 8, wh / 2, bz + 8, true);
       const saw1 = box(scene, ww + 0.4, 0.3, wd / 2 + 0.2, M(0x5a4a3a), bx + 8, wh + 0.8, bz + 8 - wd / 4);
       saw1.rotation.x = 0.18;
@@ -552,18 +553,18 @@ export function buildCity(scene, rng, textures = {}) {
       let tex;
       if (glassTex) tex = tile(glassTex, Math.max(1, Math.round(w / 8)), Math.max(1, Math.round(h / 10)));
       else { tex = rng.pick(towerTextures).clone(); tex.needsUpdate = true; tex.repeat.set(Math.max(1, Math.round(w / 10)), Math.max(1, Math.round(h / 12))); }
-      const towerMat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.55, metalness: 0.15 });
+      const towerMat = SM({ map: tex, roughness: 0.55, metalness: 0.15 });
       const tower = box(scene, w, h, d, towerMat, x, h / 2, z, true);
       tower.receiveShadow = true;
       for (const [fx, fz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) box(scene, 0.7, h, 0.7, M(0x14202c, 0.4, { metalness: 0.5 }), x + fx * (w / 2 - 0.2), h / 2, z + fz * (d / 2 - 0.2));
       box(scene, w + 0.6, 0.5, d + 0.6, M(0x3a3f45), x, h - 0.25, z);
       for (const [pw, pd, px, pz] of [[w + 0.4, 0.5, 0, d / 2], [w + 0.4, 0.5, 0, -d / 2], [0.5, d + 0.4, w / 2, 0], [0.5, d + 0.4, -w / 2, 0]]) box(scene, pw, 0.8, pd, M(0x3a3f45), x + px, h + 0.4, z + pz);
-      box(scene, w + 1.5, 4.5, d + 1.5, new THREE.MeshStandardMaterial({ map: textures.concrete ? tile(textures.concrete, 2, 1) : null, color: textures.concrete ? 0xffffff : 0x2c3e50, roughness: 0.8 }), x, 2.25, z, true);
+      box(scene, w + 1.5, 4.5, d + 1.5, SM({ map: textures.concrete ? tile(textures.concrete, 2, 1) : null, color: textures.concrete ? 0xffffff : 0x2c3e50, roughness: 0.8 }), x, 2.25, z, true);
       box(scene, w * 0.8, 3.2, 0.2, M(0x0e1a24, 0.25, { metalness: 0.5 }), x, 1.6, z + d / 2 + 0.85);
-      const awn = box(scene, w * 0.85, 0.18, 2.4, textures.awning ? new THREE.MeshStandardMaterial({ map: tile(textures.awning, 3, 1), roughness: 0.9 }) : M(0xc0392b), x, 3.7, z + d / 2 + 1.9);
+      const awn = box(scene, w * 0.85, 0.18, 2.4, textures.awning ? SM({ map: tile(textures.awning, 3, 1), roughness: 0.9 }) : M(0xc0392b), x, 3.7, z + d / 2 + 1.9);
       awn.rotation.x = 0.22;
       if (signTexs.length) { const sg = new THREE.Mesh(new THREE.PlaneGeometry(9, 2.2), new THREE.MeshBasicMaterial({ map: rng.pick(signTexs) })); sg.position.set(x, 5.6, z + d / 2 + 0.95); scene.add(sg); }
-      box(scene, w * 0.55, 4, d * 0.55, new THREE.MeshStandardMaterial({ map: tex, roughness: 0.6, metalness: 0.1 }), x, h + 2, z, true);
+      box(scene, w * 0.55, 4, d * 0.55, SM({ map: tex, roughness: 0.6, metalness: 0.1 }), x, h + 2, z, true);
       box(scene, w * 0.55 + 0.4, 0.5, d * 0.55 + 0.4, M(0x3a3f45), x, h + 4.25, z);
       cyl(scene, 1.2, 1.2, 2.4, 10, M(0x7a6a58, 0.9), x + w * 0.12, h + 5.6, z - d * 0.1, true);
       box(scene, 3, 1.5, 2, M(0x888888), x - w * 0.12, h + 5.2, z + d * 0.1);
@@ -599,14 +600,14 @@ export function buildCity(scene, rng, textures = {}) {
           tex = rng.pick(houseTextures).clone();
           tex.needsUpdate = true;
         }
-        const house = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.95 }));
+        const house = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), SM({ map: tex, roughness: 0.95 }));
         house.position.set(x, h / 2, z);
         house.castShadow = true;
         house.receiveShadow = true;
         scene.add(house);
         const roof = new THREE.Mesh(
           new THREE.ConeGeometry(Math.max(w, d) * 0.72, 3, 4),
-          new THREE.MeshStandardMaterial({ color: rng.pick([0x8a4a3a, 0x5a4a3a, 0x3a5a4a]), roughness: 1 }),
+          SM({ color: rng.pick([0x8a4a3a, 0x5a4a3a, 0x3a5a4a]), roughness: 1 }),
         );
         roof.position.set(x, h + 1.5, z);
         roof.rotation.y = Math.PI / 4;
@@ -625,8 +626,8 @@ export function buildCity(scene, rng, textures = {}) {
         porch.position.set(x, 0.08, z + d / 2 + 0.6);
         scene.add(porch);
         const gardenMat = textures.grass
-          ? new THREE.MeshStandardMaterial({ map: tile(textures.grass, 2, 2), roughness: 1 })
-          : new THREE.MeshStandardMaterial({ color: COLOURS.grass, roughness: 1 });
+          ? SM({ map: tile(textures.grass, 2, 2), roughness: 1 })
+          : SM({ color: COLOURS.grass, roughness: 1 });
         const garden = new THREE.Mesh(new THREE.PlaneGeometry(w + 6, d + 6), gardenMat);
         garden.rotation.x = -Math.PI / 2;
         garden.position.set(x, 0.04, z);
@@ -651,7 +652,7 @@ export function buildCity(scene, rng, textures = {}) {
       let tex;
       if (brickTex) tex = tile(brickTex, Math.max(1, Math.round(w / 8)), Math.max(1, Math.round(h / 8)));
       else { tex = rng.pick(facadeTextures).clone(); tex.needsUpdate = true; tex.repeat.set(Math.max(1, Math.round(w / 10)), Math.max(1, Math.round(h / 12))); }
-      const building = box(scene, w, h, d, new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9 }), x, h / 2, z, true);
+      const building = box(scene, w, h, d, SM({ map: tex, roughness: 0.9 }), x, h / 2, z, true);
       building.receiveShadow = true;
       box(scene, w + 0.4, 0.4, d + 0.4, M(0x555a60), x, h + 0.2, z);
       for (const [pw, pd, px, pz] of [[w + 0.3, 0.4, 0, d / 2], [w + 0.3, 0.4, 0, -d / 2], [0.4, d + 0.3, w / 2, 0], [0.4, d + 0.3, -w / 2, 0]]) box(scene, pw, 0.6, pd, M(0x6a5a4a), x + px, h + 0.5, z + pz);
@@ -665,7 +666,7 @@ export function buildCity(scene, rng, textures = {}) {
       }
       if (h < 16 && rng.chance(0.6)) {
         box(scene, w * 0.7, 3, 0.2, M(0x1a2a1a, 0.3, { metalness: 0.4 }), x, 1.5, z + d / 2 + 0.1);
-        const awn2 = box(scene, w * 0.75, 0.15, 2, textures.awning ? new THREE.MeshStandardMaterial({ map: tile(textures.awning, 2, 1), roughness: 0.9 }) : M(0x2e6b4f), x, 3.4, z + d / 2 + 1);
+        const awn2 = box(scene, w * 0.75, 0.15, 2, textures.awning ? SM({ map: tile(textures.awning, 2, 1), roughness: 0.9 }) : M(0x2e6b4f), x, 3.4, z + d / 2 + 1);
         awn2.rotation.x = 0.22;
         if (signTexs.length) { const sg2 = new THREE.Mesh(new THREE.PlaneGeometry(7, 1.8), new THREE.MeshBasicMaterial({ map: rng.pick(signTexs) })); sg2.position.set(x, 4.8, z + d / 2 + 0.2); scene.add(sg2); }
       }
@@ -683,7 +684,7 @@ export function buildCity(scene, rng, textures = {}) {
       scene.add(dock);
       const hull = new THREE.Mesh(
         new THREE.BoxGeometry(3.4, 1.6, 9),
-        new THREE.MeshStandardMaterial({ color: rng.pick(COLOURS.car), roughness: 0.6 }),
+        SM({ color: rng.pick(COLOURS.car), roughness: 0.6 }),
       );
       hull.position.set(186 + i * 18, 0.9, 274);
       hull.castShadow = true;
@@ -722,7 +723,7 @@ export function buildCity(scene, rng, textures = {}) {
     base.position.set(-216, 0.75, -216);
     base.castShadow = true;
     scene.add(base);
-    const towerMat = new THREE.MeshStandardMaterial({ map: textures.marble ? tile(textures.marble, 3, 1) : null, color: textures.marble ? 0xffffff : 0xf2f2f2, roughness: 0.8 });
+    const towerMat = SM({ map: textures.marble ? tile(textures.marble, 3, 1) : null, color: textures.marble ? 0xffffff : 0xf2f2f2, roughness: 0.8 });
     const stripeMat = M(0xd21f2b,0.8);
     for (let i = 0; i < 4; i += 1) {
       const seg = new THREE.Mesh(
@@ -750,7 +751,7 @@ export function buildCity(scene, rng, textures = {}) {
   function shopFront(bx, bz, w, h, d, color, signText, signFg, signBg) {
     const shop = new THREE.Mesh(
       new THREE.BoxGeometry(w, h, d),
-      new THREE.MeshStandardMaterial({ color, roughness: 0.9 }),
+      SM({ color, roughness: 0.9 }),
     );
     shop.position.set(bx, h / 2, bz);
     shop.castShadow = true;
@@ -878,7 +879,7 @@ export function buildCity(scene, rng, textures = {}) {
     pole.position.set(x, 1.3, 262);
     const top = new THREE.Mesh(
       new THREE.ConeGeometry(2.4, 1.2, 8),
-      new THREE.MeshStandardMaterial({ color: rng.pick([0xe74c3c, 0xf1c40f, 0x2e86c1, 0x16a085]), roughness: 0.9 }),
+      SM({ color: rng.pick([0xe74c3c, 0xf1c40f, 0x2e86c1, 0x16a085]), roughness: 0.9 }),
     );
     top.position.set(x, 3, 262);
     top.castShadow = true;
@@ -898,7 +899,7 @@ export function buildCity(scene, rng, textures = {}) {
     for (let j = 0; j < 3; j += 1) {
       const puff = new THREE.Mesh(
         new THREE.SphereGeometry(rng.range(6, 12), 8, 6),
-        new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, transparent: true, opacity: 0.85 }),
+        SM({ color: 0xffffff, roughness: 1, transparent: true, opacity: 0.85 }),
       );
       puff.scale.y = 0.45;
       puff.position.set(j * 8 - 8, rng.range(-1, 1), rng.range(-3, 3));
