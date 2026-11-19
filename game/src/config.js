@@ -130,6 +130,18 @@ export const TEXTURES = {
   fireball: 'textures/fireball-512.jpg',
   smoke: 'textures/smoke-512.jpg',
   marble: 'textures/marble-512.jpg',
+  glassDark: 'textures/glass-dark-1024.jpg',
+  brickBrown: 'textures/brick-brown-1024.jpg',
+  plaster: 'textures/plaster-1024.jpg',
+  metal: 'textures/metal-1024.jpg',
+  stone: 'textures/stone-512.jpg',
+  awning: 'textures/awning-512.jpg',
+  signTaxi: 'textures/sign-taxi.jpg',
+  sign24h: 'textures/sign-24h.jpg',
+  signHotel: 'textures/sign-hotel.jpg',
+  signBar: 'textures/sign-bar.jpg',
+  signPizza: 'textures/sign-pizza.jpg',
+  signAuto: 'textures/sign-auto.jpg',
 };
 export const EFFECTS = {
   flashLife: 0.06,

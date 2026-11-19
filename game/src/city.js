@@ -6,6 +6,31 @@ function tile(tex, rx, ry) {
   t.repeat.set(rx, ry);
   return t;
 }
+// Shared-material + one-line mesh helpers. The old code spent ~6 lines per
+// box (new Mesh + geometry + material + position + shadow + add); these do
+// it in one line, share materials across the whole city (fewer GPU programs,
+// less memory), and keep the dossier source small enough for the text cap.
+const _mats = new Map();
+function M(color, rough = 1, extra = {}) {
+  const k = `${color}|${rough}|${extra.metalness ?? 0}|${extra.emissive ?? 0}`;
+  let m = _mats.get(k);
+  if (!m) { m = new THREE.MeshStandardMaterial({ color, roughness: rough, ...extra }); _mats.set(k, m); }
+  return m;
+}
+function bx(parent, w, h, d, material, x, y, z, shadow = false) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
+  m.position.set(x, y, z);
+  if (shadow) m.castShadow = true;
+  parent.add(m);
+  return m;
+}
+function cyl(parent, rt, rb, h, seg, material, x, y, z, shadow = false) {
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg), material);
+  m.position.set(x, y, z);
+  if (shadow) m.castShadow = true;
+  parent.add(m);
+  return m;
+}
 function fallbackTexture(hex, size = 128) {
   const canvas = document.createElement('canvas');
   canvas.width = size;
@@ -37,6 +62,18 @@ export async function loadCityTextures() {
     ['fireball', TEXTURES.fireball, '#ff8800'],
     ['smoke', TEXTURES.smoke, '#888888'],
     ['marble', TEXTURES.marble, '#e8e8e8'],
+    ['glassDark', TEXTURES.glassDark, '#3a5a7a'],
+    ['brickBrown', TEXTURES.brickBrown, '#7a4a34'],
+    ['plaster', TEXTURES.plaster, '#e8dcc8'],
+    ['metal', TEXTURES.metal, '#8a6a58'],
+    ['stone', TEXTURES.stone, '#8a8a8a'],
+    ['awning', TEXTURES.awning, '#c0392b'],
+    ['signTaxi', TEXTURES.signTaxi, '#111111'],
+    ['sign24h', TEXTURES.sign24h, '#111111'],
+    ['signHotel', TEXTURES.signHotel, '#111111'],
+    ['signBar', TEXTURES.signBar, '#111111'],
+    ['signPizza', TEXTURES.signPizza, '#111111'],
+    ['signAuto', TEXTURES.signAuto, '#111111'],
   ];
   await Promise.all(jobs.map(async ([key, url, hex]) => {
     try {
@@ -150,7 +187,7 @@ function makePalm(rng) {
     group.add(leaf);
   }
   group.traverse((o) => {
-    if (o.isMesh) o.castShadow = true;
+    if (o.isMesh) o.castShadow = false;
   });
   return group;
 }
@@ -173,7 +210,6 @@ function makeTree(rng) {
       new THREE.MeshStandardMaterial({ color: greens[i], roughness: 1 }),
     );
     puff.position.set(offsets[i][0] * DETAIL.treeSpread * 2, heights[i], offsets[i][1] * DETAIL.treeSpread * 2);
-    puff.castShadow = true;
     group.add(puff);
   }
   return group;
@@ -405,6 +441,14 @@ export function buildCity(scene, rng, textures = {}) {
     hyd.position.set(hx, 0, hz);
     scene.add(hyd);
   }
+  for (const lx of [-360, -240, -120, 0, 120, 240, 360]) {
+    for (const lz of [-360, -240, -120, 0, 120, 240]) {
+      if ((lx + lz) % 240 !== 0) continue;
+      const lamp = makeLamp();
+      lamp.position.set(lx + 7, 0, lz + 7);
+      scene.add(lamp);
+    }
+  }
   const facadeTextures = COLOURS.building.map((c) => {
     const hex = `#${c.toString(16).padStart(6, '0')}`;
     return makeFacadeTexture(hex, rng);
@@ -417,6 +461,7 @@ export function buildCity(scene, rng, textures = {}) {
     const hex = `#${c.toString(16).padStart(6, '0')}`;
     return makeHouseTexture(hex, rng);
   });
+  const signTexs = ['signTaxi', 'sign24h', 'signHotel', 'signBar', 'signPizza', 'signAuto'].map((k) => textures[k]).filter(Boolean);
   const blockCentres = [];
   for (let bx = -330; bx <= 330; bx += 60) {
     for (let bz = -330; bz <= 210; bz += 60) blockCentres.push([bx, bz]);
@@ -471,68 +516,46 @@ export function buildCity(scene, rng, textures = {}) {
         }
         colliders.push({ minX: cx - 3.2, maxX: cx + 3.2, minZ: cz - 3.2, maxZ: cz + 3.2 });
       }
-      const warehouse = new THREE.Mesh(
-        new THREE.BoxGeometry(30, 9, 20),
-        new THREE.MeshStandardMaterial({ color: 0x8a7a68, roughness: 1 }),
-      );
-      warehouse.position.set(bx + 8, 4.5, bz + 8);
-      warehouse.castShadow = true;
-      scene.add(warehouse);
+      const ww = rng.range(26, 34);
+      const wd = rng.range(16, 22);
+      const wh = rng.range(8, 11);
+      const wm = textures.metal ? new THREE.MeshStandardMaterial({ map: tile(textures.metal, 3, 1), roughness: 0.9 }) : M(0x8a7a68);
+      bx(scene, ww, wh, wd, wm, bx + 8, wh / 2, bz + 8, true);
+      const saw1 = bx(scene, ww + 0.4, 0.3, wd / 2 + 0.2, M(0x5a4a3a), bx + 8, wh + 0.8, bz + 8 - wd / 4);
+      saw1.rotation.x = 0.18;
+      const saw2 = bx(scene, ww + 0.4, 0.3, wd / 2 + 0.2, M(0x5a4a3a), bx + 8, wh + 0.8, bz + 8 + wd / 4);
+      saw2.rotation.x = -0.18;
       colliders.push({ minX: bx - 7, maxX: bx + 23, minZ: bz - 2, maxZ: bz + 18 });
       continue;
     }
     if (district === 'DOWNTOWN') {
       const w = rng.range(18, 26);
       const d = rng.range(18, 26);
-      const h = rng.range(30, 85);
+      const dc = Math.hypot(bx - 210, bz + 210);
+      const landmark = bx === 210 && bz === -210;
+      const h = landmark ? rng.range(105, 120) : rng.range(30, 85) * (dc < 150 ? 1.15 : 0.85);
       const x = bx + rng.range(-6, 6);
       const z = bz + rng.range(-6, 6);
+      const glassTex = textures.glassDark && rng.chance(0.5) ? textures.glassDark : textures.glass;
       let tex;
-      if (textures.glass) {
-        tex = tile(textures.glass, Math.max(1, Math.round(w / 8)), Math.max(1, Math.round(h / 10)));
-      } else {
-        tex = rng.pick(towerTextures).clone();
-        tex.needsUpdate = true;
-        tex.repeat.set(Math.max(1, Math.round(w / 10)), Math.max(1, Math.round(h / 12)));
-      }
-      const tower = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.55, metalness: 0.15 }));
-      tower.position.set(x, h / 2, z);
-      tower.castShadow = true;
+      if (glassTex) tex = tile(glassTex, Math.max(1, Math.round(w / 8)), Math.max(1, Math.round(h / 10)));
+      else { tex = rng.pick(towerTextures).clone(); tex.needsUpdate = true; tex.repeat.set(Math.max(1, Math.round(w / 10)), Math.max(1, Math.round(h / 12))); }
+      const towerMat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.55, metalness: 0.15 });
+      const tower = bx(scene, w, h, d, towerMat, x, h / 2, z, true);
       tower.receiveShadow = true;
-      scene.add(tower);
-      const cornice = new THREE.Mesh(new THREE.BoxGeometry(w + 0.6, 0.5, d + 0.6), new THREE.MeshStandardMaterial({ color: 0x3a3f45, roughness: 1 }));
-      cornice.position.set(x, h - 0.25, z);
-      scene.add(cornice);
-      const podium = new THREE.Mesh(
-        new THREE.BoxGeometry(w + 1.5, 4.5, d + 1.5),
-        new THREE.MeshStandardMaterial({ map: textures.concrete ? tile(textures.concrete, 2, 1) : null, color: textures.concrete ? 0xffffff : 0x2c3e50, roughness: 0.8 }),
-      );
-      podium.position.set(x, 2.25, z);
-      podium.castShadow = true;
-      scene.add(podium);
-      const setback = new THREE.Mesh(
-        new THREE.BoxGeometry(w * 0.55, 4, d * 0.55),
-        new THREE.MeshStandardMaterial({ map: tex, roughness: 0.6, metalness: 0.1 }),
-      );
-      setback.position.set(x, h + 2, z);
-      setback.castShadow = true;
-      scene.add(setback);
-      const roof = new THREE.Mesh(
-        new THREE.BoxGeometry(w * 0.55 + 0.4, 0.5, d * 0.55 + 0.4),
-        new THREE.MeshStandardMaterial({ color: 0x3a3f45, roughness: 1 }),
-      );
-      roof.position.set(x, h + 4.25, z);
-      scene.add(roof);
-      const tank = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, 2.4, 10), new THREE.MeshStandardMaterial({ color: 0x7a6a58, roughness: 0.9 }));
-      tank.position.set(x + w * 0.12, h + 5.6, z - d * 0.1);
-      tank.castShadow = true;
-      scene.add(tank);
-      const ac = new THREE.Mesh(new THREE.BoxGeometry(3, 1.5, 2), new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 1 }));
-      ac.position.set(x - w * 0.12, h + 5.2, z + d * 0.1);
-      scene.add(ac);
-      const antenna = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 6, 6), new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.6 }));
-      antenna.position.set(x + w * 0.18, h + 7.5, z + d * 0.12);
-      scene.add(antenna);
+      for (const [fx, fz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) bx(scene, 0.7, h, 0.7, M(0x14202c, 0.4, { metalness: 0.5 }), x + fx * (w / 2 - 0.2), h / 2, z + fz * (d / 2 - 0.2));
+      bx(scene, w + 0.6, 0.5, d + 0.6, M(0x3a3f45), x, h - 0.25, z);
+      for (const [pw, pd, px, pz] of [[w + 0.4, 0.5, 0, d / 2], [w + 0.4, 0.5, 0, -d / 2], [0.5, d + 0.4, w / 2, 0], [0.5, d + 0.4, -w / 2, 0]]) bx(scene, pw, 0.8, pd, M(0x3a3f45), x + px, h + 0.4, z + pz);
+      bx(scene, w + 1.5, 4.5, d + 1.5, new THREE.MeshStandardMaterial({ map: textures.concrete ? tile(textures.concrete, 2, 1) : null, color: textures.concrete ? 0xffffff : 0x2c3e50, roughness: 0.8 }), x, 2.25, z, true);
+      bx(scene, w * 0.8, 3.2, 0.2, M(0x0e1a24, 0.25, { metalness: 0.5 }), x, 1.6, z + d / 2 + 0.85);
+      const awn = bx(scene, w * 0.85, 0.18, 2.4, textures.awning ? new THREE.MeshStandardMaterial({ map: tile(textures.awning, 3, 1), roughness: 0.9 }) : M(0xc0392b), x, 3.7, z + d / 2 + 1.9);
+      awn.rotation.x = 0.22;
+      if (signTexs.length) { const sg = new THREE.Mesh(new THREE.PlaneGeometry(9, 2.2), new THREE.MeshBasicMaterial({ map: rng.pick(signTexs) })); sg.position.set(x, 5.6, z + d / 2 + 0.95); scene.add(sg); }
+      bx(scene, w * 0.55, 4, d * 0.55, new THREE.MeshStandardMaterial({ map: tex, roughness: 0.6, metalness: 0.1 }), x, h + 2, z, true);
+      bx(scene, w * 0.55 + 0.4, 0.5, d * 0.55 + 0.4, M(0x3a3f45), x, h + 4.25, z);
+      cyl(scene, 1.2, 1.2, 2.4, 10, M(0x7a6a58, 0.9), x + w * 0.12, h + 5.6, z - d * 0.1, true);
+      bx(scene, 3, 1.5, 2, M(0x888888), x - w * 0.12, h + 5.2, z + d * 0.1);
+      cyl(scene, 0.08, 0.08, 6, 6, M(0x333333, 0.6), x + w * 0.18, h + 7.5, z + d * 0.12);
       const beacon = new THREE.Mesh(new THREE.SphereGeometry(0.35, 8, 6), new THREE.MeshStandardMaterial({ color: 0xff2222, emissive: 0xaa0000 }));
       beacon.position.set(x + w * 0.18, h + 10.7, z + d * 0.12);
       scene.add(beacon);
@@ -554,7 +577,9 @@ export function buildCity(scene, rng, textures = {}) {
         const x = bx + rng.range(-14, 14);
         const z = bz + rng.range(-14, 14);
         let tex;
-        if (textures.wood && rng.chance(0.5)) {
+        if (textures.plaster && rng.chance(0.4)) {
+          tex = tile(textures.plaster, 2, 1);
+        } else if (textures.wood && rng.chance(0.5)) {
           tex = tile(textures.wood, 2, 1);
         } else if (textures.stucco) {
           tex = tile(textures.stucco, 2, 1);
@@ -610,51 +635,29 @@ export function buildCity(scene, rng, textures = {}) {
       const h = tall ? rng.range(20, 55) : rng.range(8, 24);
       const x = bx + rng.range(-12, 12);
       const z = bz + rng.range(-12, 12);
+      const brickTex = textures.brickBrown && rng.chance(0.5) ? textures.brickBrown : textures.brick;
       let tex;
-      if (textures.brick) {
-        tex = tile(textures.brick, Math.max(1, Math.round(w / 8)), Math.max(1, Math.round(h / 8)));
-      } else {
-        tex = rng.pick(facadeTextures).clone();
-        tex.needsUpdate = true;
-        tex.repeat.set(Math.max(1, Math.round(w / 10)), Math.max(1, Math.round(h / 12)));
-      }
-      const building = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9 }));
-      building.position.set(x, h / 2, z);
-      building.castShadow = true;
+      if (brickTex) tex = tile(brickTex, Math.max(1, Math.round(w / 8)), Math.max(1, Math.round(h / 8)));
+      else { tex = rng.pick(facadeTextures).clone(); tex.needsUpdate = true; tex.repeat.set(Math.max(1, Math.round(w / 10)), Math.max(1, Math.round(h / 12))); }
+      const building = bx(scene, w, h, d, new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9 }), x, h / 2, z, true);
       building.receiveShadow = true;
-      scene.add(building);
-      const roof = new THREE.Mesh(
-        new THREE.BoxGeometry(w + 0.4, 0.4, d + 0.4),
-        new THREE.MeshStandardMaterial({ color: 0x555a60, roughness: 1 }),
-      );
-      roof.position.set(x, h + 0.2, z);
-      scene.add(roof);
-      if (rng.chance(0.3)) {
-        const ac = new THREE.Mesh(new THREE.BoxGeometry(2.5, 1.2, 1.8), new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 1 }));
-        ac.position.set(x + w / 4, h + 0.8, z);
-        scene.add(ac);
-      }
+      bx(scene, w + 0.4, 0.4, d + 0.4, M(0x555a60), x, h + 0.2, z);
+      for (const [pw, pd, px, pz] of [[w + 0.3, 0.4, 0, d / 2], [w + 0.3, 0.4, 0, -d / 2], [0.4, d + 0.3, w / 2, 0], [0.4, d + 0.3, -w / 2, 0]]) bx(scene, pw, 0.6, pd, M(0x6a5a4a), x + px, h + 0.5, z + pz);
+      if (rng.chance(0.3)) bx(scene, 2.5, 1.2, 1.8, M(0x888888), x + w / 4, h + 0.8, z);
       if (h >= 14) {
         const floors = Math.min(4, Math.floor(h / 7));
         for (let f = 0; f < floors; f += 1) {
-          const balcony = new THREE.Mesh(
-            new THREE.BoxGeometry(w * 0.4, 0.25, 1.4),
-            new THREE.MeshStandardMaterial({ color: 0x6a5a4a, roughness: 1 }),
-          );
-          balcony.position.set(x, 4 + f * 7, z + d / 2 + 0.7);
-          balcony.castShadow = true;
-          scene.add(balcony);
-          const rail = new THREE.Mesh(new THREE.BoxGeometry(w * 0.4, 0.7, 0.06), new THREE.MeshStandardMaterial({ color: 0x2c3e50, roughness: 0.7 }));
-          rail.position.set(x, 4 + f * 7 + 0.45, z + d / 2 + 1.35);
-          scene.add(rail);
+          bx(scene, w * 0.4, 0.25, 1.4, M(0x6a5a4a), x, 4 + f * 7, z + d / 2 + 0.7, true);
+          bx(scene, w * 0.4, 0.7, 0.06, M(0x2c3e50, 0.7), x, 4 + f * 7 + 0.45, z + d / 2 + 1.35);
         }
       }
-      if (rng.chance(0.4)) {
-        const tank = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 2, 10), new THREE.MeshStandardMaterial({ color: 0x7a6a58, roughness: 0.9 }));
-        tank.position.set(x - w / 4, h + 1.4, z - d / 4);
-        tank.castShadow = true;
-        scene.add(tank);
+      if (h < 16 && rng.chance(0.6)) {
+        bx(scene, w * 0.7, 3, 0.2, M(0x1a2a1a, 0.3, { metalness: 0.4 }), x, 1.5, z + d / 2 + 0.1);
+        const awn2 = bx(scene, w * 0.75, 0.15, 2, textures.awning ? new THREE.MeshStandardMaterial({ map: tile(textures.awning, 2, 1), roughness: 0.9 }) : M(0x2e6b4f), x, 3.4, z + d / 2 + 1);
+        awn2.rotation.x = 0.22;
+        if (signTexs.length) { const sg2 = new THREE.Mesh(new THREE.PlaneGeometry(7, 1.8), new THREE.MeshBasicMaterial({ map: rng.pick(signTexs) })); sg2.position.set(x, 4.8, z + d / 2 + 0.2); scene.add(sg2); }
       }
+      if (rng.chance(0.4)) cyl(scene, 1, 1, 2, 10, M(0x7a6a58, 0.9), x - w / 4, h + 1.4, z - d / 4, true);
       colliders.push({ minX: x - w / 2, maxX: x + w / 2, minZ: z - d / 2, maxZ: z + d / 2 });
     }
   }

@@ -23,7 +23,7 @@
 //   mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts
 // Play the game locally with `node serve.ts`, then open http://localhost:8080.
 
-import { cpSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildDossier } from './vendor/makefun-game.ts';
@@ -58,4 +58,5 @@ if (existsSync(join(here, 'screenshots'))) {
 
 const dossier = buildDossier(out, CAPS);
 writeFileSync(join(out, 'dossier.json'), dossier);
-console.log(`dossier text: ${Buffer.byteLength(JSON.parse(dossier).text ?? '')} bytes (cap ${CAPS.text_max_bytes})`);
+const dossierText = JSON.parse(readFileSync(join(out, 'dossier.json'), 'utf8')).text ?? '';
+console.log(`dossier text: ${Buffer.byteLength(dossierText)} bytes (cap ${CAPS.text_max_bytes})`);
