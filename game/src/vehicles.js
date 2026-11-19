@@ -38,9 +38,10 @@ export function createCarMesh(color, kind = 'sedan') {
       B(len - 0.5, 0.8, 2.2, new MS({ color: 0x6a6f75, roughness: 0.5, metalness: 0.6 }), 0, 1.5, 0);
       B(0.4, 0.25, 1.4, VM(0xffe14d,1,0x886600), 0, bodyH + 0.6, 0);
       const dm = VM(0x222222, 0.6);
-      for (const s of [-0.55, 0.55]) B(0.03, 1.4, 0.05, dm, len / 2 + 0.03, 1.4, s);
-      B(0.03, 0.05, 1.9, dm, len / 2 + 0.03, 2.05, 0);
-      B(0.03, 0.25, 0.6, VM(0x1a1a1a, 0.6), len / 2 + 0.03, 0.55, 0);
+      for (const s of [-0.55, 0.55]) B(0.04, 1.4, 0.08, dm, len / 2 + 0.04, 1.4, s);
+      B(0.04, 0.08, 1.9, dm, len / 2 + 0.04, 2.05, 0);
+      B(0.04, 0.5, 1.8, dm, len / 2 + 0.04, 0.95, 0);
+      B(0.04, 0.22, 0.55, VM(0xf2f2f2, 0.5), len / 2 + 0.04, 0.55, 0);
     }
   } else {
     const body = B(len, 0.55, 2, paint, 0, 0.55, 0, true);
@@ -61,14 +62,16 @@ export function createCarMesh(color, kind = 'sedan') {
     if (kind === 'taxi') {
       B(0.5, 0.25, 0.9, VM(0xffe14d,1,0x886600), -0.2, 1.5, 0);
       for (const side of [-1, 1]) B(1.6, 0.4, 0.05, VM(0x222222,0.6), 0, 0.55, side * 1.02);
-      B(0.08, 0.16, DETAIL.cometTailBar, VM(0xff2222,1,0x660000), -len / 2 - 0.02, 0.62, 0);
+      B(0.08, 0.16, DETAIL.ctb, VM(0xff2222,1,0x660000), -len / 2 - 0.02, 0.62, 0);
       B(0.06, 0.3, 1.5, glass, -0.2 - cabinL / 2 - 0.03, 1.15, 0);
+      B(0.03, 0.04, 1.6, VM(0x222222, 0.6), -len / 2 - 0.03, 0.95, 0);
+      B(0.04, 0.2, 0.5, VM(0xf2f2f2, 0.5), -len / 2 - 0.14, 0.35, 0);
     }
     if (kind === 'sport') {
       B(0.3, 0.08, 1.8, paint, -len / 2 + 0.15, 1.15, 0);
       B(len, 0.02, 0.5, VM(0xffd94d,0.4), 0, 0.84, 0);
       for (const sz of [-0.6, 0.6]) B(0.12, 0.35, 0.12, paint, -len / 2 + 0.15, 0.95, sz);
-      B(0.08, 0.16, DETAIL.cometTailBar, VM(0xff2222,1,0x660000), -len / 2 - 0.02, 0.62, 0);
+      B(0.08, 0.16, DETAIL.ctb, VM(0xff2222,1,0x660000), -len / 2 - 0.02, 0.62, 0);
       B(0.25, 0.18, 1.8, VM(0x1a1a1a,0.8), -len / 2 - 0.02, 0.22, 0);
     }
   }

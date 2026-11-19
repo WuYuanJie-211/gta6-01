@@ -14,12 +14,11 @@ export function createAudio() {
   let musicStep = 0;
   let nextNoteTime = 0;
   let musicTimerId = null;
-  const BASS = [110, 87.31, 130.81, 98]; 
+  const BASS = [110, 87, 131];
   const LEAD = [
-    [220, 261.63, 329.63, 440], 
-    [174.61, 220, 261.63, 349.23], 
-    [261.63, 329.63, 392, 523.25], 
-    [196, 246.94, 293.66, 392], 
+    [220, 262, 330, 440], 
+    [175, 220, 262, 349], 
+    [262, 330, 392, 523], 
   ];
   function mkOsc(type, freq) {
     const o = ctx.createOscillator();
@@ -88,7 +87,7 @@ export function createAudio() {
     src.stop(t + seconds + 0.05);
   }
   function scheduleStep(step, t) {
-    const bar = Math.floor(step / 8) % 4;
+    const bar = Math.floor(step / 8) % 3;
     const beat = step % 8;
     if (beat === 0 || beat === 4) {
       const osc = ctx.createOscillator();

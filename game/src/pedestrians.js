@@ -47,7 +47,7 @@ function createPedestrianMesh(rng) {
   return group;
 }
 function randomSidewalkPoint(rng) {
-  const line = rng.pick(CITY.roadLines);
+  const line = rng.pick(CITY.roadLinesX);
   const along = rng.range(-360, 360);
   const side = rng.pick([-1, 1]) * (CITY.roadWidth / 2 + 1.8);
   if (rng.chance(0.5)) return { x: line + side, z: along };

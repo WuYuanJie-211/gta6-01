@@ -40,7 +40,7 @@ class Game {
     this.textures = textures;
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x8ec9ee);
-    this.scene.fog = new THREE.Fog(0x8ec9ee, 150, 450);
+    this.scene.fog = new THREE.Fog(0x8ec9ee, 160, 550);
     this.camera = new THREE.PerspectiveCamera(60, 1, 0.1, 1500);
     const sun = new THREE.DirectionalLight(0xffd9a0, 3.0);
     sun.castShadow = true;
@@ -149,13 +149,13 @@ class Game {
     }
     this.setScreen('playing');
     console.log('Solara Bay v3');
-    this.hud.flash('Welcome to Solara Bay. Mara is waiting at the plaza.');
+    this.hud.flash('Welcome to Solara Bay. Mara waits at the plaza.');
   }
   setScreen(screen) {
     this.screen = screen;
     this.hud.showMenu(screen === 'title');
     this.hud.showPause(screen === 'paused');
-    this.hud.showOver(screen === 'over', 'WASTED — Rook is down. The Bay will wait.');
+    this.hud.showOver(screen === 'over', 'WASTED — Rook is down.');
     if (screen === 'playing') this.audio.unlock();
   }
   interact() {
@@ -203,11 +203,11 @@ class Game {
     if (!this.player.onFoot) {
       const shop = this.shops.nearShop();
       if (shop && shop.key === 'garage') {
-        this.hud.setPrompt('E — repair the car ($60) · WASD — drive · mouse — look around');
+        this.hud.setPrompt('E — repair ($60) · WASD — drive · mouse — look');
         return;
       }
       if (shop && shop.key === 'chopShop') {
-        this.hud.setPrompt('E — sell this car · WASD — drive · mouse — look around');
+        this.hud.setPrompt('E — sell it · WASD — drive · mouse — look');
         return;
       }
       const marker = this.missions.state.marker;
@@ -218,7 +218,7 @@ class Game {
           return;
         }
       }
-      this.hud.setPrompt('E — get out of the car · WASD — drive · mouse — look around');
+      this.hud.setPrompt('E — get out · WASD — drive · mouse — look');
       return;
     }
     const target = this.missions.state.marker;
@@ -227,7 +227,7 @@ class Game {
       const d = Math.hypot(target.x - this.player.pos.x, target.z - this.player.pos.z);
       if (d < 6) {
         if (key === 'steal') {
-          this.hud.setPrompt(this.missions.state.index === 6 ? 'E — steal the armored van' : 'E — steal the Comet GT');
+          this.hud.setPrompt(this.missions.state.index === 6 ? 'E — steal the van' : 'E — steal the Comet');
         } else if (key === 'collect') {
           this.hud.setPrompt('E — grab the package');
         } else {
@@ -240,20 +240,20 @@ class Game {
     if (shop) {
       const hints = {
         dealer: 'E — buy a car',
-        gunShop: 'E — buy a gun / ammo',
-        garage: 'E — repair (drive a car in)',
-        diner: 'E — eat ($25, +50 health)',
-        chopShop: 'E — sell a stolen car (drive one in)',
+        gunShop: 'E — buy a gun',
+        garage: 'E — repair (drive in)',
+        diner: 'E — eat ($25)',
+        chopShop: 'E — sell a car (drive in)',
       };
       this.hud.setPrompt(hints[shop.key] || 'E — shop');
       return;
     }
     const car = nearestStealableCar(this);
     if (car) {
-      this.hud.setPrompt(car === this.cars.comet ? 'E — steal the Comet GT' : car.forSale ? `E — get in the car (for sale $${car.salePrice})` : 'E — get in the car');
+      this.hud.setPrompt(car === this.cars.comet ? 'E — steal the Comet' : car.forSale ? `E — buy it ($${car.salePrice})` : 'E — get in the car');
       return;
     }
-    this.hud.setPrompt('WASD — walk · Shift — run · E — interact · F — punch · click — shoot · Q — weapon · P — pause');
+    this.hud.setPrompt('WASD — walk · Shift — run · E — interact · F — punch · click — shoot · Q — weapon');
   }
   step(dt) {
     this.time += dt;
@@ -328,15 +328,16 @@ class Game {
     const dist = this.player.car ? this.camDist + 3 : this.camDist;
     const horiz = dist * Math.cos(this.camPitch);
     const height = dist * Math.sin(this.camPitch) + 1.6;
+    const ox = this.camX || 0;
     const shake = this.hud.takeShake(dt);
     this.camera.position.set(
-      target.x + Math.sin(this.cameraAngle) * horiz + shake,
+      target.x + Math.sin(this.cameraAngle) * horiz + shake + ox,
       height,
       target.z + Math.cos(this.cameraAngle) * horiz + shake,
     );
     const rx = Math.cos(this.cameraAngle);
     const rz = -Math.sin(this.cameraAngle);
-    this.camera.lookAt(target.x + rx * this.camLookOff, 1.6, target.z + rz * this.camLookOff);
+    this.camera.lookAt(target.x + rx * this.camLookOff + ox, 1.6, target.z + rz * this.camLookOff);
     this.sun.position.set(target.x + 130, 75, target.z + 55);
     this.sun.target.position.set(target.x, 0, target.z);
     this.sun.target.updateMatrixWorld();

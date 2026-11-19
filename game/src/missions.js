@@ -7,56 +7,56 @@ const mt=(c,r=0.9)=>new MS({color:c,roughness:r});
 export const MISSIONS = [
   {
     title: 'First Fare',
-    story: 'Mara needs a ride to the Marina. Pick her up.',
+    story: 'Drive Mara to the Marina.',
     stages: [
-      { text: 'Pick up Mara at the plaza', key: 'pickup', at: 'clientSpot' },
-      { text: 'Drive Mara to the Marina', key: 'deliver', to: 'marina' },
+      { text: 'Pick up Mara', key: 'pickup', at: 'clientSpot' },
+      { text: 'Drive Mara to Marina', key: 'deliver', to: 'marina' },
     ],
   },
   {
     title: 'Hot Wheels',
-    story: 'The Comet GT sits unwatched on Bay Street. Steal it.',
+    story: 'Steal the unwatched Comet GT on Bay Street.',
     stages: [
-      { text: 'Steal the Comet GT', key: 'steal', at: 'cometSpot' },
-      { text: 'Deliver the Comet GT to the Chop Shop', key: 'deliver', to: 'chopShop', thugs: 2 },
+      { text: 'Steal the Comet', key: 'steal', at: 'cometSpot' },
+      { text: 'Deliver the Comet to Chop Shop', key: 'deliver', to: 'chopShop', thugs: 2 },
     ],
   },
   {
     title: 'The Lighthouse Run',
-    story: 'One package, one lighthouse, every cop in the city.',
+    story: 'One package, one lighthouse, every cop in town.',
     stages: [
-      { text: 'Pick up the package', key: 'pickup', at: 'packageSpot' },
-      { text: 'Deliver the package to the Lighthouse', key: 'deliver', to: 'lighthouse', heat: 3 },
+      { text: 'Pick up package', key: 'pickup', at: 'packageSpot' },
+      { text: 'Deliver package to Lighthouse', key: 'deliver', to: 'lighthouse', heat: 3 },
       { text: 'Lose the cops', key: 'escape' },
     ],
   },
   {
     title: 'Downtown Taxi',
-    story: 'Fares wait at the bus stops. Grab a taxi, take three.',
+    story: 'Grab a taxi, take three fares.',
     stages: [
-      { text: 'Pick up 3 fares at the bus stops', key: 'fare', count: 3 },
+      { text: 'Pick up 3 fares', key: 'fare', count: 3 },
     ],
   },
   {
     title: 'Package Hunt',
-    story: 'Five green packages hide across the city. Find them.',
+    story: 'Find five green packages across the city.',
     stages: [
-      { text: 'Find the 5 hidden packages', key: 'collect', count: 5 },
+      { text: 'Find 5 packages', key: 'collect', count: 5 },
     ],
   },
   {
     title: 'Bay Street Grand Prix',
-    story: 'Four checkpoints, one lap, three minutes. Beat it.',
+    story: 'Four checkpoints, one lap, three minutes.',
     stages: [
-      { text: 'Race the 4 checkpoints', key: 'race', count: 4, timeLimit: 180 },
+      { text: 'Race 4 checkpoints', key: 'race', count: 4, timeLimit: 180 },
     ],
   },
   {
     title: 'The Bank Job',
-    story: 'The armored van leaves the bank at noon. Take it.',
+    story: 'Take the van leaving the bank at noon.',
     stages: [
-      { text: 'Steal the armored van', key: 'steal', at: 'armoredSpot' },
-      { text: 'Deliver the van to the Chop Shop', key: 'deliver', to: 'chopShop', heat: 4, gunmen: 3 },
+      { text: 'Steal the van', key: 'steal', at: 'armoredSpot' },
+      { text: 'Deliver van to Chop Shop', key: 'deliver', to: 'chopShop', heat: 4, gunmen: 3 },
       { text: 'Lose the cops', key: 'escape' },
     ],
   },
@@ -169,7 +169,7 @@ export function createMissions(game) {
   }
   function refreshObjective() {
     if (state.done) {
-      state.objectiveText = 'Solara Bay is yours. Free roam — the city never sleeps.';
+      state.objectiveText = 'Solara Bay is yours. Free roam.';
       state.marker = null;
       state.escaping = false;
       state.timerText = '';
@@ -216,7 +216,7 @@ export function createMissions(game) {
       if (state.index >= MISSIONS.length) {
         state.done = true;
         state.stage = 0;
-        game.hud.showMissionCard('SOLARA BAY IS YOURS', `Rook ran the whole city. $${game.cash} in the pocket — and the Bay never forgets a wheelman.`);
+        game.hud.showMissionCard('SOLARA BAY IS YOURS', `Rook ran the city. $${game.cash} in the pocket.`);
         refreshObjective();
         return;
       }
@@ -245,7 +245,7 @@ export function createMissions(game) {
         if (d < 4) {
           enterCar(game, car);
           game.police.commitCrime(state.index === 6 ? 3 : 2);
-          game.hud.flash(state.index === 6 ? 'The armored van is yours — and so is the heat!' : 'The Comet GT is yours — and so is the heat!');
+          game.hud.flash(state.index === 6 ? 'The van is yours — and so is the heat!' : 'The Comet is yours — and so is the heat!');
           if (state.index === 6) {
             const bank = game.city.landmarks.bank;
             game.combat.spawnExplosion({ x: bank.x, y: 2, z: bank.z });
@@ -260,7 +260,7 @@ export function createMissions(game) {
       if (!state.farePicked) {
         const car = game.player.car;
         if (!car || car.model !== 'taxi') {
-          game.hud.flash('You need a taxi for this — one is parked by the plaza.');
+          game.hud.flash('Need a taxi — one is by the plaza.');
           return false;
         }
         const ped = nearestWaitingPed();

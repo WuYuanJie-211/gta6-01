@@ -1,7 +1,6 @@
 export const CITY = {
   roadLinesX: [-360, -300, -240, -180, -120, -60, 0, 60, 120, 180, 240, 300, 360],
   roadLinesZ: [-360, -300, -240, -180, -120, -60, 0, 60, 120, 180, 240],
-  roadLines: [-360, -300, -240, -180, -120, -60, 0, 60, 120, 180, 240, 300, 360],
   roadWidth: 12,
   halfSize: 390,
   beachStart: 246,
@@ -138,14 +137,14 @@ export const TEXTURES = {
   neonSign: T('neon-sign'),
 };
 export const EFFECTS = {
-  flashLife: 0.14,
-  casingLife: 0.7,
-  sparkLife: 0.25,
-  explosionLife: 1.2,
+  fl: 0.14,
+  ca: 0.7,
+  sp: 0.25,
+  ex: 1.2,
 };
 export const STEP = 1 / 60;
 export const DETAIL = {
-  cometTailBar: 1.9,
-  treeSpread: 0.5,
+  ctb: 1.9,
+  ts: 0.5,
 };
 export const SAVE_KEY = 'solara-bay-save-v2';

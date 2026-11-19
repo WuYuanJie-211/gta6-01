@@ -61,7 +61,7 @@ export function createPolice(game) {
     if (state.wanted >= 5) return;
     state.wanted = Math.min(5, state.wanted + stars);
     state.decayTimer = 0;
-    game.hud.flash(`Wanted level ${state.wanted} — the Solara Bay PD is on you!`);
+    game.hud.flash(`Wanted ${state.wanted} — the PD is on you!`);
   }
   function keepCars() {
     const max = state.wanted >= 4 ? POLICE.maxActiveCarsHigh : POLICE.maxActiveCars;
@@ -112,7 +112,7 @@ export function createPolice(game) {
     }
     for (const c of colliders) game.city.colliders.push(c);
     state.roadblock = { node, barriers, colliders };
-    game.hud.flash('Roadblock ahead! Find another way around.');
+    game.hud.flash('Roadblock ahead!');
   }
   function removeRoadblock() {
     if (!state.roadblock) return;
@@ -192,7 +192,7 @@ export function createPolice(game) {
           state.decayTimer = 0;
           state.decayArmed = true;
           state.wanted -= 1;
-          if (state.wanted === 0) game.hud.flash('You lost them. The heat is off — for now.');
+          if (state.wanted === 0) game.hud.flash('You lost them.');
         }
       } else {
         state.decayTimer = 0;

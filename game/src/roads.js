@@ -1,6 +1,5 @@
 import { CITY } from './config.js';
 export function buildRoads() {
-  const lines = CITY.roadLines;
   const nodes = [];
   const byKey = new Map();
   for (const x of CITY.roadLinesX) {
@@ -10,7 +9,7 @@ export function buildRoads() {
       byKey.set(node.key, node);
     }
   }
-  return { lines, linesX: CITY.roadLinesX, linesZ: CITY.roadLinesZ, nodes, byKey };
+  return { linesX: CITY.roadLinesX, linesZ: CITY.roadLinesZ, nodes, byKey };
 }
 export function nodeNeighbours(roads, node) {
   const out = [];

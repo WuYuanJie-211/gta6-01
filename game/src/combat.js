@@ -71,8 +71,8 @@ export function createCombat(game) {
   }
   function spawnFlash(pos) {
     const flash = new SP(new THREE.SpriteMaterial({ map: game.textures.fireball, transparent: true, blending: AB, depthWrite: false }));
-    flash.scale.set(.35,.35,1);
-    addPart(flash, pos, new V3(0, 0, 0), EFFECTS.flashLife);
+    flash.scale.set(1,1,1);
+    addPart(flash, pos, new V3(0, 0, 0), EFFECTS.fl);
   }
   function spawnCasing(pos, heading) {
     const casing = new ME(
@@ -81,7 +81,7 @@ export function createCombat(game) {
     );
     casing.rotation.y = Math.random() * PI;
     const side = new V3(Math.cos(heading), 0, -Math.sin(heading));
-    addPart(casing, new V3(pos.x + side.x * 0.4, 1.1, pos.z + side.z * 0.4), new V3(side.x * 1.5, 2.2, side.z * 1.5), EFFECTS.casingLife, 0, 12);
+    addPart(casing, new V3(pos.x + side.x * 0.4, 1.1, pos.z + side.z * 0.4), new V3(side.x * 1.5, 2.2, side.z * 1.5), EFFECTS.ca, 0, 12);
   }
   function spawnSparks(pos, color = 0xffcc44, n = 6) {
     for (let i = 0; i < n; i += 1) {
@@ -91,7 +91,7 @@ export function createCombat(game) {
       );
       const a = Math.random() * PI * 2;
       const b = Math.random() * PI - PI / 2;
-      addPart(spark, pos, new V3(Math.cos(a) * Math.cos(b) * 6, Math.abs(Math.sin(b)) * 5 + 1, Math.sin(a) * Math.cos(b) * 6), EFFECTS.sparkLife, 0, 9);
+      addPart(spark, pos, new V3(Math.cos(a) * Math.cos(b) * 6, Math.abs(Math.sin(b)) * 5 + 1, Math.sin(a) * Math.cos(b) * 6), EFFECTS.sp, 0, 9);
     }
   }
   function spawnExplosion(pos, so = 0.7) {
@@ -100,7 +100,7 @@ export function createCombat(game) {
     if (fire) {
       const sprite = new SP(new THREE.SpriteMaterial({ map: fire, transparent: true, blending: AB, depthWrite: false }));
       sprite.scale.set(2.6, 2.6, 1);
-      addPart(sprite, origin, new V3(0, 0.5, 0), EFFECTS.explosionLife, 6, 0);
+      addPart(sprite, origin, new V3(0, 0.5, 0), EFFECTS.ex, 6, 0);
     } else {
       for (let i = 0; i < 8; i += 1) {
         const ball = new ME(
@@ -108,7 +108,7 @@ export function createCombat(game) {
           new MB({ color: 0xff7711, transparent: true }),
         );
         const a = (i / 8) * PI * 2;
-        addPart(ball, origin, new V3(Math.cos(a) * 3, 1.5, Math.sin(a) * 3), EFFECTS.explosionLife, 2, 0);
+        addPart(ball, origin, new V3(Math.cos(a) * 3, 1.5, Math.sin(a) * 3), EFFECTS.ex, 2, 0);
       }
     }
     const smoke = game.textures && game.textures.smoke;
@@ -117,7 +117,7 @@ export function createCombat(game) {
         ? new SP(new THREE.SpriteMaterial({ map: smoke, transparent: true, opacity: so * 0.7, depthWrite: false }))
         : new ME(new SG(1.1, 8, 6), new MS({ color: 0x555555, roughness: 1, transparent: true, opacity: so }));
       if (smoke) puff.scale.set(1.6, 1.6, 1);
-      addPart(puff, new V3(pos.x + (i - 1.5) * 0.9 - 0.6, pos.y + 2 + i * 0.6, pos.z + (i % 2 ? 0.5 : -0.4)), new V3(0, 1.2, 0), EFFECTS.explosionLife * 1.4, 2.5, 0);
+      addPart(puff, new V3(pos.x + (i - 1.5) * 0.9 - 0.6, pos.y + 2 + i * 0.6, pos.z + (i % 2 ? 0.5 : -0.4)), new V3(0, 1.2, 0), EFFECTS.ex * 1.4, 2.5, 0);
     }
     game.hud.shake();
   }

@@ -2,16 +2,16 @@ import { WEAPONS, ECONOMY, CAR_MODELS } from './config.js';
 import { enterCar } from './vehicles.js';
 export function createShops(game) {
   const SHOPS = [
-    { key: 'dealer', name: 'Auto Dealer', at: 'dealer' },
-    { key: 'gunShop', name: 'Gun Shop', at: 'gunShop' },
-    { key: 'garage', name: 'Garage', at: 'garage' },
-    { key: 'diner', name: 'Diner', at: 'diner' },
-    { key: 'chopShop', name: 'Chop Shop', at: 'chopShop' },
+    { key: 'dealer', name: 'Auto Dealer' },
+    { key: 'gunShop', name: 'Gun Shop' },
+    { key: 'garage', name: 'Garage' },
+    { key: 'diner', name: 'Diner' },
+    { key: 'chopShop', name: 'Chop Shop' },
   ];
   function nearShop() {
     const p = game.player.car ? game.player.car.pos : game.player.pos;
     for (const shop of SHOPS) {
-      const spot = game.city.landmarks[shop.at];
+      const spot = game.city.landmarks[shop.key];
       if (Math.hypot(spot.x - p.x, spot.z - p.z) < 6) return shop;
     }
     return null;
@@ -33,18 +33,18 @@ export function createShops(game) {
   function buyCar() {
     const car = nearestSaleCar();
     if (!car) {
-      game.hud.flash('Cars for sale: Comet GT $2500, Muscle $1800, Van $1100. Stand by one and press E.');
+      game.hud.flash('For sale: Comet $2500, Muscle $1800, Van $1100. Press E by one.');
       return true;
     }
     if (game.cash < car.salePrice) {
-      game.hud.flash(`Not enough cash — the ${CAR_MODELS[car.model].name} is $${car.salePrice}.`);
+      game.hud.flash(`Not enough cash for the ${CAR_MODELS[car.model].name} ($${car.salePrice}).`);
       return true;
     }
     game.cash -= car.salePrice;
     car.forSale = false;
     game.ownedCars.push(car.model);
     enterCar(game, car);
-    game.hud.flash(`You bought the ${CAR_MODELS[car.model].name} for $${car.salePrice}. Drive it home!`);
+    game.hud.flash(`Bought the ${CAR_MODELS[car.model].name} for $${car.salePrice}!`);
     game.audio.payout();
     return true;
   }
@@ -52,7 +52,7 @@ export function createShops(game) {
     const player = game.player;
     if (!player.ownedWeapons.includes('pistol')) {
       if (game.cash < WEAPONS.pistol.price) {
-        game.hud.flash(`The Pistol is $${WEAPONS.pistol.price}. Come back with more cash.`);
+        game.hud.flash(`Pistol is $${WEAPONS.pistol.price} — need more cash.`);
         return true;
       }
       game.cash -= WEAPONS.pistol.price;
@@ -66,7 +66,7 @@ export function createShops(game) {
     }
     if (!player.ownedWeapons.includes('rifle')) {
       if (game.cash < WEAPONS.rifle.price) {
-        game.hud.flash(`The Rifle is $${WEAPONS.rifle.price}. Come back with more cash.`);
+        game.hud.flash(`Rifle is $${WEAPONS.rifle.price} — need more cash.`);
         return true;
       }
       game.cash -= WEAPONS.rifle.price;
@@ -136,7 +136,7 @@ export function createShops(game) {
       return true;
     }
     if (!car.stolen) {
-      game.hud.flash('The chop shop only buys hot cars.');
+      game.hud.flash('Chop shop buys hot cars only.');
       return true;
     }
     let pay = game.rng.int(ECONOMY.chopSellMin, ECONOMY.chopSellMax);
@@ -149,7 +149,7 @@ export function createShops(game) {
     game.player.pos.set(car.pos.x + 3, 0, car.pos.z + 3);
     game.player.mesh.visible = true;
     game.player.mesh.position.copy(game.player.pos);
-    game.hud.flash(car.wrecked || car.health <= 0 ? `Sold as a wreck for $${pay} — half price.` : `Sold for $${pay}. The chop shop never saw you.`);
+    game.hud.flash(car.wrecked || car.health <= 0 ? `Sold as a wreck for $${pay}.` : `Sold for $${pay}.`);
     game.audio.payout();
     return true;
   }
