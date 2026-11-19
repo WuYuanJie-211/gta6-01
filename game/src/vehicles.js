@@ -2,9 +2,12 @@ import * as THREE from 'three';
 import { CAR, CAR_MODELS, COLOURS, DETAIL, WORLD } from './config.js';
 import { nodeNeighbours, nearestNode, isIntersection } from './roads.js';
 import { resolveBuildingCollision } from './city.js';
+let carTextures = null;
+export function setCarTextures(t) { carTextures = t; }
 export function createCarMesh(color, kind = 'sedan') {
   const group = new THREE.Group();
-  const paint = new THREE.MeshStandardMaterial({ color, roughness: 0.4, metalness: 0.4 });
+  const paintMap = carTextures && kind === 'sport' ? carTextures.redPaint : carTextures && kind === 'taxi' ? carTextures.taxiPaint : null;
+  const paint = new THREE.MeshStandardMaterial({ color: paintMap ? 0xffffff : color, roughness: paintMap ? 0.35 : 0.4, metalness: paintMap ? 0.6 : 0.4, ...(paintMap ? { map: paintMap } : {}) });
   const glass = new THREE.MeshStandardMaterial({ color: 0x1a2a3a, roughness: 0.2, metalness: 0.6 });
   const tyre = new THREE.MeshStandardMaterial({ color: 0x151515, roughness: 1 });
   const model = CAR_MODELS[kind] || CAR_MODELS.sedan;
@@ -58,6 +61,18 @@ export function createCarMesh(color, kind = 'sedan') {
     const roofPanel = new THREE.Mesh(new THREE.BoxGeometry(cabinL * 0.9, 0.08, 1.7), paint);
     roofPanel.position.set(-0.2, 0.85 + cabinH + 0.04, 0);
     group.add(roofPanel);
+    const hood = new THREE.Mesh(new THREE.BoxGeometry(len * 0.22, 0.3, 1.9), paint);
+    hood.position.set(len / 2 - len * 0.11, 0.42, 0);
+    group.add(hood);
+    const trunk = new THREE.Mesh(new THREE.BoxGeometry(len * 0.2, 0.28, 1.9), paint);
+    trunk.position.set(-len / 2 + len * 0.1, 0.41, 0);
+    group.add(trunk);
+    const trimMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.6 });
+    for (const side of [-1, 1]) {
+      const belt = new THREE.Mesh(new THREE.BoxGeometry(len * 0.9, 0.05, 0.03), trimMat);
+      belt.position.set(0, 0.82, side * 1.01);
+      group.add(belt);
+    }
     if (kind === 'muscle') {
       const scoop = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.25, 0.8), new THREE.MeshStandardMaterial({ color: 0x222831, roughness: 0.4 }));
       scoop.position.set(len / 2 - 1, 0.9, 0);
@@ -120,6 +135,9 @@ export function createCarMesh(color, kind = 'sedan') {
     group.userData.lightR = lightR;
     group.userData.lightB = lightB;
   }
+  const plate = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.18, 0.7), new THREE.MeshStandardMaterial({ color: 0xf2f2f2, roughness: 0.5 }));
+  plate.position.set(-len / 2 - 0.07, 0.42, 0);
+  group.add(plate);
   const tall = kind === 'van' || kind === 'armored' || kind === 'truck' || kind === 'bus' || kind === 'police';
   const grille = new THREE.Mesh(
     new THREE.BoxGeometry(0.08, tall ? 0.6 : 0.3, 1.4),

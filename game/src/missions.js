@@ -248,6 +248,11 @@ export function createMissions(game) {
           enterCar(game, car);
           game.police.commitCrime(state.index === 6 ? 3 : 2);
           game.hud.flash(state.index === 6 ? 'The armored van is yours — and so is the heat!' : 'The Comet GT is yours — and so is the heat!');
+          if (state.index === 6) {
+            const bank = game.city.landmarks.bank;
+            game.combat.spawnExplosion({ x: bank.x, y: 2, z: bank.z });
+            game.audio.explosion();
+          }
           completeStage();
           return true;
         }

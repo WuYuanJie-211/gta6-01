@@ -114,14 +114,28 @@ export const COLOURS = {
   policeBlue: 0x1a3a8f,
 };
 export const TEXTURES = {
-  glass: 'textures/glass-facade.jpg',
-  brick: 'textures/brick-facade.jpg',
+  glass: 'textures/glass-1024.jpg',
+  brick: 'textures/brick-1024.jpg',
   stucco: 'textures/suburban-wall.jpg',
   asphalt: 'textures/asphalt.jpg',
   sidewalk: 'textures/sidewalk.jpg',
   grass: 'textures/grass.jpg',
   sand: 'textures/sand.jpg',
   container: 'textures/container-metal.jpg',
+  concrete: 'textures/concrete-512.jpg',
+  wood: 'textures/wood-512.jpg',
+  cobble: 'textures/cobble-512.jpg',
+  redPaint: 'textures/red-paint-512.jpg',
+  taxiPaint: 'textures/taxi-paint-512.jpg',
+  fireball: 'textures/fireball-512.jpg',
+  smoke: 'textures/smoke-512.jpg',
+  marble: 'textures/marble-512.jpg',
+};
+export const EFFECTS = {
+  flashLife: 0.06,
+  casingLife: 0.7,
+  sparkLife: 0.25,
+  explosionLife: 1.2,
 };
 export const STEP = 1 / 60;
 export const DETAIL = {

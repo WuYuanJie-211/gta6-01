@@ -178,6 +178,12 @@ export function createAudio() {
     gunshot() {
       noise(0.12, 0.25, 3000);
       blip(80, 0.1, 0.15);
+      blip(1200, 0.06, 0.05, 0.08);
+    },
+    explosion() {
+      noise(0.9, 0.3, 300);
+      blip(55, 0.7, 0.2);
+      blip(40, 0.9, 0.15, 0.2);
     },
     crash() {
       noise(0.3, 0.2, 800);

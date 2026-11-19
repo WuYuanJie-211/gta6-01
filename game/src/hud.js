@@ -55,6 +55,14 @@ export function createHud(game) {
   function shake() {
     shakeTime = 0.35;
   }
+  let hitTimer = null;
+  function hitmark() {
+    const mark = el('hitmarker');
+    if (!mark) return;
+    mark.classList.add('show');
+    if (hitTimer) clearTimeout(hitTimer);
+    hitTimer = setTimeout(() => mark.classList.remove('show'), 120);
+  }
   function takeShake(dt) {
     if (shakeTime <= 0) return 0;
     shakeTime -= dt;
@@ -237,5 +245,5 @@ export function createHud(game) {
     overText.textContent = text;
     overMenu.classList.toggle('hidden', !show);
   }
-  return { flash, hideToast, showMissionCard, hideMissionCard, shake, takeShake, update, setPrompt, showMenu, showPause, showOver };
+  return { flash, hideToast, showMissionCard, hideMissionCard, shake, takeShake, hitmark, update, setPrompt, showMenu, showPause, showOver };
 }

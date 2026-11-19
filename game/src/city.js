@@ -29,6 +29,14 @@ export async function loadCityTextures() {
     ['grass', TEXTURES.grass, '#6fae5e'],
     ['sand', TEXTURES.sand, '#e8d49a'],
     ['container', TEXTURES.container, '#2e86c1'],
+    ['concrete', TEXTURES.concrete, '#9a9a9a'],
+    ['wood', TEXTURES.wood, '#8a6a44'],
+    ['cobble', TEXTURES.cobble, '#7a7a7a'],
+    ['redPaint', TEXTURES.redPaint, '#d21f2b'],
+    ['taxiPaint', TEXTURES.taxiPaint, '#f1c40f'],
+    ['fireball', TEXTURES.fireball, '#ff8800'],
+    ['smoke', TEXTURES.smoke, '#888888'],
+    ['marble', TEXTURES.marble, '#e8e8e8'],
   ];
   await Promise.all(jobs.map(async ([key, url, hex]) => {
     try {
@@ -56,6 +64,18 @@ const GUN_BLOCK = '150,-210';
 const GARAGE_BLOCK = '270,30';
 const DINER_BLOCK = '30,150';
 const BANK_BLOCK = '330,-270';
+function makeDashTexture() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 128;
+  canvas.height = 16;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, 128, 16);
+  ctx.fillStyle = '#f5f5f0';
+  ctx.fillRect(0, 0, 64, 16);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = THREE.RepeatWrapping;
+  return tex;
+}
 function makeFacadeTexture(base, rng, floors = 12, cols = 6) {
   const canvas = document.createElement('canvas');
   canvas.width = 128;
@@ -68,6 +88,9 @@ function makeFacadeTexture(base, rng, floors = 12, cols = 6) {
       const lit = rng.chance(0.25);
       ctx.fillStyle = lit ? '#ffd98a' : '#2c3e50';
       ctx.fillRect(10 + col * 19, 12 + row * 20, 12, 12);
+      ctx.strokeStyle = 'rgba(0,0,0,0.45)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(9 + col * 19, 11 + row * 20, 14, 14);
     }
   }
   const tex = new THREE.CanvasTexture(canvas);
@@ -138,6 +161,7 @@ function makeTree(rng) {
     new THREE.MeshStandardMaterial({ color: 0x6b4a2f, roughness: 1 }),
   );
   trunk.position.y = 1.2;
+  trunk.rotation.z = rng.range(-0.07, 0.07);
   group.add(trunk);
   const greens = [0x2f7a44, 0x3e8f4f, 0x55a566];
   const sizes = [rng.range(1.6, 2.1), rng.range(1.1, 1.5), rng.range(0.7, 1.0)];
@@ -152,6 +176,37 @@ function makeTree(rng) {
     puff.castShadow = true;
     group.add(puff);
   }
+  return group;
+}
+function makeTrafficLight() {
+  const group = new THREE.Group();
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 4.5, 6), new THREE.MeshStandardMaterial({ color: 0x2c3e50, roughness: 0.7 }));
+  pole.position.y = 2.25;
+  group.add(pole);
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.5, 1.3, 0.4), new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.6 }));
+  head.position.y = 4.8;
+  group.add(head);
+  const colors = [0xff2222, 0xffcc00, 0x33cc33];
+  for (let i = 0; i < 3; i += 1) {
+    const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.14, 8, 6), new THREE.MeshStandardMaterial({ color: colors[i], emissive: colors[i], emissiveIntensity: 0.7 }));
+    lamp.position.set(0, 5.25 - i * 0.4, 0.22);
+    group.add(lamp);
+  }
+  return group;
+}
+function makeHydrant() {
+  const group = new THREE.Group();
+  const red = new THREE.MeshStandardMaterial({ color: 0xc0392b, roughness: 0.6 });
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.26, 0.7, 10), red);
+  body.position.y = 0.35;
+  group.add(body);
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), red);
+  cap.position.y = 0.75;
+  group.add(cap);
+  const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.3, 8), red);
+  nozzle.rotation.z = Math.PI / 2;
+  nozzle.position.set(0.25, 0.4, 0);
+  group.add(nozzle);
   return group;
 }
 function makeLamp() {
@@ -255,6 +310,16 @@ export function buildCity(scene, rng, textures = {}) {
   beach.position.set(0, 0.03, 276);
   beach.receiveShadow = true;
   scene.add(beach);
+  if (textures.cobble) {
+    const plaza = new THREE.Mesh(
+      new THREE.PlaneGeometry(24, 24),
+      new THREE.MeshStandardMaterial({ map: tile(textures.cobble, 3, 3), roughness: 1 }),
+    );
+    plaza.rotation.x = -Math.PI / 2;
+    plaza.position.set(0, 0.04, 12);
+    plaza.receiveShadow = true;
+    scene.add(plaza);
+  }
   const sea = new THREE.Mesh(
     new THREE.PlaneGeometry(900, 300),
     new THREE.MeshStandardMaterial({ color: COLOURS.sea, roughness: 0.3, metalness: 0.1 }),
@@ -268,7 +333,7 @@ export function buildCity(scene, rng, textures = {}) {
   const walkMat = textures.sidewalk
     ? new THREE.MeshStandardMaterial({ map: tile(textures.sidewalk, 60, 1), roughness: 1 })
     : new THREE.MeshStandardMaterial({ color: COLOURS.sidewalk, roughness: 1 });
-  const dashMat = new THREE.MeshStandardMaterial({ color: 0xf5f5f0, roughness: 1 });
+  const dashTex = makeDashTexture();
   const roadLenX = 780;
   const roadLenZ = 660;
   for (const line of CITY.roadLinesX) {
@@ -285,12 +350,14 @@ export function buildCity(scene, rng, textures = {}) {
       walk.position.set(line + side * (CITY.roadWidth / 2 + 1.5), 0.06, -60);
       scene.add(walk);
     }
-    for (let d = -360; d <= 240; d += 12) {
-      if (Math.abs(d % 60) < 9) continue; 
-      const dash = new THREE.Mesh(new THREE.BoxGeometry(3, 0.05, 0.4), dashMat);
-      dash.position.set(line, 0.08, d);
-      scene.add(dash);
-    }
+    const dashLine = new THREE.Mesh(
+      new THREE.PlaneGeometry(roadLenZ, 0.4),
+      new THREE.MeshBasicMaterial({ map: tile(dashTex, roadLenZ / 12, 1), transparent: true }),
+    );
+    dashLine.rotation.x = -Math.PI / 2;
+    dashLine.rotation.z = Math.PI / 2;
+    dashLine.position.set(line, 0.07, -60);
+    scene.add(dashLine);
   }
   for (const line of CITY.roadLinesZ) {
     const strip = new THREE.Mesh(new THREE.PlaneGeometry(roadLenX, CITY.roadWidth), roadMat);
@@ -304,12 +371,13 @@ export function buildCity(scene, rng, textures = {}) {
       walk.position.set(0, 0.06, line + side * (CITY.roadWidth / 2 + 1.5));
       scene.add(walk);
     }
-    for (let d = -360; d <= 360; d += 12) {
-      if (Math.abs(d % 60) < 9) continue;
-      const dash = new THREE.Mesh(new THREE.BoxGeometry(3, 0.05, 0.4), dashMat);
-      dash.position.set(d, 0.08, line);
-      scene.add(dash);
-    }
+    const dashLine = new THREE.Mesh(
+      new THREE.PlaneGeometry(roadLenX, 0.4),
+      new THREE.MeshBasicMaterial({ map: tile(dashTex, roadLenX / 12, 1), transparent: true }),
+    );
+    dashLine.rotation.x = -Math.PI / 2;
+    dashLine.position.set(0, 0.07, line);
+    scene.add(dashLine);
   }
   const bumpMat = new THREE.MeshStandardMaterial({ color: 0xe8e4d8, roughness: 1 });
   for (const x of CITY.roadLinesX) {
@@ -318,7 +386,24 @@ export function buildCity(scene, rng, textures = {}) {
       const bump = new THREE.Mesh(new THREE.BoxGeometry(x === 0 ? 11 : 1.2, 0.12, x === 0 ? 1.2 : 11), bumpMat);
       bump.position.set(x, 0.1, z);
       scene.add(bump);
+      for (let s = -2; s <= 2; s += 1) {
+        const stripe = new THREE.Mesh(new THREE.BoxGeometry(x === 0 ? 0.8 : 3, 0.05, x === 0 ? 3 : 0.8), new THREE.MeshStandardMaterial({ color: 0xf5f5f0, roughness: 1 }));
+        stripe.position.set(x + (x === 0 ? s * 2 : 8), 0.08, z + (x === 0 ? 8 : s * 2));
+        scene.add(stripe);
+      }
     }
+  }
+  const tl1 = makeTrafficLight();
+  tl1.position.set(8, 0, 8);
+  scene.add(tl1);
+  const tl2 = makeTrafficLight();
+  tl2.position.set(-128, 0, 8);
+  tl2.rotation.y = Math.PI / 2;
+  scene.add(tl2);
+  for (const [hx, hz] of [[30, 10], [-60, -40], [150, 60], [210, -30]]) {
+    const hyd = makeHydrant();
+    hyd.position.set(hx, 0, hz);
+    scene.add(hyd);
   }
   const facadeTextures = COLOURS.building.map((c) => {
     const hex = `#${c.toString(16).padStart(6, '0')}`;
@@ -415,9 +500,12 @@ export function buildCity(scene, rng, textures = {}) {
       tower.castShadow = true;
       tower.receiveShadow = true;
       scene.add(tower);
+      const cornice = new THREE.Mesh(new THREE.BoxGeometry(w + 0.6, 0.5, d + 0.6), new THREE.MeshStandardMaterial({ color: 0x3a3f45, roughness: 1 }));
+      cornice.position.set(x, h - 0.25, z);
+      scene.add(cornice);
       const podium = new THREE.Mesh(
         new THREE.BoxGeometry(w + 1.5, 4.5, d + 1.5),
-        new THREE.MeshStandardMaterial({ color: 0x2c3e50, roughness: 0.8 }),
+        new THREE.MeshStandardMaterial({ map: textures.concrete ? tile(textures.concrete, 2, 1) : null, color: textures.concrete ? 0xffffff : 0x2c3e50, roughness: 0.8 }),
       );
       podium.position.set(x, 2.25, z);
       podium.castShadow = true;
@@ -466,7 +554,9 @@ export function buildCity(scene, rng, textures = {}) {
         const x = bx + rng.range(-14, 14);
         const z = bz + rng.range(-14, 14);
         let tex;
-        if (textures.stucco) {
+        if (textures.wood && rng.chance(0.5)) {
+          tex = tile(textures.wood, 2, 1);
+        } else if (textures.stucco) {
           tex = tile(textures.stucco, 2, 1);
         } else {
           tex = rng.pick(houseTextures).clone();
@@ -554,6 +644,9 @@ export function buildCity(scene, rng, textures = {}) {
           balcony.position.set(x, 4 + f * 7, z + d / 2 + 0.7);
           balcony.castShadow = true;
           scene.add(balcony);
+          const rail = new THREE.Mesh(new THREE.BoxGeometry(w * 0.4, 0.7, 0.06), new THREE.MeshStandardMaterial({ color: 0x2c3e50, roughness: 0.7 }));
+          rail.position.set(x, 4 + f * 7 + 0.45, z + d / 2 + 1.35);
+          scene.add(rail);
         }
       }
       if (rng.chance(0.4)) {
@@ -614,7 +707,7 @@ export function buildCity(scene, rng, textures = {}) {
     base.position.set(-216, 0.75, -216);
     base.castShadow = true;
     scene.add(base);
-    const towerMat = new THREE.MeshStandardMaterial({ color: 0xf2f2f2, roughness: 0.8 });
+    const towerMat = new THREE.MeshStandardMaterial({ map: textures.marble ? tile(textures.marble, 3, 1) : null, color: textures.marble ? 0xffffff : 0xf2f2f2, roughness: 0.8 });
     const stripeMat = new THREE.MeshStandardMaterial({ color: 0xd21f2b, roughness: 0.8 });
     for (let i = 0; i < 4; i += 1) {
       const seg = new THREE.Mesh(

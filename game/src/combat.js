@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { PLAYER, WEAPONS, ECONOMY } from './config.js';
+import { PLAYER, WEAPONS, ECONOMY, EFFECTS } from './config.js';
 function createThugMesh() {
   const group = new THREE.Group();
   const shirt = new THREE.MeshStandardMaterial({ color: 0x7b241c, roughness: 0.9 });
@@ -33,6 +33,7 @@ function createThugMesh() {
   barFg.position.y = 2.35;
   group.add(barBg, barFg);
   group.userData.barFg = barFg;
+  group.userData.torso = torso;
   group.userData.legL = legL;
   group.userData.legR = legR;
   group.userData.armL = armL;
@@ -42,15 +43,85 @@ function createThugMesh() {
 function createGunmanMesh() {
   const group = createThugMesh();
   group.children[0].material = new THREE.MeshStandardMaterial({ color: 0x1a1a2e, roughness: 0.9 });
+  const bandana = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.12, 0.56), new THREE.MeshStandardMaterial({ color: 0xd21f2b, roughness: 0.8 }));
+  bandana.position.y = 1.98;
+  group.add(bandana);
+  const vest = new THREE.Mesh(new THREE.BoxGeometry(0.78, 0.5, 0.46), new THREE.MeshStandardMaterial({ color: 0x7b1a1a, roughness: 0.9 }));
+  vest.position.y = 1.2;
+  group.add(vest);
   const gunMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.4, metalness: 0.5 });
   const rifle = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.14, 0.9), gunMat);
   rifle.position.set(0.35, 1.2, 0.35);
   group.add(rifle);
+  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.4, 8), gunMat);
+  barrel.rotation.x = Math.PI / 2;
+  barrel.position.set(0.35, 1.22, 0.95);
+  group.add(barrel);
   return group;
 }
 export function createCombat(game) {
   const enemies = [];
   const tracers = [];
+  const parts = [];
+  function addPart(mesh, pos, vel, life, grow = 0, grav = 0) {
+    mesh.position.copy(pos);
+    game.scene.add(mesh);
+    parts.push({ mesh, vel: vel.clone(), life, maxLife: life, grow, grav });
+  }
+  function spawnFlash(pos) {
+    const flash = new THREE.Mesh(
+      new THREE.OctahedronGeometry(0.4),
+      new THREE.MeshBasicMaterial({ color: 0xffdd55, transparent: true }),
+    );
+    addPart(flash, pos, new THREE.Vector3(0, 0, 0), EFFECTS.flashLife);
+  }
+  function spawnCasing(pos, heading) {
+    const casing = new THREE.Mesh(
+      new THREE.BoxGeometry(0.06, 0.03, 0.1),
+      new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.7, roughness: 0.4 }),
+    );
+    casing.rotation.y = Math.random() * Math.PI;
+    const side = new THREE.Vector3(Math.cos(heading), 0, -Math.sin(heading));
+    addPart(casing, new THREE.Vector3(pos.x + side.x * 0.4, 1.1, pos.z + side.z * 0.4), new THREE.Vector3(side.x * 1.5, 2.2, side.z * 1.5), EFFECTS.casingLife, 0, 12);
+  }
+  function spawnSparks(pos, color = 0xffcc44, n = 6) {
+    for (let i = 0; i < n; i += 1) {
+      const spark = new THREE.Mesh(
+        new THREE.BoxGeometry(0.05, 0.05, 0.05),
+        new THREE.MeshBasicMaterial({ color, transparent: true }),
+      );
+      const a = Math.random() * Math.PI * 2;
+      const b = Math.random() * Math.PI - Math.PI / 2;
+      addPart(spark, pos, new THREE.Vector3(Math.cos(a) * Math.cos(b) * 6, Math.abs(Math.sin(b)) * 5 + 1, Math.sin(a) * Math.cos(b) * 6), EFFECTS.sparkLife, 0, 9);
+    }
+  }
+  function spawnExplosion(pos) {
+    const origin = new THREE.Vector3(pos.x, pos.y + 1, pos.z);
+    const fire = game.textures && game.textures.fireball;
+    if (fire) {
+      const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: fire, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+      sprite.scale.set(3, 3, 1);
+      addPart(sprite, origin, new THREE.Vector3(0, 0.5, 0), EFFECTS.explosionLife, 6, 0);
+    } else {
+      for (let i = 0; i < 8; i += 1) {
+        const ball = new THREE.Mesh(
+          new THREE.SphereGeometry(0.6, 8, 6),
+          new THREE.MeshBasicMaterial({ color: 0xff7711, transparent: true }),
+        );
+        const a = (i / 8) * Math.PI * 2;
+        addPart(ball, origin, new THREE.Vector3(Math.cos(a) * 3, 1.5, Math.sin(a) * 3), EFFECTS.explosionLife, 2, 0);
+      }
+    }
+    const smoke = game.textures && game.textures.smoke;
+    for (let i = 0; i < 5; i += 1) {
+      const puff = smoke
+        ? new THREE.Sprite(new THREE.SpriteMaterial({ map: smoke, transparent: true, opacity: 0.7, depthWrite: false }))
+        : new THREE.Mesh(new THREE.SphereGeometry(1.1, 8, 6), new THREE.MeshStandardMaterial({ color: 0x555555, roughness: 1, transparent: true, opacity: 0.7 }));
+      if (smoke) puff.scale.set(2, 2, 1);
+      addPart(puff, new THREE.Vector3(pos.x + (i - 2) * 0.8, pos.y + 2 + i * 0.5, pos.z), new THREE.Vector3(0, 1.2, 0), EFFECTS.explosionLife * 1.4, 2.5, 0);
+    }
+    game.hud.shake();
+  }
   function spawnThug(x, z) {
     const mesh = createThugMesh();
     mesh.position.set(x, 0, z);
@@ -110,6 +181,7 @@ export function createCombat(game) {
       const dot = (dx * fx + dz * fz) / (dist || 1);
       if (dot < 0.3) continue;
       damageEnemy(enemy, PLAYER.punchDamage);
+      game.hud.shake();
     }
     for (const ped of game.peds) {
       if (!ped.alive) continue;
@@ -178,13 +250,21 @@ export function createCombat(game) {
     }
     const end = new THREE.Vector3(player.pos.x + fx * bestDist, 1.2, player.pos.z + fz * bestDist);
     spawnTracer(muzzle, end, game.player.weapon === 'rifle' ? 0xff9500 : 0xffe14d);
-    if (bestEnemy) damageEnemy(bestEnemy, weapon.damage);
-    else if (bestCar) {
+    spawnFlash(muzzle);
+    spawnCasing(player.pos, player.heading);
+    game.hud.hitmark();
+    if (bestEnemy) {
+      damageEnemy(bestEnemy, weapon.damage);
+      spawnSparks(end);
+    } else if (bestCar) {
       bestCar.health = Math.max(0, (bestCar.health || 0) - weapon.damage);
+      spawnSparks(end, 0xffaa33);
       if (bestCar.kind === 'police') game.police.commitCrime(1);
       if (bestCar.health <= 0) {
         bestCar.wrecked = true;
         bestCar.speed = 0;
+        spawnExplosion(new THREE.Vector3(bestCar.pos.x, 1, bestCar.pos.z));
+        game.audio.explosion();
         if (bestCar.kind === 'police') game.hud.flash('Police car disabled.');
       }
     }
@@ -204,12 +284,14 @@ export function createCombat(game) {
   }
   function damageEnemy(enemy, amount) {
     enemy.health -= amount;
+    enemy.flashT = 0.12;
     const scale = Math.max(0, enemy.health / enemy.maxHealth);
     enemy.mesh.userData.barFg.scale.x = scale;
     enemy.mesh.userData.barFg.position.x = -(1 - scale) * 0.53;
     if (enemy.health <= 0) {
       enemy.alive = false;
-      enemy.mesh.visible = false;
+      enemy.fallT = 1.0;
+      enemy.mesh.rotation.x = -Math.PI / 2 * 0.85;
       const drop = enemy.kind === 'gunman' ? ECONOMY.gunmanDrop : ECONOMY.thugDrop;
       game.cash += drop;
       game.hud.flash(`${enemy.kind === 'gunman' ? 'Gunman' : 'Thug'} down. +$${drop}.`);
@@ -219,7 +301,21 @@ export function createCombat(game) {
   }
   function update(dt) {
     for (const enemy of enemies) {
-      if (!enemy.alive) continue;
+      if (!enemy.alive) {
+        if (enemy.fallT > 0) {
+          enemy.fallT -= dt;
+          if (enemy.fallT <= 0) enemy.mesh.visible = false;
+        }
+        continue;
+      }
+      enemy.flashT = Math.max(0, (enemy.flashT || 0) - dt);
+      if (enemy.flashT > 0) {
+        enemy.mesh.userData.torso.material.emissive.setHex(0xffffff);
+        enemy.mesh.rotation.x = -0.25;
+      } else {
+        enemy.mesh.userData.torso.material.emissive.setHex(0x000000);
+        enemy.mesh.rotation.x = 0;
+      }
       enemy.punchTimer = Math.max(0, enemy.punchTimer - dt);
       enemy.shootTimer = Math.max(0, enemy.shootTimer - dt);
       const dx = game.player.pos.x - enemy.pos.x;
@@ -241,6 +337,7 @@ export function createCombat(game) {
           const from = new THREE.Vector3(enemy.pos.x, 1.4, enemy.pos.z);
           const to = new THREE.Vector3(game.player.pos.x, 1.2, game.player.pos.z);
           spawnTracer(from, to, 0xff6644);
+          spawnFlash(from);
           game.audio.gunshot();
           game.player.health = Math.max(0, game.player.health - 6);
           game.player.lastHitAt = game.time;
@@ -275,6 +372,19 @@ export function createCombat(game) {
         tracers.splice(i, 1);
       }
     }
+    for (let i = parts.length - 1; i >= 0; i -= 1) {
+      const part = parts[i];
+      part.life -= dt;
+      if (part.life <= 0) {
+        game.scene.remove(part.mesh);
+        parts.splice(i, 1);
+        continue;
+      }
+      part.vel.y -= part.grav * dt;
+      part.mesh.position.addScaledVector(part.vel, dt);
+      if (part.grow) part.mesh.scale.multiplyScalar(1 + part.grow * dt);
+      if (part.mesh.material.transparent) part.mesh.material.opacity = Math.max(0, part.life / part.maxLife);
+    }
   }
-  return { enemies, spawnThug, spawnGunman, playerPunch, playerShoot, reloadWeapon, update };
+  return { enemies, spawnThug, spawnGunman, spawnExplosion, playerPunch, playerShoot, reloadWeapon, update };
 }

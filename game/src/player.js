@@ -42,6 +42,12 @@ export function createPlayerMesh() {
   const pistolGrip = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.18, 0.1), gunMat);
   pistolGrip.position.set(0, -0.12, -0.1);
   pistol.add(pistolBody, pistolGrip);
+  const pistolBarrel = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.08, 0.28), gunMat);
+  pistolBarrel.position.set(0, 0.03, 0.32);
+  pistol.add(pistolBarrel);
+  const pistolSight = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.06, 0.06), gunMat);
+  pistolSight.position.set(0, 0.1, 0.15);
+  pistol.add(pistolSight);
   pistol.position.set(0.48, 0.9, 0.35);
   pistol.visible = false;
   const rifle = new THREE.Group();
@@ -51,6 +57,13 @@ export function createPlayerMesh() {
   const rifleMag = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.2, 0.12), gunMat);
   rifleMag.position.set(0, -0.14, 0.05);
   rifle.add(rifleBody, rifleStock, rifleMag);
+  const rifleBarrel = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.5, 8), gunMat);
+  rifleBarrel.rotation.x = Math.PI / 2;
+  rifleBarrel.position.set(0, 0.02, 0.68);
+  rifle.add(rifleBarrel);
+  const rifleSight = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.1, 0.12), gunMat);
+  rifleSight.position.set(0, 0.12, 0.3);
+  rifle.add(rifleSight);
   rifle.position.set(0.48, 0.9, 0.4);
   rifle.visible = false;
   group.add(pistol, rifle);
