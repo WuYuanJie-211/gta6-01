@@ -1,0 +1,78 @@
+LANDMARKS: {"clientSpot":{"x":6,"z":12},"marina":{"x":210,"z":258},"chopShop":{"x":-210,"z":194},"cometSpot":{"x":-180,"z":66},"armoredSpot":{"x":318,"z":-240},"packageSpot":{"x":-204,"z":194},"lighthouse":{"x":-216,"z":-200},"race":[{"x":0,"z":-360},{"x":360,"z":-60},{"x":300,"z":240},{"x":-360,"z":180}],"collectibles":[{"x":120,"z":-300},{"x":-330,"z":-270},{"x":300,"z":120},{"x":180,"z":258},{"x":-150,"z":-150}],"busStops":[{"x":7.5,"z":60},{"x":-127.5,"z":-120},{"x":247.5,"z":120},{"x":7.5,"z":-172}]}
+START: {"mission":0,"stage":0,"done":false,"cash":50,"health":100,"x":0,"z":12,"onFoot":true,"wanted":0,"carHealth":null,"carWrecked":null,"carModel":null,"speed":0,"obj":"First Fare: Pick up Mara at the plaza (walk to her, press E)","fareDone":0,"collected":0,"raceCp":0}
+M1: pickup Mara (real E)
+  after pickup: {"mission":0,"stage":1,"done":false,"cash":50,"health":100,"x":6,"z":12,"onFoot":true,"wanted":0,"carHealth":null,"carWrecked":null,"carModel":null,"speed":0,"obj":"First Fare: Drive Mara to the Marina","fareDone":0,"collected":0,"raceCp":0}
+  PASS M1 pickup -> stage 1
+M1: enter taxi (real E)
+  in taxi: {"mission":0,"stage":1,"done":false,"cash":50,"health":100,"x":60,"z":18,"onFoot":false,"wanted":0,"carHealth":100,"carWrecked":false,"carModel":"taxi","speed":0,"obj":"First Fare: Drive Mara to the Marina","fareDone":0,"collected":0,"raceCp":0}
+  PASS M1 in taxi
+M1: deliver to marina (teleport car)
+  at marina: {"mission":1,"stage":0,"done":false,"cash":250,"health":100,"x":210,"z":258,"onFoot":false,"wanted":0,"carHealth":100,"carWrecked":false,"carModel":"taxi","speed":0,"obj":"Hot Wheels: Steal the Comet GT (press E by the red car)","fareDone":0,"collected":0,"raceCp":0}
+  PASS M1 complete -> mission 1
+M2: exit taxi, steal Comet (real E)
+  stole Comet: {"mission":1,"stage":1,"done":false,"cash":250,"health":100,"x":-180,"z":66,"onFoot":false,"wanted":2,"carHealth":100,"carWrecked":false,"carModel":"sport","speed":0,"obj":"Hot Wheels: Deliver the Comet GT to the Chop Shop","fareDone":0,"collected":0,"raceCp":0}
+  PASS M2 steal -> stage 1, wanted 2
+M2: deliver Comet to chop shop (teleport car)
+  at chop shop: {"mission":2,"stage":0,"done":false,"cash":750,"health":100,"x":-210,"z":194,"onFoot":false,"wanted":2,"carHealth":100,"carWrecked":false,"carModel":"sport","speed":0,"obj":"The Lighthouse Run: Pick up the package at the Chop Shop (press E)","fareDone":0,"collected":0,"raceCp":0}
+  PASS M2 complete -> mission 2
+M3: exit Comet, pick up package (real E)
+  got package: {"mission":2,"stage":1,"done":false,"cash":750,"health":100,"x":-210,"z":194,"onFoot":false,"wanted":3,"carHealth":100,"carWrecked":false,"carModel":"sport","speed":0,"obj":"The Lighthouse Run: Deliver the package to the Lighthouse — 3 stars on you!","fareDone":0,"collected":0,"raceCp":0}
+  PASS M3 pickup -> stage 1, heat 3
+M3: re-enter Comet, deliver to lighthouse (teleport car)
+  back in Comet: {"mission":2,"stage":1,"done":false,"cash":750,"health":100,"x":-210,"z":194,"onFoot":false,"wanted":3,"carHealth":100,"carWrecked":false,"carModel":"sport","speed":0,"obj":"The Lighthouse Run: Deliver the package to the Lighthouse — 3 stars on you!","fareDone":0,"collected":0,"raceCp":0}
+  at lighthouse: {"mission":2,"stage":2,"done":false,"cash":750,"health":100,"x":-216,"z":-200,"onFoot":false,"wanted":3,"carHealth":100,"carWrecked":false,"carModel":"sport","speed":0,"obj":"The Lighthouse Run: Lose the cops — get the wanted level to zero","fareDone":0,"collected":0,"raceCp":0}
+  PASS M3 deliver -> stage 2 (escape)
+M3: escape — wait for wanted 0
+  escape hop to (300,-300), wanted=1
+  after escape wait: {"mission":3,"stage":0,"done":false,"cash":1550,"health":100,"x":300,"z":-300,"onFoot":false,"wanted":0,"carHealth":100,"carWrecked":false,"carModel":"sport","speed":0,"obj":"Downtown Taxi: Pick up 3 fares at the bus stops (drive a taxi, press E)","fareDone":0,"collected":0,"raceCp":0}
+  PASS M3 escape -> mission 3
+M4: get a taxi (teleport to parked taxi, real E)
+  taxi moved to plaza: {"x":60,"z":18}
+  in taxi: {"mission":3,"stage":0,"done":false,"cash":1550,"health":100,"x":60,"z":18,"onFoot":false,"wanted":0,"carHealth":100,"carWrecked":false,"carModel":"taxi","speed":0,"obj":"Downtown Taxi: Pick up 3 fares at the bus stops (drive a taxi, press E)","fareDone":0,"collected":0,"raceCp":0}
+  PASS M4 in taxi
+M4: fare 1, marker (waiting ped): {"x":6.513797249877825,"z":-173.2590286328923}
+  fare 1 picked: {"mission":3,"stage":0,"done":false,"cash":1550,"health":100,"x":7,"z":-173,"onFoot":false,"wanted":0,"carHealth":100,"carWrecked":false,"carModel":"taxi","speed":0,"obj":"Downtown Taxi: Pick up 3 fares at the bus stops (drive a taxi, press E)","fareDone":0,"collected":0,"raceCp":0}
+  fare 1 dest: {"x":360,"z":-60}
+  fare 1 dropped: {"mission":3,"stage":0,"done":false,"cash":1599,"health":100,"x":360,"z":-60,"onFoot":false,"wanted":0,"carHealth":100,"carWrecked":false,"carModel":"taxi","speed":0,"obj":"Downtown Taxi: Pick up 3 fares at the bus stops (drive a taxi, press E)","fareDone":1,"collected":0,"raceCp":0}
+M4: fare 2, marker (waiting ped): {"x":248.45783975184895,"z":121.39594306354411}
+  fare 2 picked: {"mission":3,"stage":0,"done":false,"cash":1599,"health":100,"x":248,"z":121,"onFoot":false,"wanted":0,"carHealth":100,"carWrecked":false,"carModel":"taxi","speed":0,"obj":"Downtown Taxi: Pick up 3 fares at the bus stops (drive a taxi, press E)","fareDone":1,"collected":0,"raceCp":0}
+  fare 2 dest: {"x":120,"z":-180}
+  fare 2 dropped: {"mission":3,"stage":0,"done":false,"cash":1648,"health":100,"x":120,"z":-180,"onFoot":false,"wanted":0,"carHealth":100,"carWrecked":false,"carModel":"taxi","speed":0,"obj":"Downtown Taxi: Pick up 3 fares at the bus stops (drive a taxi, press E)","fareDone":2,"collected":0,"raceCp":0}
+M4: fare 3, marker (waiting ped): {"x":-126.97144883684814,"z":-120.25361091387458}
+  fare 3 picked: {"mission":3,"stage":0,"done":false,"cash":1648,"health":100,"x":-127,"z":-120,"onFoot":false,"wanted":0,"carHealth":100,"carWrecked":false,"carModel":"taxi","speed":0,"obj":"Downtown Taxi: Pick up 3 fares at the bus stops (drive a taxi, press E)","fareDone":2,"collected":0,"raceCp":0}
+  fare 3 dest: {"x":240,"z":-180}
+  fare 3 dropped: {"mission":4,"stage":0,"done":false,"cash":2017,"health":100,"x":240,"z":-180,"onFoot":false,"wanted":0,"carHealth":100,"carWrecked":false,"carModel":"taxi","speed":0,"obj":"Package Hunt: Find the 5 hidden packages (press E by a green gem)","fareDone":0,"collected":0,"raceCp":0}
+M4 END: {"mission":4,"stage":0,"done":false,"cash":2017,"health":100,"x":240,"z":-180,"onFoot":false,"wanted":0,"carHealth":100,"carWrecked":false,"carModel":"taxi","speed":0,"obj":"Package Hunt: Find the 5 hidden packages (press E by a green gem)","fareDone":0,"collected":0,"raceCp":0}
+  PASS M4 complete -> mission 4
+M5: collect 5 packages (real E each)
+  package spots: [{"x":120,"z":-300},{"x":-330,"z":-270},{"x":300,"z":120},{"x":180,"z":258},{"x":-150,"z":-150}]
+  pkg 1: collected=1 {"mission":4,"stage":0,"done":false,"cash":2067,"health":100,"x":120,"z":-300,"onFoot":true,"wanted":0,"carHealth":null,"carWrecked":null,"carModel":null,"speed":0,"obj":"Package Hunt: Find the 5 hidden packages (press E by a green gem)","fareDone":0,"collected":1,"raceCp":0}
+  pkg 2: collected=2 {"mission":4,"stage":0,"done":false,"cash":2117,"health":100,"x":-330,"z":-270,"onFoot":true,"wanted":0,"carHealth":null,"carWrecked":null,"carModel":null,"speed":0,"obj":"Package Hunt: Find the 5 hidden packages (press E by a green gem)","fareDone":0,"collected":2,"raceCp":0}
+  pkg 3: collected=3 {"mission":4,"stage":0,"done":false,"cash":2167,"health":100,"x":300,"z":120,"onFoot":true,"wanted":0,"carHealth":null,"carWrecked":null,"carModel":null,"speed":0,"obj":"Package Hunt: Find the 5 hidden packages (press E by a green gem)","fareDone":0,"collected":3,"raceCp":0}
+  pkg 4: collected=4 {"mission":4,"stage":0,"done":false,"cash":2217,"health":100,"x":180,"z":258,"onFoot":true,"wanted":0,"carHealth":null,"carWrecked":null,"carModel":null,"speed":0,"obj":"Package Hunt: Find the 5 hidden packages (press E by a green gem)","fareDone":0,"collected":4,"raceCp":0}
+  pkg 5: collected=0 {"mission":5,"stage":0,"done":false,"cash":2667,"health":100,"x":-150,"z":-150,"onFoot":true,"wanted":0,"carHealth":null,"carWrecked":null,"carModel":null,"speed":0,"obj":"Bay Street Grand Prix: Race the 4 checkpoints — 3:00 on the clock!","fareDone":0,"collected":0,"raceCp":0}
+M5 END: {"mission":5,"stage":0,"done":false,"cash":2667,"health":100,"x":-150,"z":-150,"onFoot":true,"wanted":0,"carHealth":null,"carWrecked":null,"carModel":null,"speed":0,"obj":"Bay Street Grand Prix: Race the 4 checkpoints — 3:00 on the clock!","fareDone":0,"collected":0,"raceCp":0}
+  PASS M5 complete -> mission 5
+M6: race 4 checkpoints (teleport car)
+  comet moved to plaza: {"x":60,"z":18}
+  in Comet: {"mission":5,"stage":0,"done":false,"cash":2667,"health":100,"x":60,"z":18,"onFoot":false,"wanted":0,"carHealth":100,"carWrecked":false,"carModel":"sport","speed":0,"obj":"Bay Street Grand Prix: Race the 4 checkpoints — 3:00 on the clock!","fareDone":0,"collected":0,"raceCp":0}
+  checkpoint 1: raceCp=1 {"mission":5,"stage":0,"done":false,"cash":2667,"health":100,"x":0,"z":-360,"onFoot":false,"wanted":0,"carHealth":100,"carWrecked":false,"carModel":"sport","speed":0,"obj":"Bay Street Grand Prix: Race the 4 checkpoints — 3:00 on the clock!","fareDone":0,"collected":0,"raceCp":1}
+  checkpoint 2: raceCp=2 {"mission":5,"stage":0,"done":false,"cash":2667,"health":100,"x":360,"z":-60,"onFoot":false,"wanted":0,"carHealth":100,"carWrecked":false,"carModel":"sport","speed":0,"obj":"Bay Street Grand Prix: Race the 4 checkpoints — 3:00 on the clock!","fareDone":0,"collected":0,"raceCp":2}
+  checkpoint 3: raceCp=3 {"mission":5,"stage":0,"done":false,"cash":2667,"health":100,"x":300,"z":240,"onFoot":false,"wanted":0,"carHealth":100,"carWrecked":false,"carModel":"sport","speed":0,"obj":"Bay Street Grand Prix: Race the 4 checkpoints — 3:00 on the clock!","fareDone":0,"collected":0,"raceCp":3}
+  checkpoint 4: raceCp=0 {"mission":6,"stage":0,"done":false,"cash":3267,"health":100,"x":-360,"z":180,"onFoot":false,"wanted":0,"carHealth":100,"carWrecked":false,"carModel":"sport","speed":0,"obj":"The Bank Job: Steal the armored van by the Bank (press E)","fareDone":0,"collected":0,"raceCp":0}
+M6 END: {"mission":6,"stage":0,"done":false,"cash":3267,"health":100,"x":-360,"z":180,"onFoot":false,"wanted":0,"carHealth":100,"carWrecked":false,"carModel":"sport","speed":0,"obj":"The Bank Job: Steal the armored van by the Bank (press E)","fareDone":0,"collected":0,"raceCp":0}
+  PASS M6 complete -> mission 6
+M7: exit Comet, steal armored van (real E)
+  stole armored: {"mission":6,"stage":1,"done":false,"cash":3267,"health":100,"x":318,"z":-240,"onFoot":false,"wanted":4,"carHealth":100,"carWrecked":false,"carModel":"armored","speed":0,"obj":"The Bank Job: Deliver the armored van to the Chop Shop — 4 stars on you!","fareDone":0,"collected":0,"raceCp":0}
+  PASS M7 steal -> stage 1, wanted >=3
+M7: deliver armored to chop shop (teleport car)
+  at chop shop: {"mission":6,"stage":2,"done":false,"cash":3267,"health":100,"x":-210,"z":194,"onFoot":false,"wanted":4,"carHealth":100,"carWrecked":false,"carModel":"armored","speed":0,"obj":"The Bank Job: Lose the cops — break line of sight, keep moving, get wanted to zero","fareDone":0,"collected":0,"raceCp":0}
+  PASS M7 deliver -> stage 2 (escape)
+M7: escape — hide far away, then wait for wanted 0
+  escape hop to (300,-300), wanted=4
+  escape hop to (-300,-300), wanted=4
+  escape hop to (-300,200), wanted=2
+  after escape wait: {"mission":7,"stage":0,"done":true,"cash":4267,"health":100,"x":-300,"z":200,"onFoot":false,"wanted":0,"carHealth":100,"carWrecked":false,"carModel":"armored","speed":0,"obj":"Solara Bay is yours. Free roam — the city never sleeps.","fareDone":0,"collected":0,"raceCp":0}
+  PASS M7 escape -> done=true
+FINAL: {"mission":7,"stage":0,"done":true,"cash":4267,"health":100,"x":-300,"z":200,"onFoot":false,"wanted":0,"carHealth":100,"carWrecked":false,"carModel":"armored","speed":0,"obj":"Solara Bay is yours. Free roam — the city never sleeps.","fareDone":0,"collected":0,"raceCp":0}
+ALL MISSIONS PASS
