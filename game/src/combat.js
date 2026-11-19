@@ -58,10 +58,7 @@ export function createCombat(game) {
     parts.push({ mesh, vel: vel.clone(), life, maxLife: life, grow, grav });
   }
   function spawnFlash(pos) {
-    const flash = new THREE.Mesh(
-      new THREE.OctahedronGeometry(1.3),
-      new THREE.MeshBasicMaterial({ color: 0xffdd55, transparent: true }),
-    );
+    const flash = new THREE.Sprite(new THREE.SpriteMaterial({ map: game.textures.fireball, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
     addPart(flash, pos, new THREE.Vector3(0, 0, 0), EFFECTS.flashLife);
   }
   function spawnCasing(pos, heading) {
@@ -146,7 +143,7 @@ export function createCombat(game) {
     const len = dir.length();
     if (len < 0.1) return;
     const tracer = new THREE.Mesh(
-      new THREE.BoxGeometry(0.28, 0.28, len),
+      new THREE.BoxGeometry(0.16, 0.16, len),
       new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.95 }),
     );
     tracer.position.copy(from).addScaledVector(dir, 0.5);

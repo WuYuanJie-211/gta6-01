@@ -14,7 +14,7 @@ function rotatedAABB(x, z, halfLen, halfWid, angle) {
 }
 function createHelicopterMesh() {
   const group = new THREE.Group();
-  const bodyMat = mt(0x1a3a8f, 0.5);
+  const bodyMat = mt(0xd8dce2, 0.5);
   const body = B(group, 2.4, 1.6, 4.5, bodyMat, 0, 0, 0);
   body.castShadow = true;
   B(group, 0.6, 0.6, 4, bodyMat, 0, 0.3, -4);
@@ -27,7 +27,7 @@ function createHelicopterMesh() {
   for (const side of [-1, 1]) B(group, 0.15, 0.15, 3.5, skidMat, side * 1.1, -1.1, 0);
   const light = new THREE.Mesh(
     new THREE.ConeGeometry(6, 30, 16, 1, true),
-    new THREE.MeshBasicMaterial({ color: 0xfff8c0, transparent: true, opacity: 0.25, side: THREE.DoubleSide }),
+    new THREE.MeshBasicMaterial({ color: 0xfff8c0, transparent: true, opacity: 0.4, side: THREE.DoubleSide }),
   );
   light.position.set(0, -16, 0);
   light.rotation.x = Math.PI;

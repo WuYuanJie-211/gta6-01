@@ -78,22 +78,25 @@ function stageGunfight(game) {
   player.ownedWeapons = ['pistol', 'rifle'];
   player.mag = 30;
   player.ammo = 60;
-  player.pos.set(-182, 0, 190);
-  player.heading = 0.35;
+  player.pos.set(-181.5, 0, 192.5);
+  player.heading = 0.15;
   player.mesh.position.copy(player.pos);
   player.mesh.rotation.y = player.heading;
+  player.mesh.scale.y = 0.68;
+  player.mesh.userData.rifle.position.y = 1.7;
   const barrier = new THREE.Mesh(new THREE.BoxGeometry(3, 1.1, 0.7), new THREE.MeshStandardMaterial({ map: game.textures.concrete, roughness: 0.9 }));
   barrier.position.set(-181, 0.55, 194);
   game.scene.add(barrier);
   game.combat.spawnGunman(-182, 201);
   game.combat.spawnGunman(-174, 207);
   game.combat.spawnThug(-188, 204);
-  pc(game, -168, 200, Math.PI / 2, 0);
+  pc(game, -196, 186, Math.PI / 2, 0);
   game.police.state.wanted = 4;
   cameraBehind(game);
-  game.cameraAngle += 0.4;
-  game.camDist = 7;
-  for (const [cx, cz] of [[-181, 192], [-180, 193.5], [-183, 192.5], [-181.5, 194]]) game.combat.spawnCasing(new THREE.Vector3(cx, 0.1, cz), player.heading);
+  game.cameraAngle = -0.25;
+  game.camDist = 6;
+  game.camPitch = 0.12;
+  for (const [cx, cz] of [[-180.5, 191.5], [-182, 191], [-180, 192], [-182.5, 192]]) game.combat.spawnCasing(new THREE.Vector3(cx, 0.1, cz), player.heading);
   game.input.fireAction(ACTION_SHOOT);
   game.step(STEP);
 }
@@ -101,6 +104,7 @@ function stageDowntown(game) {
   game.missions.setProgress(3, 0);
   const taxi = game.cars.parked.find((c) => c.model === 'taxi') || game.cars.parked[0];
   place(taxi, 258, -183, Math.PI);
+  game.police.state.wanted = 4;
   taxi.speed = 0;
   enterCar(game, taxi);
   for (const gz of [-183.8, -182.2]) {
@@ -131,7 +135,7 @@ function stageDowntown(game) {
     p.waiting = false;
   });
   cameraBehind(game);
-  game.camDist = 7.5;
+  game.camDist = 6.5;
   game.camPitch = 0.25;
 }
 function stageSunset(game) {
@@ -158,7 +162,7 @@ function stageSunset(game) {
   if (heli) {
     heli.visible = true;
     heli.position.set(8, 7, -174);
-    heli.scale.setScalar(1.6);
+    heli.scale.setScalar(1.8);
   }
   game.camDist = 11;
   game.camPitch = 0.15;
