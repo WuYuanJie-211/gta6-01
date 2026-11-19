@@ -5,49 +5,49 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Solara Bay v3 — an original open-world crime game</title>
 <style>
-  html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0e13; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: #eef1f5; }
-  #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
-  .panel { position: fixed; background: rgba(10, 14, 20, 0.72); border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 10px; padding: 10px 14px; backdrop-filter: blur(2px); }
-  #stats { top: 12px; left: 12px; min-width: 210px; }
-  #stats .row { display: flex; align-items: center; gap: 8px; margin: 4px 0; font-weight: 600; }
-  #health-bar { flex: 1; height: 12px; background: #222a33; border-radius: 6px; overflow: hidden; }
-  #health-fill { height: 100%; width: 100%; background: #37c978; border-radius: 6px; }
-  #cash { color: #7dff9a; font-size: 18px; }
-  #stars { font-size: 20px; letter-spacing: 2px; }
-  #weapon { color: #ffd94d; font-size: 14px; }
-  #durability { color: #37c978; font-size: 14px; }
-  #district { color: #9fc4dd; font-size: 13px; letter-spacing: 1px; }
-  #mission-list { top: 168px; left: 12px; min-width: 210px; padding: 8px 14px; }
-  #mission-list .label { font-size: 11px; letter-spacing: 3px; color: #ffd94d; font-weight: 700; margin-bottom: 4px; }
-  .mission-row { font-size: 12px; color: #9aa7b5; line-height: 1.7; }
-  .mission-row.done { color: #37c978; text-decoration: line-through; }
-  .mission-row.current { color: #ffd94d; font-weight: 700; }
-  #map-wrap { top: 12px; right: 12px; text-align: center; padding: 8px; }
-  #map-wrap .label { font-size: 11px; letter-spacing: 3px; color: #ffd94d; margin-bottom: 4px; font-weight: 700; }
-  #minimap { display: block; width: 200px; height: 200px; border-radius: 6px; }
-  #objective { top: 12px; left: 50%; transform: translateX(-50%); max-width: 46%; text-align: center; font-weight: 600; font-size: 15px; }
-  #objective .tag { color: #ffd94d; font-size: 11px; letter-spacing: 2px; display: block; }
-  #timer { color: #ffd94d; font-size: 18px; font-weight: 800; display: block; }
-  #prompt { bottom: 18px; left: 50%; transform: translateX(-50%); font-size: 15px; font-weight: 600; padding: 8px 16px; }
-  #speed { bottom: 18px; left: 12px; font-size: 20px; font-weight: 700; color: #ffd94d; }
-  #toast { top: 34%; left: 50%; transform: translate(-50%, -50%) scale(0.95); font-size: 22px; font-weight: 800; text-align: center; padding: 12px 22px; opacity: 0; transition: opacity 0.25s, transform 0.25s; pointer-events: none; text-shadow: 0 2px 8px rgba(0,0,0,0.6); }
-  #toast.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-  #hitmarker { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); font-size: 28px; font-weight: 800; color: #fff; text-shadow: 0 0 6px #000; opacity: 0; pointer-events: none; z-index: 5; }
-  #hitmarker.show { opacity: 1; }
-  #mission-card { top: 96px; left: 50%; transform: translateX(-50%); width: 480px; max-width: 86vw; text-align: center; padding: 16px 20px; opacity: 0; transition: opacity 0.4s; pointer-events: none; border-color: rgba(255, 217, 77, 0.5); }
-  #mission-card.show { opacity: 1; }
-  #mission-title { font-size: 26px; font-weight: 800; color: #ffd94d; letter-spacing: 1px; }
-  #mission-story { font-size: 14px; line-height: 1.5; color: #dfe5ec; margin-top: 6px; }
-  .overlay { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: linear-gradient(180deg, rgba(6, 12, 24, 0.82), rgba(6, 12, 24, 0.94)); text-align: center; padding: 20px; z-index: 10; }
-  .overlay h1 { font-size: 64px; margin: 0; letter-spacing: 4px; color: #ffd94d; text-shadow: 0 4px 24px rgba(255, 217, 77, 0.35); }
-  .overlay h2 { font-size: 18px; font-weight: 400; color: #b9c4d0; margin: 8px 0 4px; }
-  .overlay p { max-width: 560px; line-height: 1.6; color: #dfe5ec; }
-  .overlay .controls { font-size: 13px; color: #9aa7b5; line-height: 1.9; margin: 10px 0 20px; }
-  .overlay button { display: block; margin: 8px auto; min-width: 240px; padding: 12px 20px; font-size: 16px; font-weight: 700; color: #10151c; background: #ffd94d; border: none; border-radius: 8px; cursor: pointer; }
-  .overlay button.secondary { background: rgba(255, 255, 255, 0.14); color: #eef1f5; }
-  .overlay button:hover { filter: brightness(1.1); }
-  .hidden { display: none !important; }
-  #status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+html,body{ margin:0;height:100%;overflow:hidden;background:#0b0e13;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#eef1f5;}
+#game{ position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;}
+.panel{ position:fixed;background:rgba(10,14,20,0.72);border:1px solid rgba(255,255,255,0.14);border-radius:10px;padding:10px 14px;backdrop-filter:blur(2px);}
+#stats{ top:12px;left:12px;min-width:210px;}
+#stats .row{ display:flex;align-items:center;gap:8px;margin:4px 0;font-weight:600;}
+#health-bar{ flex:1;height:12px;background:#222a33;border-radius:6px;overflow:hidden;}
+#health-fill{ height:100%;width:100%;background:#37c978;border-radius:6px;}
+#cash{ color:#7dff9a;font-size:18px;}
+#stars{ font-size:20px;letter-spacing:2px;}
+#weapon{ color:#ffd94d;font-size:14px;}
+#durability{ color:#37c978;font-size:14px;}
+#district{ color:#9fc4dd;font-size:13px;letter-spacing:1px;}
+#mission-list{ top:168px;left:12px;min-width:210px;padding:8px 14px;}
+#mission-list .label{ font-size:11px;letter-spacing:3px;color:#ffd94d;font-weight:700;margin-bottom:4px;}
+.mission-row{ font-size:12px;color:#9aa7b5;line-height:1.7;}
+.mission-row.done{ color:#37c978;text-decoration:line-through;}
+.mission-row.current{ color:#ffd94d;font-weight:700;}
+#map-wrap{ top:12px;right:12px;text-align:center;padding:8px;}
+#map-wrap .label{ font-size:11px;letter-spacing:3px;color:#ffd94d;margin-bottom:4px;font-weight:700;}
+#minimap{ display:block;width:200px;height:200px;border-radius:6px;}
+#objective{ top:12px;left:50%;transform:translateX(-50%);max-width:46%;text-align:center;font-weight:600;font-size:15px;}
+#objective .tag{ color:#ffd94d;font-size:11px;letter-spacing:2px;display:block;}
+#timer{ color:#ffd94d;font-size:18px;font-weight:800;display:block;}
+#prompt{ bottom:18px;left:50%;transform:translateX(-50%);font-size:15px;font-weight:600;padding:8px 16px;}
+#speed{ bottom:18px;left:12px;font-size:20px;font-weight:700;color:#ffd94d;}
+#toast{ top:34%;left:50%;transform:translate(-50%,-50%) scale(0.95);font-size:22px;font-weight:800;text-align:center;padding:12px 22px;opacity:0;transition:opacity 0.25s,transform 0.25s;pointer-events:none;text-shadow:0 2px 8px rgba(0,0,0,0.6);}
+#toast.show{ opacity:1;transform:translate(-50%,-50%) scale(1);}
+#hitmarker{ position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);font-size:28px;font-weight:800;color:#fff;text-shadow:0 0 6px #000;opacity:0;pointer-events:none;z-index:5;}
+#hitmarker.show{ opacity:1;}
+#mission-card{ top:96px;left:50%;transform:translateX(-50%);width:480px;max-width:86vw;text-align:center;padding:16px 20px;opacity:0;transition:opacity 0.4s;pointer-events:none;border-color:rgba(255,217,77,0.5);}
+#mission-card.show{ opacity:1;}
+#mission-title{ font-size:26px;font-weight:800;color:#ffd94d;letter-spacing:1px;}
+#mission-story{ font-size:14px;line-height:1.5;color:#dfe5ec;margin-top:6px;}
+.overlay{ position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(180deg,rgba(6,12,24,0.82),rgba(6,12,24,0.94));text-align:center;padding:20px;z-index:10;}
+.overlay h1{ font-size:64px;margin:0;letter-spacing:4px;color:#ffd94d;text-shadow:0 4px 24px rgba(255,217,77,0.35);}
+.overlay h2{ font-size:18px;font-weight:400;color:#b9c4d0;margin:8px 0 4px;}
+.overlay p{ max-width:560px;line-height:1.6;color:#dfe5ec;}
+.overlay .controls{ font-size:13px;color:#9aa7b5;line-height:1.9;margin:10px 0 20px;}
+.overlay button{ display:block;margin:8px auto;min-width:240px;padding:12px 20px;font-size:16px;font-weight:700;color:#10151c;background:#ffd94d;border:none;border-radius:8px;cursor:pointer;}
+.overlay button.secondary{ background:rgba(255,255,255,0.14);color:#eef1f5;}
+.overlay button:hover{ filter:brightness(1.1);}
+.hidden{ display:none !important;}
+#status{ position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;}
 </style>
 <script type="importmap">
 { "imports": { "three": "./vendor/three.module.min.js" } }
@@ -87,7 +87,7 @@
 <div id="menu" class="overlay">
   <h1>SOLARA BAY</h1>
   <h2>An original open-world crime game — a sunny coastal city, and one wheelman who owns it.</h2>
-  <p>You are Rook, a driver for hire in Solara Bay. Run seven jobs — a first fare, a stolen Comet GT, a lighthouse run with every cop in the city on your tail, taxi fares downtown, a package hunt, a street race, and the bank job — or just cruise the coast, buy a gun, sell a hot car, and see how long you can keep the heat off.</p>
+  <p>You are Rook, a driver for hire in Solara Bay. Run seven jobs — a first fare, a stolen Comet GT, a lighthouse run, taxi fares, a package hunt, a street race, and the bank job — or just cruise the coast, buy a gun, sell a hot car, and see how long you can keep the heat off.</p>
   <div class="controls">
     WASD / arrows — walk &amp; drive &nbsp;·&nbsp; Shift — run &nbsp;·&nbsp; mouse drag — look around &nbsp;·&nbsp; wheel — zoom<br>
     E — get in / steal a car, pick things up, shop &nbsp;·&nbsp; F — punch &nbsp;·&nbsp; click / G — shoot &nbsp;·&nbsp; Q — switch weapon &nbsp;·&nbsp; R — reload &nbsp;·&nbsp; H — horn &nbsp;·&nbsp; M — music &nbsp;·&nbsp; P / Esc — pause &amp; save

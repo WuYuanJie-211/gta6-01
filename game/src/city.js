@@ -11,9 +11,10 @@ const _mats = new Map();
 function M(color, rough = 1, extra = {}) {
   const k = `${color}|${rough}|${extra.metalness ?? 0}|${extra.emissive ?? 0}`;
   let m = _mats.get(k);
-  if (!m) { m = SM({ color, roughness: rough, ...extra }); _mats.set(k, m); }
+  if (!m) { m = SM({color, roughness: rough, ...extra}); _mats.set(k, m); }
   return m;
 }
+const TM=(t,rx,ry,r=1)=>SM({map:tile(t,rx,ry),roughness:r});
 function box(parent, w, h, d, material, x, y, z, shadow = false) {
   const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
   m.position.set(x, y, z);
@@ -43,38 +44,17 @@ export async function loadCityTextures() {
   const loader = new THREE.TextureLoader();
   const out = {};
   const jobs = [
-    ['glass', TEXTURES.glass, '#7fa8c9'],
-    ['brick', TEXTURES.brick, '#9a5a44'],
-    ['stucco', TEXTURES.stucco, '#e8dcc8'],
-    ['asphalt', TEXTURES.asphalt, '#3a3f45'],
-    ['sidewalk', TEXTURES.sidewalk, '#b9b3a4'],
-    ['grass', TEXTURES.grass, '#6fae5e'],
-    ['sand', TEXTURES.sand, '#e8d49a'],
-    ['container', TEXTURES.container, '#2e86c1'],
-    ['concrete', TEXTURES.concrete, '#9a9a9a'],
-    ['wood', TEXTURES.wood, '#8a6a44'],
-    ['cobble', TEXTURES.cobble, '#7a7a7a'],
-    ['redPaint', TEXTURES.redPaint, '#d21f2b'],
-    ['taxiPaint', TEXTURES.taxiPaint, '#f1c40f'],
-    ['fireball', TEXTURES.fireball, '#ff8800'],
-    ['smoke', TEXTURES.smoke, '#888888'],
-    ['marble', TEXTURES.marble, '#e8e8e8'],
-    ['glassDark', TEXTURES.glassDark, '#3a5a7a'],
-    ['brickBrown', TEXTURES.brickBrown, '#7a4a34'],
-    ['plaster', TEXTURES.plaster, '#e8dcc8'],
-    ['metal', TEXTURES.metal, '#8a6a58'],
-    ['stone', TEXTURES.stone, '#8a8a8a'],
-    ['awning', TEXTURES.awning, '#c0392b'],
-    ['signTaxi', TEXTURES.signTaxi, '#111111'],
-    ['sign24h', TEXTURES.sign24h, '#111111'],
-    ['signHotel', TEXTURES.signHotel, '#111111'],
-    ['signBar', TEXTURES.signBar, '#111111'],
-    ['signPizza', TEXTURES.signPizza, '#111111'],
-    ['signAuto', TEXTURES.signAuto, '#111111'],
+    ['glass', '#7fa8c9'], ['brick', '#9a5a44'], ['stucco', '#e8dcc8'], ['asphalt', '#3a3f45'],
+    ['sidewalk', '#b9b3a4'], ['grass', '#6fae5e'], ['sand', '#e8d49a'], ['container', '#2e86c1'],
+    ['concrete', '#9a9a9a'], ['wood', '#8a6a44'], ['cobble', '#7a7a7a'], ['redPaint', '#d21f2b'],
+    ['taxiPaint', '#f1c40f'], ['fireball', '#ff8800'], ['smoke', '#888888'], ['marble', '#e8e8e8'],
+    ['glassDark', '#3a5a7a'], ['brickBrown', '#7a4a34'], ['plaster', '#e8dcc8'], ['metal', '#8a6a58'],
+    ['awning', '#c0392b'], ['signTaxi', '#111111'], ['sign24h', '#111111'],
+    ['signHotel', '#111111'], ['signBar', '#111111'], ['signPizza', '#111111'], ['signAuto', '#111111'],
   ];
-  await Promise.all(jobs.map(async ([key, url, hex]) => {
+  await Promise.all(jobs.map(async ([key, hex]) => {
     try {
-      const tex = await loader.loadAsync(url);
+      const tex = await loader.loadAsync(TEXTURES[key]);
       tex.wrapS = THREE.RepeatWrapping;
       tex.wrapT = THREE.RepeatWrapping;
       tex.colorSpace = THREE.SRGBColorSpace;
@@ -108,44 +88,6 @@ function makeDashTexture() {
   ctx.fillRect(0, 0, 64, 16);
   const tex = new THREE.CanvasTexture(canvas);
   tex.wrapS = THREE.RepeatWrapping;
-  return tex;
-}
-function makeFacadeTexture(base, rng, floors = 12, cols = 6) {
-  const canvas = document.createElement('canvas');
-  canvas.width = 128;
-  canvas.height = 256;
-  const ctx = canvas.getContext('2d');
-  ctx.fillStyle = base;
-  ctx.fillRect(0, 0, 128, 256);
-  for (let row = 0; row < floors; row += 1) {
-    for (let col = 0; col < cols; col += 1) {
-      const lit = rng.chance(0.25);
-      ctx.fillStyle = lit ? '#ffd98a' : '#2c3e50';
-      ctx.fillRect(10 + col * 19, 12 + row * 20, 12, 12);
-      ctx.strokeStyle = 'rgba(0,0,0,0.45)';
-      ctx.lineWidth = 1;
-      ctx.strokeRect(9 + col * 19, 11 + row * 20, 14, 14);
-    }
-  }
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  return tex;
-}
-function makeHouseTexture(base, rng) {
-  const canvas = document.createElement('canvas');
-  canvas.width = 128;
-  canvas.height = 128;
-  const ctx = canvas.getContext('2d');
-  ctx.fillStyle = base;
-  ctx.fillRect(0, 0, 128, 128);
-  for (const [x, y] of [[20, 30], [80, 30], [20, 70], [80, 70]]) {
-    ctx.fillStyle = rng.chance(0.3) ? '#ffd98a' : '#2c3e50';
-    ctx.fillRect(x, y, 22, 22);
-  }
-  ctx.fillStyle = '#5a3a22';
-  ctx.fillRect(54, 88, 20, 40);
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
 }
 function makeSign(text, fg, bg, w = 10, h = 2.5) {
@@ -334,19 +276,14 @@ export function buildCity(scene, rng, textures = {}) {
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = true;
   scene.add(ground);
-  const beachMat = textures.sand
-    ? SM({ map: tile(textures.sand, 20, 2), roughness: 1 })
-    : SM({ color: COLOURS.sand, roughness: 1 });
+  const beachMat = TM(textures.sand, 20, 2);
   const beach = new THREE.Mesh(new THREE.PlaneGeometry(560, 60), beachMat);
   beach.rotation.x = -Math.PI / 2;
   beach.position.set(0, 0.03, 276);
   beach.receiveShadow = true;
   scene.add(beach);
-  if (textures.cobble) {
-    const plaza = new THREE.Mesh(
-      new THREE.PlaneGeometry(24, 24),
-      SM({ map: tile(textures.cobble, 3, 3), roughness: 1 }),
-    );
+  {
+    const plaza = new THREE.Mesh(new THREE.PlaneGeometry(24, 24), TM(textures.cobble, 3, 3));
     plaza.rotation.x = -Math.PI / 2;
     plaza.position.set(0, 0.04, 12);
     plaza.receiveShadow = true;
@@ -359,12 +296,8 @@ export function buildCity(scene, rng, textures = {}) {
   sea.rotation.x = -Math.PI / 2;
   sea.position.set(0, 0.02, 456);
   scene.add(sea);
-  const roadMat = textures.asphalt
-    ? SM({ map: tile(textures.asphalt, 60, 1), roughness: 1 })
-    : SM({ color: COLOURS.asphalt, roughness: 1 });
-  const walkMat = textures.sidewalk
-    ? SM({ map: tile(textures.sidewalk, 60, 1), roughness: 1 })
-    : SM({ color: COLOURS.sidewalk, roughness: 1 });
+  const roadMat = TM(textures.asphalt, 60, 1);
+  const walkMat = TM(textures.sidewalk, 60, 1);
   const dashTex = makeDashTexture();
   const roadLenX = 780;
   const roadLenZ = 660;
@@ -462,18 +395,6 @@ export function buildCity(scene, rng, textures = {}) {
       scene.add(lamp);
     }
   }
-  const facadeTextures = COLOURS.building.map((c) => {
-    const hex = `#${c.toString(16).padStart(6, '0')}`;
-    return makeFacadeTexture(hex, rng);
-  });
-  const towerTextures = COLOURS.tower.map((c) => {
-    const hex = `#${c.toString(16).padStart(6, '0')}`;
-    return makeFacadeTexture(hex, rng, 16, 8);
-  });
-  const houseTextures = COLOURS.house.map((c) => {
-    const hex = `#${c.toString(16).padStart(6, '0')}`;
-    return makeHouseTexture(hex, rng);
-  });
   const signTexs = ['signTaxi', 'sign24h', 'signHotel', 'signBar', 'signPizza', 'signAuto'].map((k) => textures[k]).filter(Boolean);
   const blockCentres = [];
   for (let bx = -330; bx <= 330; bx += 60) {
@@ -485,9 +406,7 @@ export function buildCity(scene, rng, textures = {}) {
     const key = `${bx},${bz}`;
     const district = districtAt(bx, bz);
     if (PARK_BLOCKS.has(key)) {
-      const parkMat = textures.grass
-        ? SM({ map: tile(textures.grass, 4, 4), roughness: 1 })
-        : SM({ color: COLOURS.grass, roughness: 1 });
+      const parkMat = TM(textures.grass, 4, 4);
       const park = new THREE.Mesh(new THREE.PlaneGeometry(46, 46), parkMat);
       park.rotation.x = -Math.PI / 2;
       park.position.set(bx, 0.07, bz);
@@ -515,12 +434,10 @@ export function buildCity(scene, rng, textures = {}) {
         const cz = bz + rng.range(-16, 10);
         const stack = rng.int(1, 2);
         for (let s = 0; s < stack; s += 1) {
-          const useTex = textures.container && rng.chance(0.6);
+          const useTex = rng.chance(0.6);
           const cont = new THREE.Mesh(
             new THREE.BoxGeometry(6, 2.6, 2.6),
-            useTex
-              ? SM({ map: tile(textures.container, 2, 1), roughness: 0.8 })
-              : SM({ color: rng.pick(COLOURS.container), roughness: 0.8 }),
+            useTex ? TM(textures.container, 2, 1, 0.8) : SM({ color: rng.pick(COLOURS.container), roughness: 0.8 }),
           );
           cont.position.set(cx, 1.3 + s * 2.6, cz);
           cont.rotation.y = rng.chance(0.5) ? 0 : Math.PI / 2;
@@ -532,7 +449,7 @@ export function buildCity(scene, rng, textures = {}) {
       const ww = rng.range(26, 34);
       const wd = rng.range(16, 22);
       const wh = rng.range(8, 11);
-      const wm = textures.metal ? SM({ map: tile(textures.metal, 3, 1), roughness: 0.9 }) : M(0x8a7a68);
+      const wm = TM(textures.metal, 3, 1, 0.9);
       box(scene, ww, wh, wd, wm, bx + 8, wh / 2, bz + 8, true);
       const saw1 = box(scene, ww + 0.4, 0.3, wd / 2 + 0.2, M(0x5a4a3a), bx + 8, wh + 0.8, bz + 8 - wd / 4);
       saw1.rotation.x = 0.18;
@@ -542,36 +459,52 @@ export function buildCity(scene, rng, textures = {}) {
       continue;
     }
     if (district === 'DOWNTOWN') {
-      const w = rng.range(18, 26);
-      const d = rng.range(18, 26);
+      const w = rng.range(16, 30);
+      const d = rng.range(14, 26);
       const dc = Math.hypot(bx - 210, bz + 210);
       const landmark = bx === 210 && bz === -210;
-      const h = landmark ? rng.range(105, 120) : rng.range(30, 85) * (dc < 150 ? 1.15 : 0.85);
+      const h = landmark ? rng.range(105, 120) : dc < 90 ? rng.range(70, 110) : dc < 170 ? rng.range(45, 75) : rng.range(25, 50);
       const x = bx + rng.range(-6, 6);
       const z = bz + rng.range(-6, 6);
-      const glassTex = textures.glassDark && rng.chance(0.5) ? textures.glassDark : textures.glass;
-      let tex;
-      if (glassTex) tex = tile(glassTex, Math.max(1, Math.round(w / 8)), Math.max(1, Math.round(h / 10)));
-      else { tex = rng.pick(towerTextures).clone(); tex.needsUpdate = true; tex.repeat.set(Math.max(1, Math.round(w / 10)), Math.max(1, Math.round(h / 12))); }
+      const glassTex = rng.chance(0.5) ? textures.glassDark : textures.glass;
+      const tex = tile(glassTex, Math.max(1, Math.round(w / 8)), Math.max(1, Math.round(h / 10)));
       const towerMat = SM({ map: tex, roughness: 0.55, metalness: 0.15 });
       const tower = box(scene, w, h, d, towerMat, x, h / 2, z, true);
       tower.receiveShadow = true;
       for (const [fx, fz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) box(scene, 0.7, h, 0.7, M(0x14202c, 0.4, { metalness: 0.5 }), x + fx * (w / 2 - 0.2), h / 2, z + fz * (d / 2 - 0.2));
       box(scene, w + 0.6, 0.5, d + 0.6, M(0x3a3f45), x, h - 0.25, z);
       for (const [pw, pd, px, pz] of [[w + 0.4, 0.5, 0, d / 2], [w + 0.4, 0.5, 0, -d / 2], [0.5, d + 0.4, w / 2, 0], [0.5, d + 0.4, -w / 2, 0]]) box(scene, pw, 0.8, pd, M(0x3a3f45), x + px, h + 0.4, z + pz);
-      box(scene, w + 1.5, 4.5, d + 1.5, SM({ map: textures.concrete ? tile(textures.concrete, 2, 1) : null, color: textures.concrete ? 0xffffff : 0x2c3e50, roughness: 0.8 }), x, 2.25, z, true);
+      box(scene, w + 1.5, 4.5, d + 1.5, TM(textures.concrete, 2, 1, 0.8), x, 2.25, z, true);
       box(scene, w * 0.8, 3.2, 0.2, M(0x0e1a24, 0.25, { metalness: 0.5 }), x, 1.6, z + d / 2 + 0.85);
-      const awn = box(scene, w * 0.85, 0.18, 2.4, textures.awning ? SM({ map: tile(textures.awning, 3, 1), roughness: 0.9 }) : M(0xc0392b), x, 3.7, z + d / 2 + 1.9);
+      const awn = box(scene, w * 0.85, 0.18, 2.4, TM(textures.awning, 3, 1, 0.9), x, 3.7, z + d / 2 + 1.9);
       awn.rotation.x = 0.22;
       if (signTexs.length) { const sg = new THREE.Mesh(new THREE.PlaneGeometry(9, 2.2), new THREE.MeshBasicMaterial({ map: rng.pick(signTexs) })); sg.position.set(x, 5.6, z + d / 2 + 0.95); scene.add(sg); }
-      box(scene, w * 0.55, 4, d * 0.55, SM({ map: tex, roughness: 0.6, metalness: 0.1 }), x, h + 2, z, true);
-      box(scene, w * 0.55 + 0.4, 0.5, d * 0.55 + 0.4, M(0x3a3f45), x, h + 4.25, z);
-      cyl(scene, 1.2, 1.2, 2.4, 10, M(0x7a6a58, 0.9), x + w * 0.12, h + 5.6, z - d * 0.1, true);
-      box(scene, 3, 1.5, 2, M(0x888888), x - w * 0.12, h + 5.2, z + d * 0.1);
-      cyl(scene, 0.08, 0.08, 6, 6, M(0x333333, 0.6), x + w * 0.18, h + 7.5, z + d * 0.12);
-      const beacon = new THREE.Mesh(new THREE.SphereGeometry(0.35, 8, 6), M(0xff2222,1,{emissive:0xaa0000}));
-      beacon.position.set(x + w * 0.18, h + 10.7, z + d * 0.12);
-      scene.add(beacon);
+      const tierMat = SM({ map: tile(glassTex, 2, 1), roughness: 0.6, metalness: 0.1 });
+      let tw = w, td = d, ty = h;
+      const tiers = h >= 60 ? 3 : h >= 35 ? 2 : 1;
+      for (let t = 0; t < tiers; t += 1) {
+        tw *= 0.72; td *= 0.72;
+        const th = t === tiers - 1 ? 3 : 5;
+        box(scene, tw, th, td, tierMat, x, ty + th / 2, z, true);
+        box(scene, tw + 0.4, 0.5, td + 0.4, M(0x3a3f45), x, ty + th + 0.25, z);
+        ty += th + 0.5;
+      }
+      if (rng.chance(0.3)) {
+        const pyr = new THREE.Mesh(new THREE.ConeGeometry(Math.max(tw, td) * 0.72, 4, 4), M(0x2c3e50, 0.7));
+        pyr.position.set(x, ty + 2, z);
+        pyr.rotation.y = Math.PI / 4;
+        scene.add(pyr);
+      } else {
+        if (h >= 80) box(scene, tw * 0.5, 2.5, td * 0.5, M(0xffe14d, 0.5, { emissive: 0x664400 }), x, ty + 1.25, z);
+        else {
+          cyl(scene, 1.2, 1.2, 2.4, 10, M(0x7a6a58, 0.9), x + tw * 0.2, ty + 1.2, z - td * 0.2, true);
+          box(scene, 3, 1.5, 2, M(0x888888), x - tw * 0.2, ty + 0.75, z + td * 0.2);
+        }
+        cyl(scene, 0.08, 0.08, 6, 6, M(0x333333, 0.6), x + tw * 0.3, ty + 3, z + td * 0.2);
+        const beacon = new THREE.Mesh(new THREE.SphereGeometry(0.35, 8, 6), M(0xff2222,1,{emissive:0xaa0000}));
+        beacon.position.set(x + tw * 0.3, ty + 6.2, z + td * 0.2);
+        scene.add(beacon);
+      }
       if (towerSignIdx < towerSigns.length && rng.chance(0.6)) {
         const sign = makeSign(towerSigns[towerSignIdx], '#ffffff', '#1a1a2e', 12, 3);
         sign.position.set(x, h - 6, z + d / 2 + 0.1);
@@ -589,17 +522,8 @@ export function buildCity(scene, rng, textures = {}) {
         const h = rng.range(5, 8);
         const x = bx + rng.range(-14, 14);
         const z = bz + rng.range(-14, 14);
-        let tex;
-        if (textures.plaster && rng.chance(0.4)) {
-          tex = tile(textures.plaster, 2, 1);
-        } else if (textures.wood && rng.chance(0.5)) {
-          tex = tile(textures.wood, 2, 1);
-        } else if (textures.stucco) {
-          tex = tile(textures.stucco, 2, 1);
-        } else {
-          tex = rng.pick(houseTextures).clone();
-          tex.needsUpdate = true;
-        }
+        const tex = rng.chance(0.4) ? tile(textures.plaster, 2, 1)
+          : rng.chance(0.5) ? tile(textures.wood, 2, 1) : tile(textures.stucco, 2, 1);
         const house = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), SM({ map: tex, roughness: 0.95 }));
         house.position.set(x, h / 2, z);
         house.castShadow = true;
@@ -625,9 +549,7 @@ export function buildCity(scene, rng, textures = {}) {
         );
         porch.position.set(x, 0.08, z + d / 2 + 0.6);
         scene.add(porch);
-        const gardenMat = textures.grass
-          ? SM({ map: tile(textures.grass, 2, 2), roughness: 1 })
-          : SM({ color: COLOURS.grass, roughness: 1 });
+        const gardenMat = TM(textures.grass, 2, 2);
         const garden = new THREE.Mesh(new THREE.PlaneGeometry(w + 6, d + 6), gardenMat);
         garden.rotation.x = -Math.PI / 2;
         garden.position.set(x, 0.04, z);
@@ -648,10 +570,8 @@ export function buildCity(scene, rng, textures = {}) {
       const h = tall ? rng.range(20, 55) : rng.range(8, 24);
       const x = bx + rng.range(-12, 12);
       const z = bz + rng.range(-12, 12);
-      const brickTex = textures.brickBrown && rng.chance(0.5) ? textures.brickBrown : textures.brick;
-      let tex;
-      if (brickTex) tex = tile(brickTex, Math.max(1, Math.round(w / 8)), Math.max(1, Math.round(h / 8)));
-      else { tex = rng.pick(facadeTextures).clone(); tex.needsUpdate = true; tex.repeat.set(Math.max(1, Math.round(w / 10)), Math.max(1, Math.round(h / 12))); }
+      const brickTex = rng.chance(0.5) ? textures.brickBrown : textures.brick;
+      const tex = tile(brickTex, Math.max(1, Math.round(w / 8)), Math.max(1, Math.round(h / 8)));
       const building = box(scene, w, h, d, SM({ map: tex, roughness: 0.9 }), x, h / 2, z, true);
       building.receiveShadow = true;
       box(scene, w + 0.4, 0.4, d + 0.4, M(0x555a60), x, h + 0.2, z);
@@ -666,7 +586,7 @@ export function buildCity(scene, rng, textures = {}) {
       }
       if (h < 16 && rng.chance(0.6)) {
         box(scene, w * 0.7, 3, 0.2, M(0x1a2a1a, 0.3, { metalness: 0.4 }), x, 1.5, z + d / 2 + 0.1);
-        const awn2 = box(scene, w * 0.75, 0.15, 2, textures.awning ? SM({ map: tile(textures.awning, 2, 1), roughness: 0.9 }) : M(0x2e6b4f), x, 3.4, z + d / 2 + 1);
+        const awn2 = box(scene, w * 0.75, 0.15, 2, TM(textures.awning, 2, 1, 0.9), x, 3.4, z + d / 2 + 1);
         awn2.rotation.x = 0.22;
         if (signTexs.length) { const sg2 = new THREE.Mesh(new THREE.PlaneGeometry(7, 1.8), new THREE.MeshBasicMaterial({ map: rng.pick(signTexs) })); sg2.position.set(x, 4.8, z + d / 2 + 0.2); scene.add(sg2); }
       }
@@ -723,7 +643,7 @@ export function buildCity(scene, rng, textures = {}) {
     base.position.set(-216, 0.75, -216);
     base.castShadow = true;
     scene.add(base);
-    const towerMat = SM({ map: textures.marble ? tile(textures.marble, 3, 1) : null, color: textures.marble ? 0xffffff : 0xf2f2f2, roughness: 0.8 });
+    const towerMat = SM({ map: tile(textures.marble, 3, 1), roughness: 0.8 });
     const stripeMat = M(0xd21f2b,0.8);
     for (let i = 0; i < 4; i += 1) {
       const seg = new THREE.Mesh(
@@ -887,10 +807,10 @@ export function buildCity(scene, rng, textures = {}) {
   }
   for (let i = 0; i < 5; i += 1) {
     const hill = new THREE.Mesh(
-      new THREE.ConeGeometry(rng.range(60, 110), rng.range(35, 70), 7),
+      new THREE.ConeGeometry(rng.range(45, 70), rng.range(25, 40), 7),
       M(0x7d9b76),
     );
-    hill.position.set(-400 + i * 200, 0, -420);
+    hill.position.set(-400 + i * 200, 0, -470);
     scene.add(hill);
   }
   const clouds = [];

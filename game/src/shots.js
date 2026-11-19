@@ -24,11 +24,11 @@ function driveFor(game, seconds, steerFn) {
   game.input.setKey('a', false);
   game.input.setKey('d', false);
 }
-function walkFor(game, seconds) {
-  game.input.setKey('w', true);
-  const steps = Math.round(seconds / STEP);
-  for (let i = 0; i < steps; i += 1) game.step(STEP);
-  game.input.setKey('w', false);
+function place(car, x, z, h) {
+  car.pos.set(x, 0, z);
+  car.heading = h;
+  car.mesh.position.copy(car.pos);
+  car.mesh.rotation.y = h;
 }
 function cameraBehind(game) {
   let fx;
@@ -46,21 +46,22 @@ function cameraBehind(game) {
 function stageChase(game) {
   game.missions.setProgress(6, 1);
   const van = game.cars.armored;
-  van.pos.set(243, 0, -60);
-  van.heading = Math.PI / 2;
-  van.mesh.position.copy(van.pos);
-  van.mesh.rotation.y = van.heading;
+  place(van, 243, -60, Math.PI / 2);
   van.stolen = true;
   enterCar(game, van);
   game.police.state.wanted = 4;
   const tailSpots = [[237, -62], [243, -72], [237, -82], [243, -92]];
   for (const [x, z] of tailSpots) {
     const pc = spawnPoliceCar(game);
-    pc.pos.set(x, 0, z);
-    pc.heading = Math.PI / 2;
+    place(pc, x, z, Math.PI / 2);
     pc.speed = 24;
-    pc.mesh.position.copy(pc.pos);
-    pc.mesh.rotation.y = pc.heading;
+    game.police.state.cars.push(pc);
+  }
+  const aheadSpots = [[231, -120], [255, -135]];
+  for (const [x, z] of aheadSpots) {
+    const pc = spawnPoliceCar(game);
+    place(pc, x, z, Math.PI / 2);
+    pc.speed = 24;
     game.police.state.cars.push(pc);
   }
   cameraBehind(game);
@@ -69,7 +70,7 @@ function stageChase(game) {
   game.camPitch = 0.28;
   const heli = game.police.heli;
   if (heli) {
-    heli.position.set(game.player.car.pos.x + 5, 10, game.player.car.pos.z - 8);
+    heli.position.set(game.player.car.pos.x - 10, 11, game.player.car.pos.z - 10);
   }
   game.hud.hideToast();
   game.hud.hideMissionCard();
@@ -100,10 +101,7 @@ function stageGunfight(game) {
 function stageDowntown(game) {
   game.missions.setProgress(3, 0);
   const taxi = game.cars.parked.find((c) => c.model === 'taxi') || game.cars.parked[0];
-  taxi.pos.set(90, 0, -177);
-  taxi.heading = 0;
-  taxi.mesh.position.copy(taxi.pos);
-  taxi.mesh.rotation.y = taxi.heading;
+  place(taxi, 90, -177, 0);
   enterCar(game, taxi);
   const spots = [
     { x: 180, z: -177, prev: '120,-180', target: '240,-180', h: 0 },
@@ -114,13 +112,10 @@ function stageDowntown(game) {
     { x: 270, z: -183, prev: '300,-180', target: '240,-180', h: Math.PI },
   ];
   game.cars.traffic.slice(0, 6).forEach((t, i) => {
-    t.pos.set(spots[i].x, 0, spots[i].z);
-    t.heading = spots[i].h;
+    place(t, spots[i].x, spots[i].z, spots[i].h);
     t.prevNode = game.roads.byKey.get(spots[i].prev);
     t.targetNode = game.roads.byKey.get(spots[i].target);
     t.speed = 10;
-    t.mesh.position.copy(t.pos);
-    t.mesh.rotation.y = t.heading;
   });
   const walkers = [[120, -172], [150, -188], [180, -172]];
   game.peds.slice(0, 3).forEach((p, i) => {
@@ -131,16 +126,13 @@ function stageDowntown(game) {
     p.waiting = false;
   });
   cameraBehind(game);
-  driveFor(game, 3, (g) => steerCarToward(g, 360, -177));
+  driveFor(game, 2, (g) => steerCarToward(g, 360, -177));
   game.hud.hideMissionCard();
 }
 function stageRace(game) {
   game.missions.setProgress(5, 0);
   const comet = game.cars.comet;
-  comet.pos.set(0, 0, -240);
-  comet.heading = Math.PI / 2;
-  comet.mesh.position.copy(comet.pos);
-  comet.mesh.rotation.y = comet.heading;
+  place(comet, 0, -240, Math.PI / 2);
   comet.stolen = true;
   enterCar(game, comet);
   cameraBehind(game);
@@ -148,14 +140,8 @@ function stageRace(game) {
   const cx = game.player.car.pos.x;
   const cz = game.player.car.pos.z;
   const rivals = game.cars.traffic.slice(0, 2);
-  rivals[0].pos.set(cx, 0, cz - 12);
-  rivals[0].heading = Math.PI / 2;
-  rivals[0].mesh.position.copy(rivals[0].pos);
-  rivals[0].mesh.rotation.y = rivals[0].heading;
-  rivals[1].pos.set(cx - 4, 0, cz - 16);
-  rivals[1].heading = Math.PI / 2;
-  rivals[1].mesh.position.copy(rivals[1].pos);
-  rivals[1].mesh.rotation.y = rivals[1].heading;
+  place(rivals[0], cx, cz - 12, Math.PI / 2);
+  place(rivals[1], cx - 4, cz - 16, Math.PI / 2);
   game.camDist = 6;
   game.camPitch = 0.18;
   game.hud.hideMissionCard();

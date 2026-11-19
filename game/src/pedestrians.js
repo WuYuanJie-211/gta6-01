@@ -1,60 +1,47 @@
 import * as THREE from 'three';
 import { CITY } from './config.js';
 import { isOnRoad } from './roads.js';
+const B=(g,w,h,d,m,x=0,y=0,z=0)=>{const q=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);q.position.set(x,y,z);g.add(q);return q;};
+const mt=(c,r=0.9)=>new THREE.MeshStandardMaterial({color:c,roughness:r});
 const SHIRTS = [0xe74c3c, 0x3498db, 0x2ecc71, 0xf39c12, 0x9b59b6, 0xecf0f1, 0x1abc9c, 0xe67e22];
 const PANTS = [0x333333, 0x2c3e50, 0x5a4a3a, 0x7f8c8d, 0x2e4053];
 const SKINS = [0xd9a066, 0xc98a5a, 0x8a5a3a, 0xe8b88a, 0xf0c8a0];
 function createPedestrianMesh(rng) {
   const group = new THREE.Group();
-  const shirt = new THREE.MeshStandardMaterial({ color: rng.pick(SHIRTS), roughness: 0.9 });
-  const skin = new THREE.MeshStandardMaterial({ color: rng.pick(SKINS), roughness: 0.9 });
-  const legs = new THREE.MeshStandardMaterial({ color: rng.pick(PANTS), roughness: 1 });
+  const shirt = mt(rng.pick(SHIRTS));
+  const skin = mt(rng.pick(SKINS));
+  const legs = mt(rng.pick(PANTS), 1);
   const height = rng.range(0.88, 1.12);
   const build = rng.range(0.85, 1.25);
-  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.55 * build, 0.75, 0.32 * build), shirt);
-  torso.position.y = 1.05;
+  const torso = B(group, 0.55 * build, 0.75, 0.32 * build, shirt, 0, 1.05, 0);
   torso.castShadow = true;
-  group.add(torso);
   const head = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 10), skin);
   head.position.y = 1.65;
   group.add(head);
-  const hair = new THREE.Mesh(new THREE.SphereGeometry(0.23, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: rng.pick([0x1a1a1a, 0x4a2a1a, 0x8a6a3a, 0x666666]), roughness: 1 }));
+  const hair = new THREE.Mesh(new THREE.SphereGeometry(0.23, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), mt(rng.pick([0x1a1a1a, 0x4a2a1a, 0x8a6a3a, 0x666666]), 1));
   hair.position.y = 1.69;
   group.add(hair);
   const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 0.16, 8), skin);
   neck.position.y = 1.48;
   group.add(neck);
   if (rng.chance(0.3)) {
-    const hat = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.28, 0.3, 0.08, 10),
-      new THREE.MeshStandardMaterial({ color: rng.pick([0x8a1a1a, 0x2a4a6a, 0xf1c40f]), roughness: 0.9 }),
-    );
+    const hat = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.3, 0.08, 10), mt(rng.pick([0x8a1a1a, 0x2a4a6a, 0xf1c40f])));
     hat.position.y = 1.85;
     group.add(hat);
   }
   if (rng.chance(0.25)) {
-    const bag = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.4, 0.12), new THREE.MeshStandardMaterial({ color: 0x6a4a2a, roughness: 1 }));
-    bag.position.set(0, 1.1, -0.22);
-    group.add(bag);
+    B(group, 0.3, 0.4, 0.12, mt(0x6a4a2a, 1), 0, 1.1, -0.22);
   }
-  const legL = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.6, 0.24), legs);
-  legL.position.set(-0.14, 0.3, 0);
-  const legR = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.6, 0.24), legs);
-  legR.position.set(0.14, 0.3, 0);
-  group.add(legL, legR);
-  const armL = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.55, 0.18), shirt);
-  armL.position.set(-0.38, 1.05, 0);
-  const armR = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.55, 0.18), shirt);
-  armR.position.set(0.38, 1.05, 0);
-  group.add(armL, armR);
+  const legL = B(group, 0.2, 0.6, 0.24, legs, -0.14, 0.3, 0);
+  const legR = B(group, 0.2, 0.6, 0.24, legs, 0.14, 0.3, 0);
+  const armL = B(group, 0.16, 0.55, 0.18, shirt, -0.38, 1.05, 0);
+  const armR = B(group, 0.16, 0.55, 0.18, shirt, 0.38, 1.05, 0);
   group.userData.legL = legL;
   group.userData.legR = legR;
   group.userData.armL = armL;
   group.userData.armR = armR;
-  const phone = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.16, 0.03), new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.4 }));
-  phone.position.set(0.38, 0.85, 0.25);
+  const phone = B(group, 0.08, 0.16, 0.03, mt(0x111111, 0.4), 0.38, 0.85, 0.25);
   phone.visible = false;
-  group.add(phone);
   group.userData.phone = phone;
   group.scale.set(1, height, 1);
   return group;
@@ -155,7 +142,5 @@ export function updatePedestrians(game, dt) {
     ped.mesh.userData.armL.rotation.x = -swing;
     ped.mesh.userData.armR.rotation.x = swing;
     if (ped.pos.z > 300) ped.target = randomSidewalkPoint(game.rng);
-    if (isOnRoad(ped.pos.x, ped.pos.z) && !fleeing) {
-    }
   }
 }

@@ -147,7 +147,7 @@ class Game {
       this.player.mesh.position.copy(this.player.pos);
     }
     this.setScreen('playing');
-    console.log('Solara Bay v3 — modeling upgrade: Kaggle textures, refined geometry, 7 missions.');
+    console.log('Solara Bay v3');
     this.hud.flash('Welcome to Solara Bay. Mara is waiting at the plaza.');
   }
   setScreen(screen) {

@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { WORLD, ECONOMY } from './config.js';
 import { enterCar } from './vehicles.js';
 import { randomNode } from './roads.js';
+const B=(g,w,h,d,m,x=0,y=0,z=0)=>{const q=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);q.position.set(x,y,z);g.add(q);return q;};
+const mt=(c,r=0.9)=>new THREE.MeshStandardMaterial({color:c,roughness:r});
 export const MISSIONS = [
   {
     title: 'First Fare',
@@ -30,14 +32,14 @@ export const MISSIONS = [
   },
   {
     title: 'Downtown Taxi',
-    story: 'Mara runs a taxi rank now. Fares wait at the bus stops — grab a taxi (one is parked by the plaza), pick up three fares and drop them across town. Every fare pays.',
+    story: 'Mara runs a taxi rank now. Fares wait at the bus stops — grab a taxi, pick up three fares and drop them across town. Every fare pays.',
     stages: [
       { text: 'Pick up 3 fares at the bus stops (drive a taxi, press E)', key: 'fare', count: 3 },
     ],
   },
   {
     title: 'Package Hunt',
-    story: 'Five green packages are hidden across the city — downtown, the port, the suburbs, the beach, the park. Find them all. Each one pays on the spot.',
+    story: 'Five green packages are hidden across the city. Find them all — each one pays on the spot.',
     stages: [
       { text: 'Find the 5 hidden packages (press E by a green gem)', key: 'collect', count: 5 },
     ],
@@ -51,7 +53,7 @@ export const MISSIONS = [
   },
   {
     title: 'The Bank Job',
-    story: 'The armored van leaves the bank at noon, and Mara has the route. Take it, bring it to the chop shop — the whole city will be on you. This is the big one.',
+    story: 'The armored van leaves the bank at noon. Take it to the chop shop — the whole city will be on you. This is the big one.',
     stages: [
       { text: 'Steal the armored van by the Bank (press E)', key: 'steal', at: 'armoredSpot' },
       { text: 'Deliver the armored van to the Chop Shop — 4 stars on you!', key: 'deliver', to: 'chopShop', heat: 4, gunmen: 3 },
@@ -81,26 +83,23 @@ export function createMissions(game) {
   game.scene.add(beacon);
   const clientMesh = new THREE.Group();
   {
-    const jacket = new THREE.MeshStandardMaterial({ color: 0xf1c40f, roughness: 0.9 });
-    const skin = new THREE.MeshStandardMaterial({ color: 0xd9a066, roughness: 0.9 });
-    const torso = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.8, 0.34), jacket);
-    torso.position.y = 1.1;
+    const jacket = mt(0xf1c40f);
+    const skin = mt(0xd9a066);
+    const torso = B(clientMesh, 0.6, 0.8, 0.34, jacket, 0, 1.1, 0);
     torso.castShadow = true;
     const head = new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 10), skin);
     head.position.y = 1.72;
-    const hair = new THREE.Mesh(new THREE.SphereGeometry(0.25, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x4a2a1a, roughness: 1 }));
+    const hair = new THREE.Mesh(new THREE.SphereGeometry(0.25, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), mt(0x4a2a1a, 1));
     hair.position.y = 1.76;
     const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, 0.18, 8), skin);
     neck.position.y = 1.52;
-    const legL = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.7, 0.28), new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 1 }));
-    legL.position.set(-0.15, 0.35, 0);
+    const legL = B(clientMesh, 0.22, 0.7, 0.28, mt(0x333333, 1), -0.15, 0.35, 0);
     const legR = legL.clone();
     legR.position.x = 0.15;
-    const armL = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.65, 0.18), jacket);
-    armL.position.set(-0.4, 1.1, 0);
+    const armL = B(clientMesh, 0.16, 0.65, 0.18, jacket, -0.4, 1.1, 0);
     const armR = armL.clone();
     armR.position.x = 0.4;
-    clientMesh.add(torso, head, hair, neck, legL, legR, armL, armR);
+    clientMesh.add(head, hair, neck, legR, armR);
     clientMesh.position.set(game.city.landmarks.clientSpot.x, 0, game.city.landmarks.clientSpot.z);
     game.scene.add(clientMesh);
   }
@@ -157,8 +156,7 @@ export function createMissions(game) {
     const L = game.city.landmarks;
     const stage = mission().stages[state.stage];
     const key = stage.key;
-    if (key === 'pickup') return L[stage.at];
-    if (key === 'steal') return L[stage.at];
+    if (key === 'pickup' || key === 'steal') return L[stage.at];
     if (key === 'deliver') return L[stage.to];
     if (key === 'fare') {
       if (state.farePicked && state.fareDest) return state.fareDest;

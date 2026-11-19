@@ -8,6 +8,7 @@ let carTextures = null;
 export function setCarTextures(t) { carTextures = t; }
 export function createCarMesh(color, kind = 'sedan') {
   const group = new THREE.Group();
+  const B=(w,h,d,m,x=0,y=0,z=0,s=false)=>{const q=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);q.position.set(x,y,z);if(s)q.castShadow=true;group.add(q);return q;};
   const paintMap = carTextures && kind === 'sport' ? carTextures.redPaint : carTextures && kind === 'taxi' ? carTextures.taxiPaint : null;
   const paint = new THREE.MeshStandardMaterial({ color: paintMap ? 0xffffff : color, roughness: paintMap ? 0.35 : 0.4, metalness: paintMap ? 0.6 : 0.4, ...(paintMap ? { map: paintMap } : {}) });
   const glass = new THREE.MeshStandardMaterial({ color: 0x1a2a3a, roughness: 0.2, metalness: 0.6 });
@@ -16,158 +17,78 @@ export function createCarMesh(color, kind = 'sedan') {
   const len = model.len;
   const bodyH = model.height;
   if (kind === 'van' || kind === 'armored' || kind === 'truck' || kind === 'bus') {
-    const body = new THREE.Mesh(new THREE.BoxGeometry(len, bodyH, 2.1), paint);
-    body.position.y = 0.5 + bodyH / 2;
-    body.castShadow = true;
-    group.add(body);
+    const body = B(len, bodyH, 2.1, paint, 0, 0.5 + bodyH / 2, 0, true);
     if (kind === 'truck') {
-      const cab = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.3, 2.1), paint);
-      cab.position.set(len / 2 - 0.8, 1.5, 0);
-      group.add(cab);
-      const bed = new THREE.Mesh(new THREE.BoxGeometry(len - 2.4, 0.3, 2), VM(0x555a60));
-      bed.position.set(-0.8, 1.1, 0);
-      group.add(bed);
+      B(1.6, 1.3, 2.1, paint, len / 2 - 0.8, 1.5, 0);
+      B(len - 2.4, 0.3, 2, VM(0x555a60), -0.8, 1.1, 0);
       const stack = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 2, 8), new THREE.MeshStandardMaterial({ color: 0xaaaaaa, roughness: 0.3, metalness: 0.7 }));
       stack.position.set(len / 2 - 1.8, 1.8, 0.9);
       group.add(stack);
     }
+    if (kind === 'van' || kind === 'armored') {
+      B(0.08, 0.16, 1.9, VM(0xff2222,1,0x660000), -len / 2 - 0.02, 0.9, 0);
+      B(0.06, 0.5, 1.7, glass, -len / 2 - 0.03, bodyH - 0.1, 0);
+      for (const sz of [-0.6, 0.6]) B(0.05, bodyH * 0.7, 0.06, VM(0x1a1a1a,0.6), -len / 2 - 0.04, 0.5 + bodyH / 2, sz);
+    }
     if (kind === 'bus') {
-      for (const side of [-1, 1]) {
-        const strip = new THREE.Mesh(new THREE.BoxGeometry(len - 1, 0.8, 0.05), glass);
-        strip.position.set(0, 1.9, side * 1.06);
-        group.add(strip);
-      }
-      const dest = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.4, 1.4), VM(0xff8800,1,0x664400));
-      dest.position.set(len / 2 + 0.02, 2.3, 0);
-      group.add(dest);
+      for (const side of [-1, 1]) B(len - 1, 0.8, 0.05, glass, 0, 1.9, side * 1.06);
+      B(0.08, 0.4, 1.4, VM(0xff8800,1,0x664400), len / 2 + 0.02, 2.3, 0);
     }
     if (kind === 'armored') {
-      const plate = new THREE.Mesh(new THREE.BoxGeometry(len - 0.5, 0.8, 2.2), new THREE.MeshStandardMaterial({ color: 0x6a6f75, roughness: 0.5, metalness: 0.6 }));
-      plate.position.y = 1.5;
-      group.add(plate);
-      const bar = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.25, 1.4), VM(0xffe14d,1,0x886600));
-      bar.position.set(0, bodyH + 0.6, 0);
-      group.add(bar);
+      B(len - 0.5, 0.8, 2.2, new THREE.MeshStandardMaterial({ color: 0x6a6f75, roughness: 0.5, metalness: 0.6 }), 0, 1.5, 0);
+      B(0.4, 0.25, 1.4, VM(0xffe14d,1,0x886600), 0, bodyH + 0.6, 0);
     }
   } else {
-    const body = new THREE.Mesh(new THREE.BoxGeometry(len, 0.55, 2), paint);
-    body.position.y = 0.55;
-    body.castShadow = true;
-    group.add(body);
+    const body = B(len, 0.55, 2, paint, 0, 0.55, 0, true);
     const cabinL = kind === 'sport' ? len * 0.38 : len * 0.45;
     const cabinH = kind === 'sport' ? 0.45 : bodyH - 0.3;
-    const cabin = new THREE.Mesh(new THREE.BoxGeometry(cabinL, cabinH, 1.7), glass);
-    cabin.position.set(-0.2, 0.85 + cabinH / 2, 0);
-    cabin.castShadow = true;
-    group.add(cabin);
-    const roofPanel = new THREE.Mesh(new THREE.BoxGeometry(cabinL * 0.9, 0.08, 1.7), paint);
-    roofPanel.position.set(-0.2, 0.85 + cabinH + 0.04, 0);
-    group.add(roofPanel);
-    const hood = new THREE.Mesh(new THREE.BoxGeometry(len * 0.22, 0.3, 1.9), paint);
-    hood.position.set(len / 2 - len * 0.11, 0.42, 0);
-    group.add(hood);
-    const trunk = new THREE.Mesh(new THREE.BoxGeometry(len * 0.2, 0.28, 1.9), paint);
-    trunk.position.set(-len / 2 + len * 0.1, 0.41, 0);
-    group.add(trunk);
+    const cabin = B(cabinL, cabinH, 1.7, glass, -0.2, 0.85 + cabinH / 2, 0, true);
+    B(cabinL * 0.9, 0.08, 1.7, paint, -0.2, 0.85 + cabinH + 0.04, 0);
+    B(len * 0.22, 0.3, 1.9, paint, len / 2 - len * 0.11, 0.42, 0);
+    B(len * 0.2, 0.28, 1.9, paint, -len / 2 + len * 0.1, 0.41, 0);
     const trimMat = VM(0x1a1a1a,0.6);
-    for (const side of [-1, 1]) {
-      const belt = new THREE.Mesh(new THREE.BoxGeometry(len * 0.9, 0.05, 0.03), trimMat);
-      belt.position.set(0, 0.82, side * 1.01);
-      group.add(belt);
-    }
+    for (const side of [-1, 1]) B(len * 0.9, 0.05, 0.03, trimMat, 0, 0.82, side * 1.01);
     if (kind === 'muscle') {
-      const scoop = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.25, 0.8), VM(0x222831,0.4));
-      scoop.position.set(len / 2 - 1, 0.9, 0);
-      group.add(scoop);
+      B(1.2, 0.25, 0.8, VM(0x222831,0.4), len / 2 - 1, 0.9, 0);
     }
     if (kind === 'pickup') {
-      const bed = new THREE.Mesh(new THREE.BoxGeometry(len * 0.45, 0.5, 1.9), VM(0x333333,0.9));
-      bed.position.set(-len / 2 + len * 0.225, 0.7, 0);
-      group.add(bed);
+      B(len * 0.45, 0.5, 1.9, VM(0x333333,0.9), -len / 2 + len * 0.225, 0.7, 0);
     }
     if (kind === 'taxi') {
-      const roofSign = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.25, 0.9), VM(0xffe14d,1,0x886600));
-      roofSign.position.set(-0.2, 1.5, 0);
-      group.add(roofSign);
-      for (const side of [-1, 1]) {
-        const check = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.4, 0.05), VM(0x222222,0.6));
-        check.position.set(0, 0.55, side * 1.02);
-        group.add(check);
-      }
+      B(0.5, 0.25, 0.9, VM(0xffe14d,1,0x886600), -0.2, 1.5, 0);
+      for (const side of [-1, 1]) B(1.6, 0.4, 0.05, VM(0x222222,0.6), 0, 0.55, side * 1.02);
+      B(0.08, 0.16, DETAIL.cometTailBar, VM(0xff2222,1,0x660000), -len / 2 - 0.02, 0.62, 0);
+      B(0.06, 0.3, 1.5, glass, -0.2 - cabinL / 2 - 0.03, 1.15, 0);
     }
     if (kind === 'sport') {
-      const spoiler = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.08, 1.8), paint);
-      spoiler.position.set(-len / 2 + 0.15, 1.15, 0);
-      group.add(spoiler);
-      const stripe = new THREE.Mesh(new THREE.BoxGeometry(len, 0.02, 0.5), VM(0xffd94d,0.4));
-      stripe.position.set(0, 0.84, 0);
-      group.add(stripe);
-      for (const sz of [-0.6, 0.6]) {
-        const strut = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.35, 0.12), paint);
-        strut.position.set(-len / 2 + 0.15, 0.95, sz);
-        group.add(strut);
-      }
-      const tailBar = new THREE.Mesh(
-        new THREE.BoxGeometry(0.08, 0.16, DETAIL.cometTailBar),
-        VM(0xff2222,1,0x660000),
-      );
-      tailBar.position.set(-len / 2 - 0.02, 0.62, 0);
-      group.add(tailBar);
-      const diffuser = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.18, 1.8), VM(0x1a1a1a,0.8));
-      diffuser.position.set(-len / 2 - 0.02, 0.22, 0);
-      group.add(diffuser);
+      B(0.3, 0.08, 1.8, paint, -len / 2 + 0.15, 1.15, 0);
+      B(len, 0.02, 0.5, VM(0xffd94d,0.4), 0, 0.84, 0);
+      for (const sz of [-0.6, 0.6]) B(0.12, 0.35, 0.12, paint, -len / 2 + 0.15, 0.95, sz);
+      B(0.08, 0.16, DETAIL.cometTailBar, VM(0xff2222,1,0x660000), -len / 2 - 0.02, 0.62, 0);
+      B(0.25, 0.18, 1.8, VM(0x1a1a1a,0.8), -len / 2 - 0.02, 0.22, 0);
     }
   }
   if (kind === 'police') {
-    const white = new THREE.Mesh(new THREE.BoxGeometry(len, bodyH, 2), new THREE.MeshStandardMaterial({ color: 0xf2f2f2, roughness: 0.4, metalness: 0.3 }));
-    white.position.y = 0.55;
-    white.castShadow = true;
-    group.add(white);
-    const stripe = new THREE.Mesh(new THREE.BoxGeometry(len * 0.5, bodyH * 0.9, 2.02), VM(0x1a3a8f,0.4));
-    stripe.position.y = 0.55;
-    group.add(stripe);
-    const bar = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.18, 1.2), VM(0x222222,0.5));
-    bar.position.set(-0.1, 1.6, 0);
-    group.add(bar);
-    const lightR = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.2, 0.55), VM(0xff2222,1,0xaa0000));
-    lightR.position.set(-0.1, 1.72, 0.3);
-    const lightB = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.2, 0.55), VM(0x2244ff,1,0x0000aa));
-    lightB.position.set(-0.1, 1.72, -0.3);
-    group.add(lightR, lightB);
+    B(len, bodyH, 2, new THREE.MeshStandardMaterial({ color: 0xf2f2f2, roughness: 0.4, metalness: 0.3 }), 0, 0.55, 0, true);
+    B(len * 0.5, bodyH * 0.9, 2.02, VM(0x1a3a8f,0.4), 0, 0.55, 0);
+    B(0.7, 0.18, 1.2, VM(0x222222,0.5), -0.1, 1.6, 0);
+    const lightR = B(0.3, 0.2, 0.55, VM(0xff2222,1,0xaa0000), -0.1, 1.72, 0.3);
+    const lightB = B(0.3, 0.2, 0.55, VM(0x2244ff,1,0x0000aa), -0.1, 1.72, -0.3);
     group.userData.lightR = lightR;
     group.userData.lightB = lightB;
   }
-  const plate = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.18, 0.7), VM(0xf2f2f2,0.5));
-  plate.position.set(-len / 2 - 0.07, 0.42, 0);
-  group.add(plate);
+  B(0.03, 0.18, 0.7, VM(0xf2f2f2,0.5), -len / 2 - 0.07, 0.42, 0);
   const tall = kind === 'van' || kind === 'armored' || kind === 'truck' || kind === 'bus' || kind === 'police';
-  const grille = new THREE.Mesh(
-    new THREE.BoxGeometry(0.08, tall ? 0.6 : 0.3, 1.4),
-    VM(0x222222,0.6),
-  );
-  grille.position.set(len / 2 + 0.02, tall ? 0.9 : 0.45, 0);
-  group.add(grille);
+  B(0.08, tall ? 0.6 : 0.3, 1.4, VM(0x222222,0.6), len / 2 + 0.02, tall ? 0.9 : 0.45, 0);
   const bumperMat = VM(0x333333,0.6);
-  for (const bx of [len / 2 + 0.05, -len / 2 - 0.05]) {
-    const bumper = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.25, 2.1), bumperMat);
-    bumper.position.set(bx, 0.35, 0);
-    group.add(bumper);
-  }
+  for (const bx of [len / 2 + 0.05, -len / 2 - 0.05]) B(0.15, 0.25, 2.1, bumperMat, bx, 0.35, 0);
   const mirrorMat = VM(0x222222,0.5);
-  for (const side of [-1, 1]) {
-    const mirror = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.12, 0.25), mirrorMat);
-    mirror.position.set(tall ? len / 2 - 0.8 : 0.3, tall ? 1.5 : 1.05, side * (tall ? 1.12 : 1.05));
-    group.add(mirror);
-  }
+  for (const side of [-1, 1]) B(0.15, 0.12, 0.25, mirrorMat, tall ? len / 2 - 0.8 : 0.3, tall ? 1.5 : 1.05, side * (tall ? 1.12 : 1.05));
   const headMat = VM(0xfff8c0,1,0x888866);
   const tailMat = VM(0xff2222,1,0x660000);
   for (const side of [-0.7, 0.7]) {
-    const head = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.18, 0.35), headMat);
-    head.position.set(len / 2, 0.6, side);
-    group.add(head);
-    const tail = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.18, 0.35), tailMat);
-    tail.position.set(-len / 2, 0.6, side);
-    group.add(tail);
+    B(0.1, 0.18, 0.35, headMat, len / 2, 0.6, side);
+    B(0.1, 0.18, 0.35, tailMat, -len / 2, 0.6, side);
   }
   const wheelR = kind === 'truck' || kind === 'bus' ? 0.55 : 0.42;
   const wheels = [];

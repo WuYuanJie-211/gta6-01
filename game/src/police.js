@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { POLICE, CAR } from './config.js';
+const B=(g,w,h,d,m,x=0,y=0,z=0)=>{const q=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);q.position.set(x,y,z);g.add(q);return q;};
+const mt=(c,r=0.9)=>new THREE.MeshStandardMaterial({color:c,roughness:r});
 import { spawnPoliceCar } from './vehicles.js';
 import { nearestNode } from './roads.js';
 import { resolveBuildingCollision } from './city.js';
@@ -12,37 +14,17 @@ function rotatedAABB(x, z, halfLen, halfWid, angle) {
 }
 function createHelicopterMesh() {
   const group = new THREE.Group();
-  const bodyMat = new THREE.MeshStandardMaterial({ color: 0x1a3a8f, roughness: 0.5 });
-  const body = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.6, 4.5), bodyMat);
+  const bodyMat = mt(0x1a3a8f, 0.5);
+  const body = B(group, 2.4, 1.6, 4.5, bodyMat, 0, 0, 0);
   body.castShadow = true;
-  group.add(body);
-  const tail = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 4), bodyMat);
-  tail.position.set(0, 0.3, -4);
-  group.add(tail);
-  const fin = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1.4, 0.8), bodyMat);
-  fin.position.set(0, 0.8, -5.8);
-  group.add(fin);
-  const cockpit = new THREE.Mesh(
-    new THREE.BoxGeometry(2.0, 1.0, 1.2),
-    new THREE.MeshStandardMaterial({ color: 0x1a2a3a, roughness: 0.2, metalness: 0.6 }),
-  );
-  cockpit.position.set(0, 0.3, 2.2);
-  group.add(cockpit);
-  const tailRotor = new THREE.Mesh(new THREE.BoxGeometry(0.08, 2.2, 0.3), new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.5 }));
-  tailRotor.position.set(0.35, 0.8, -5.8);
-  group.add(tailRotor);
-  const rotor = new THREE.Mesh(new THREE.BoxGeometry(9, 0.08, 0.5), new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.5 }));
-  rotor.position.y = 1.1;
-  group.add(rotor);
-  const rotor2 = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.08, 9), new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.5 }));
-  rotor2.position.y = 1.1;
-  group.add(rotor2);
-  const skidMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.8 });
-  for (const side of [-1, 1]) {
-    const skid = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.15, 3.5), skidMat);
-    skid.position.set(side * 1.1, -1.1, 0);
-    group.add(skid);
-  }
+  B(group, 0.6, 0.6, 4, bodyMat, 0, 0.3, -4);
+  B(group, 0.3, 1.4, 0.8, bodyMat, 0, 0.8, -5.8);
+  B(group, 2.0, 1.0, 1.2, new THREE.MeshStandardMaterial({ color: 0x1a2a3a, roughness: 0.2, metalness: 0.6 }), 0, 0.3, 2.2);
+  const tailRotor = B(group, 0.08, 2.2, 0.3, mt(0x222222, 0.5), 0.35, 0.8, -5.8);
+  const rotor = B(group, 9, 0.08, 0.5, mt(0x222222, 0.5), 0, 1.1, 0);
+  const rotor2 = B(group, 0.5, 0.08, 9, mt(0x222222, 0.5), 0, 1.1, 0);
+  const skidMat = mt(0x333333, 0.8);
+  for (const side of [-1, 1]) B(group, 0.15, 0.15, 3.5, skidMat, side * 1.1, -1.1, 0);
   const light = new THREE.Mesh(
     new THREE.ConeGeometry(6, 30, 16, 1, true),
     new THREE.MeshBasicMaterial({ color: 0xfff8c0, transparent: true, opacity: 0.25, side: THREE.DoubleSide }),
@@ -114,21 +96,12 @@ export function createPolice(game) {
       const bx = node.x + Math.cos(perp) * offset;
       const bz = node.z - Math.sin(perp) * offset;
       const barrier = new THREE.Group();
-      const stripe = new THREE.Mesh(
-        new THREE.BoxGeometry(5, 1, 0.4),
-        new THREE.MeshStandardMaterial({ color: 0xe67e22, roughness: 0.7 }),
-      );
-      stripe.position.y = 0.9;
-      const white = new THREE.Mesh(
-        new THREE.BoxGeometry(5, 0.3, 0.42),
-        new THREE.MeshStandardMaterial({ color: 0xf5f5f0, roughness: 0.7 }),
-      );
-      white.position.y = 1.1;
-      const legL = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.8, 0.3), new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.8 }));
-      legL.position.set(-2.2, 0.4, 0);
+      B(barrier, 5, 1, 0.4, mt(0xe67e22, 0.7), 0, 0.9, 0);
+      B(barrier, 5, 0.3, 0.42, mt(0xf5f5f0, 0.7), 0, 1.1, 0);
+      const legL = B(barrier, 0.3, 0.8, 0.3, mt(0x333333, 0.8), -2.2, 0.4, 0);
       const legR = legL.clone();
       legR.position.x = 2.2;
-      barrier.add(stripe, white, legL, legR);
+      barrier.add(legR);
       barrier.position.set(bx, 0, bz);
       barrier.rotation.y = perp;
       barrier.traverse((o) => { if (o.isMesh) o.castShadow = true; });

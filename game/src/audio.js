@@ -21,30 +21,32 @@ export function createAudio() {
     [261.63, 329.63, 392, 523.25], 
     [196, 246.94, 293.66, 392], 
   ];
+  function mkOsc(type, freq) {
+    const o = ctx.createOscillator();
+    o.type = type;
+    o.frequency.value = freq;
+    return o;
+  }
+  function mkGain(v) {
+    const g = ctx.createGain();
+    g.gain.value = v;
+    return g;
+  }
   function ensure() {
     if (started) return true;
     try {
       const AudioContext = window.AudioContext ?? window.webkitAudioContext;
       ctx = new AudioContext();
-      engineOsc = ctx.createOscillator();
-      engineOsc.type = 'sawtooth';
-      engineOsc.frequency.value = 50;
-      engineGain = ctx.createGain();
-      engineGain.gain.value = 0;
+      engineOsc = mkOsc('sawtooth', 50);
+      engineGain = mkGain(0);
       engineOsc.connect(engineGain).connect(ctx.destination);
       engineOsc.start();
-      sirenOsc = ctx.createOscillator();
-      sirenOsc.type = 'sine';
-      sirenOsc.frequency.value = 700;
-      sirenGain = ctx.createGain();
-      sirenGain.gain.value = 0;
+      sirenOsc = mkOsc('sine', 700);
+      sirenGain = mkGain(0);
       sirenOsc.connect(sirenGain).connect(ctx.destination);
       sirenOsc.start();
-      sirenOsc2 = ctx.createOscillator();
-      sirenOsc2.type = 'triangle';
-      sirenOsc2.frequency.value = 550;
-      sirenGain2 = ctx.createGain();
-      sirenGain2.gain.value = 0;
+      sirenOsc2 = mkOsc('triangle', 550);
+      sirenGain2 = mkGain(0);
       sirenOsc2.connect(sirenGain2).connect(ctx.destination);
       sirenOsc2.start();
       noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);

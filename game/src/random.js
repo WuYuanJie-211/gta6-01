@@ -21,27 +21,5 @@ export function createRandom(seed) {
     chance(p) {
       return next() < p;
     },
-    pickWeighted(items, weights) {
-      if (items.length !== weights.length) throw new Error('pickWeighted: items/weights length mismatch');
-      let total = 0;
-      for (const w of weights) {
-        if (w < 0) throw new Error('pickWeighted: negative weight');
-        total += w;
-      }
-      let roll = next() * total;
-      for (let i = 0; i < items.length; i += 1) {
-        roll -= weights[i];
-        if (roll <= 0) return items[i];
-      }
-      return items[items.length - 1];
-    },
-    shuffle(items) {
-      const out = [...items];
-      for (let i = out.length - 1; i > 0; i -= 1) {
-        const j = Math.floor(next() * (i + 1));
-        [out[i], out[j]] = [out[j], out[i]];
-      }
-      return out;
-    },
   };
 }
