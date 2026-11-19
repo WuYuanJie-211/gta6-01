@@ -17,7 +17,7 @@ function M(color, rough = 1, extra = {}) {
   if (!m) { m = new THREE.MeshStandardMaterial({ color, roughness: rough, ...extra }); _mats.set(k, m); }
   return m;
 }
-function bx(parent, w, h, d, material, x, y, z, shadow = false) {
+function box(parent, w, h, d, material, x, y, z, shadow = false) {
   const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
   m.position.set(x, y, z);
   if (shadow) m.castShadow = true;
@@ -520,10 +520,10 @@ export function buildCity(scene, rng, textures = {}) {
       const wd = rng.range(16, 22);
       const wh = rng.range(8, 11);
       const wm = textures.metal ? new THREE.MeshStandardMaterial({ map: tile(textures.metal, 3, 1), roughness: 0.9 }) : M(0x8a7a68);
-      bx(scene, ww, wh, wd, wm, bx + 8, wh / 2, bz + 8, true);
-      const saw1 = bx(scene, ww + 0.4, 0.3, wd / 2 + 0.2, M(0x5a4a3a), bx + 8, wh + 0.8, bz + 8 - wd / 4);
+      box(scene, ww, wh, wd, wm, bx + 8, wh / 2, bz + 8, true);
+      const saw1 = box(scene, ww + 0.4, 0.3, wd / 2 + 0.2, M(0x5a4a3a), bx + 8, wh + 0.8, bz + 8 - wd / 4);
       saw1.rotation.x = 0.18;
-      const saw2 = bx(scene, ww + 0.4, 0.3, wd / 2 + 0.2, M(0x5a4a3a), bx + 8, wh + 0.8, bz + 8 + wd / 4);
+      const saw2 = box(scene, ww + 0.4, 0.3, wd / 2 + 0.2, M(0x5a4a3a), bx + 8, wh + 0.8, bz + 8 + wd / 4);
       saw2.rotation.x = -0.18;
       colliders.push({ minX: bx - 7, maxX: bx + 23, minZ: bz - 2, maxZ: bz + 18 });
       continue;
@@ -541,20 +541,20 @@ export function buildCity(scene, rng, textures = {}) {
       if (glassTex) tex = tile(glassTex, Math.max(1, Math.round(w / 8)), Math.max(1, Math.round(h / 10)));
       else { tex = rng.pick(towerTextures).clone(); tex.needsUpdate = true; tex.repeat.set(Math.max(1, Math.round(w / 10)), Math.max(1, Math.round(h / 12))); }
       const towerMat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.55, metalness: 0.15 });
-      const tower = bx(scene, w, h, d, towerMat, x, h / 2, z, true);
+      const tower = box(scene, w, h, d, towerMat, x, h / 2, z, true);
       tower.receiveShadow = true;
-      for (const [fx, fz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) bx(scene, 0.7, h, 0.7, M(0x14202c, 0.4, { metalness: 0.5 }), x + fx * (w / 2 - 0.2), h / 2, z + fz * (d / 2 - 0.2));
-      bx(scene, w + 0.6, 0.5, d + 0.6, M(0x3a3f45), x, h - 0.25, z);
-      for (const [pw, pd, px, pz] of [[w + 0.4, 0.5, 0, d / 2], [w + 0.4, 0.5, 0, -d / 2], [0.5, d + 0.4, w / 2, 0], [0.5, d + 0.4, -w / 2, 0]]) bx(scene, pw, 0.8, pd, M(0x3a3f45), x + px, h + 0.4, z + pz);
-      bx(scene, w + 1.5, 4.5, d + 1.5, new THREE.MeshStandardMaterial({ map: textures.concrete ? tile(textures.concrete, 2, 1) : null, color: textures.concrete ? 0xffffff : 0x2c3e50, roughness: 0.8 }), x, 2.25, z, true);
-      bx(scene, w * 0.8, 3.2, 0.2, M(0x0e1a24, 0.25, { metalness: 0.5 }), x, 1.6, z + d / 2 + 0.85);
-      const awn = bx(scene, w * 0.85, 0.18, 2.4, textures.awning ? new THREE.MeshStandardMaterial({ map: tile(textures.awning, 3, 1), roughness: 0.9 }) : M(0xc0392b), x, 3.7, z + d / 2 + 1.9);
+      for (const [fx, fz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) box(scene, 0.7, h, 0.7, M(0x14202c, 0.4, { metalness: 0.5 }), x + fx * (w / 2 - 0.2), h / 2, z + fz * (d / 2 - 0.2));
+      box(scene, w + 0.6, 0.5, d + 0.6, M(0x3a3f45), x, h - 0.25, z);
+      for (const [pw, pd, px, pz] of [[w + 0.4, 0.5, 0, d / 2], [w + 0.4, 0.5, 0, -d / 2], [0.5, d + 0.4, w / 2, 0], [0.5, d + 0.4, -w / 2, 0]]) box(scene, pw, 0.8, pd, M(0x3a3f45), x + px, h + 0.4, z + pz);
+      box(scene, w + 1.5, 4.5, d + 1.5, new THREE.MeshStandardMaterial({ map: textures.concrete ? tile(textures.concrete, 2, 1) : null, color: textures.concrete ? 0xffffff : 0x2c3e50, roughness: 0.8 }), x, 2.25, z, true);
+      box(scene, w * 0.8, 3.2, 0.2, M(0x0e1a24, 0.25, { metalness: 0.5 }), x, 1.6, z + d / 2 + 0.85);
+      const awn = box(scene, w * 0.85, 0.18, 2.4, textures.awning ? new THREE.MeshStandardMaterial({ map: tile(textures.awning, 3, 1), roughness: 0.9 }) : M(0xc0392b), x, 3.7, z + d / 2 + 1.9);
       awn.rotation.x = 0.22;
       if (signTexs.length) { const sg = new THREE.Mesh(new THREE.PlaneGeometry(9, 2.2), new THREE.MeshBasicMaterial({ map: rng.pick(signTexs) })); sg.position.set(x, 5.6, z + d / 2 + 0.95); scene.add(sg); }
-      bx(scene, w * 0.55, 4, d * 0.55, new THREE.MeshStandardMaterial({ map: tex, roughness: 0.6, metalness: 0.1 }), x, h + 2, z, true);
-      bx(scene, w * 0.55 + 0.4, 0.5, d * 0.55 + 0.4, M(0x3a3f45), x, h + 4.25, z);
+      box(scene, w * 0.55, 4, d * 0.55, new THREE.MeshStandardMaterial({ map: tex, roughness: 0.6, metalness: 0.1 }), x, h + 2, z, true);
+      box(scene, w * 0.55 + 0.4, 0.5, d * 0.55 + 0.4, M(0x3a3f45), x, h + 4.25, z);
       cyl(scene, 1.2, 1.2, 2.4, 10, M(0x7a6a58, 0.9), x + w * 0.12, h + 5.6, z - d * 0.1, true);
-      bx(scene, 3, 1.5, 2, M(0x888888), x - w * 0.12, h + 5.2, z + d * 0.1);
+      box(scene, 3, 1.5, 2, M(0x888888), x - w * 0.12, h + 5.2, z + d * 0.1);
       cyl(scene, 0.08, 0.08, 6, 6, M(0x333333, 0.6), x + w * 0.18, h + 7.5, z + d * 0.12);
       const beacon = new THREE.Mesh(new THREE.SphereGeometry(0.35, 8, 6), new THREE.MeshStandardMaterial({ color: 0xff2222, emissive: 0xaa0000 }));
       beacon.position.set(x + w * 0.18, h + 10.7, z + d * 0.12);
@@ -639,21 +639,21 @@ export function buildCity(scene, rng, textures = {}) {
       let tex;
       if (brickTex) tex = tile(brickTex, Math.max(1, Math.round(w / 8)), Math.max(1, Math.round(h / 8)));
       else { tex = rng.pick(facadeTextures).clone(); tex.needsUpdate = true; tex.repeat.set(Math.max(1, Math.round(w / 10)), Math.max(1, Math.round(h / 12))); }
-      const building = bx(scene, w, h, d, new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9 }), x, h / 2, z, true);
+      const building = box(scene, w, h, d, new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9 }), x, h / 2, z, true);
       building.receiveShadow = true;
-      bx(scene, w + 0.4, 0.4, d + 0.4, M(0x555a60), x, h + 0.2, z);
-      for (const [pw, pd, px, pz] of [[w + 0.3, 0.4, 0, d / 2], [w + 0.3, 0.4, 0, -d / 2], [0.4, d + 0.3, w / 2, 0], [0.4, d + 0.3, -w / 2, 0]]) bx(scene, pw, 0.6, pd, M(0x6a5a4a), x + px, h + 0.5, z + pz);
-      if (rng.chance(0.3)) bx(scene, 2.5, 1.2, 1.8, M(0x888888), x + w / 4, h + 0.8, z);
+      box(scene, w + 0.4, 0.4, d + 0.4, M(0x555a60), x, h + 0.2, z);
+      for (const [pw, pd, px, pz] of [[w + 0.3, 0.4, 0, d / 2], [w + 0.3, 0.4, 0, -d / 2], [0.4, d + 0.3, w / 2, 0], [0.4, d + 0.3, -w / 2, 0]]) box(scene, pw, 0.6, pd, M(0x6a5a4a), x + px, h + 0.5, z + pz);
+      if (rng.chance(0.3)) box(scene, 2.5, 1.2, 1.8, M(0x888888), x + w / 4, h + 0.8, z);
       if (h >= 14) {
         const floors = Math.min(4, Math.floor(h / 7));
         for (let f = 0; f < floors; f += 1) {
-          bx(scene, w * 0.4, 0.25, 1.4, M(0x6a5a4a), x, 4 + f * 7, z + d / 2 + 0.7, true);
-          bx(scene, w * 0.4, 0.7, 0.06, M(0x2c3e50, 0.7), x, 4 + f * 7 + 0.45, z + d / 2 + 1.35);
+          box(scene, w * 0.4, 0.25, 1.4, M(0x6a5a4a), x, 4 + f * 7, z + d / 2 + 0.7, true);
+          box(scene, w * 0.4, 0.7, 0.06, M(0x2c3e50, 0.7), x, 4 + f * 7 + 0.45, z + d / 2 + 1.35);
         }
       }
       if (h < 16 && rng.chance(0.6)) {
-        bx(scene, w * 0.7, 3, 0.2, M(0x1a2a1a, 0.3, { metalness: 0.4 }), x, 1.5, z + d / 2 + 0.1);
-        const awn2 = bx(scene, w * 0.75, 0.15, 2, textures.awning ? new THREE.MeshStandardMaterial({ map: tile(textures.awning, 2, 1), roughness: 0.9 }) : M(0x2e6b4f), x, 3.4, z + d / 2 + 1);
+        box(scene, w * 0.7, 3, 0.2, M(0x1a2a1a, 0.3, { metalness: 0.4 }), x, 1.5, z + d / 2 + 0.1);
+        const awn2 = box(scene, w * 0.75, 0.15, 2, textures.awning ? new THREE.MeshStandardMaterial({ map: tile(textures.awning, 2, 1), roughness: 0.9 }) : M(0x2e6b4f), x, 3.4, z + d / 2 + 1);
         awn2.rotation.x = 0.22;
         if (signTexs.length) { const sg2 = new THREE.Mesh(new THREE.PlaneGeometry(7, 1.8), new THREE.MeshBasicMaterial({ map: rng.pick(signTexs) })); sg2.position.set(x, 4.8, z + d / 2 + 0.2); scene.add(sg2); }
       }
