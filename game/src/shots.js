@@ -1,10 +1,30 @@
 import * as THREE from 'three';
-import{BX,CI,MB,MS,ME,V3,PI,AB}from'./geo.js';
+import{BX,CI,MB,MS,ME,V3,PI,AB,PG}from'./geo.js';
 import { STEP } from './config.js';
 import { enterCar, spawnPoliceCar } from './vehicles.js';
 import { ACTION_SHOOT } from './input.js';
-function pool(g,x,z,r=2.6){const p=new ME(new CI(r,16),new MB({color:0xfff2b0,transparent:true,opacity:.3,blending:AB,depthWrite:false}));p.rotation.x=-PI/2;p.position.set(x,.07,z);g.scene.add(p);}
-function skid(g,x,z){for(const s of[-.8,.8]){const k=new ME(new BX(.5,.02,7),new MB({color:0x1a1a1a}));k.position.set(x+s,.08,z);g.scene.add(k);}}
+function pool(g,x,z,r=2.6){
+  const tex=g.textures&&g.textures.pool;
+  if(tex){
+    const p=new ME(new PG(r*2,r*2),new MB({map:tex,transparent:true,opacity:.3,blending:AB,depthWrite:false}));
+    p.rotation.x=-PI/2;p.position.set(x,.07,z);g.scene.add(p);
+  } else {
+    const p=new ME(new CI(r,16),new MB({color:0xfff2b0,transparent:true,opacity:.3,blending:AB,depthWrite:false}));
+    p.rotation.x=-PI/2;p.position.set(x,.07,z);g.scene.add(p);
+  }
+}
+function skid(g,x,z){
+  const tex=g.textures&&g.textures.skid;
+  for(const s of[-.8,.8]){
+    if(tex){
+      const k=new ME(new PG(.28,7),new MB({map:tex,transparent:true,opacity:.5,depthWrite:false}));
+      k.rotation.x=-PI/2;k.position.set(x+s,.08,z);g.scene.add(k);
+    } else {
+      const k=new ME(new BX(.5,.02,7),new MB({color:0x1a1a1a}));
+      k.position.set(x+s,.08,z);g.scene.add(k);
+    }
+  }
+}
 function steerCarToward(game, tx, tz) {
   const car = game.player.car;
   if (!car) return;
@@ -61,21 +81,31 @@ function stageChase(game) {
   van.stolen = true;
   enterCar(game, van);
   game.police.state.wanted = 4;
-  for (const [x, z] of [[236, -92], [250, -105], [238, -118]]) pc(game, x, z, PI / 2, 24);
-  for (const [x, z] of [[231, -120], [255, -135]]) pc(game, x, z, PI / 2, 24);
   camB(game);
   driveFor(game, 1.5, (g) => steerCarToward(g, 243, -360));
-  game.camDist = 14;
-  game.camPitch = 0.28;
+  const vx = game.player.car.pos.x;
+  const vz = game.player.car.pos.z;
+  const c1 = pc(game, vx - 5, vz + 10, PI / 2, 24);
+  const c2 = pc(game, vx + 5, vz + 13, PI / 2, 24);
+  for (const c of [c1, c2]) {
+    if (c.mesh.userData.lightR) {
+      c.mesh.userData.lightR.material.emissive.setHex(0xff0000);
+      c.mesh.userData.lightB.material.emissive.setHex(0x0000ff);
+    }
+  }
+  game.camDist = 16;
+  game.camPitch = -0.02;
+  game.camLookOff = 3.5;
   const heli = game.police.heli;
   if (heli) {
     heli.visible = true;
-    heli.position.set(game.player.car.pos.x, 9, game.player.car.pos.z);
-    heli.scale.setScalar(1.2);
+    heli.position.set(vx + 8, 14, vz - 20);
+    heli.scale.setScalar(1.5);
+    heli.rotation.y = 0.4;
     heli.children[0].material.color.set(0x2a2f36);
-    pool(game,heli.position.x,heli.position.z);
+    pool(game, vx, vz, 2.6);
   }
-  skid(game,game.player.car.pos.x,game.player.car.pos.z+9);
+  skid(game, vx, vz + 9);
 }
 function stageGunfight(game) {
   game.missions.setProgress(6, 1);
@@ -88,10 +118,12 @@ function stageGunfight(game) {
   player.heading = 0.68;
   player.mesh.position.copy(player.pos);
   player.mesh.rotation.y = player.heading;
-  player.mesh.scale.y = 0.68;
-  player.mesh.userData.rifle.position.y = 1.9;
-  const barrier = new ME(new BX(3, 0.9, 0.7), new MS({ map: game.textures.concrete, roughness: 0.9 }));
-  barrier.position.set(-180.5, 0.45, 193.8);
+  player.mesh.scale.y = 0.85;
+  const rifle = player.mesh.userData.rifle;
+  rifle.position.set(0.45, 1.5, 0.55);
+  rifle.rotation.x = -0.12;
+  const barrier = new ME(new BX(3, 0.65, 0.7), new MS({ map: game.textures.concrete, roughness: 0.9 }));
+  barrier.position.set(-180.5, 0.325, 193.8);
   barrier.castShadow = true;
   game.scene.add(barrier);
   const g1 = game.combat.spawnGunman(-179.8, 194.6);
@@ -102,8 +134,8 @@ function stageGunfight(game) {
   game.police.state.wanted = 4;
   camB(game);
   game.cameraAngle = -0.25;
-  game.camDist = 6;
-  game.camPitch = 0.12;
+  game.camDist = 9;
+  game.camPitch = 0.16;
   for (const [cx, cz] of [[-180.5, 191.5], [-182, 191], [-180, 192], [-182.5, 192]]) game.combat.spawnCasing(new V3(cx, 0.1, cz), player.heading);
   skid(game, -181.5, 196);
   game.input.fireAction(ACTION_SHOOT);
@@ -112,7 +144,7 @@ function stageGunfight(game) {
 function stageDowntown(game) {
   game.missions.setProgress(3, 0);
   const taxi = game.cars.parked.find((c) => c.model === 'taxi') || game.cars.parked[0];
-  place(taxi, 254, -183, PI);
+  place(taxi, 255, -183, PI);
   game.police.state.wanted = 4;
   taxi.speed = 0;
   enterCar(game, taxi);
@@ -122,21 +154,20 @@ function stageDowntown(game) {
     game.scene.add(g);
   }
   const spots = [
-    { x: 180, z: -177, prev: '120,-180', target: '240,-180', h: 0 },
-    { x: 220, z: -177, prev: '180,-180', target: '300,-180', h: 0 },
-    { x: 300, z: -177, prev: '240,-180', target: '360,-180', h: 0 },
-    { x: 232, z: -177, prev: '180,-180', target: '300,-180', h: 0 },
-    { x: 238, z: -177, prev: '240,-180', target: '300,-180', h: 0 },
-    { x: 244, z: -177, prev: '180,-180', target: '240,-180', h: 0 },
-    { x: 240, z: -170, prev: '240,-120', target: '240,-180', h: PI / 2 },
+    { x: 180, z: -177, prev: '120,-180', target: '240,-180', h: PI },
+    { x: 220, z: -177, prev: '180,-180', target: '300,-180', h: PI },
+    { x: 300, z: -177, prev: '240,-180', target: '360,-180', h: PI },
+    { x: 232, z: -177, prev: '180,-180', target: '300,-180', h: PI },
+    { x: 238, z: -177, prev: '240,-180', target: '300,-180', h: PI },
+    { x: 244, z: -177, prev: '180,-180', target: '240,-180', h: PI },
   ];
-  game.cars.traffic.slice(0, 7).forEach((t, i) => {
+  game.cars.traffic.slice(0, 6).forEach((t, i) => {
     place(t, spots[i].x, spots[i].z, spots[i].h);
     t.prevNode = game.roads.byKey.get(spots[i].prev);
     t.targetNode = game.roads.byKey.get(spots[i].target);
     t.speed = 0;
   });
-  game.cars.traffic.slice(7).forEach(t=>{place(t,0,300,0);});
+  game.cars.traffic.slice(6).forEach(t=>{place(t,0,300,0);});
   game.cars.parked.forEach(c=>{if(c!==taxi)place(c,0,300,0);});
   const walkers = [[120, -172], [150, -188], [180, -172], [200, -188]];
   game.peds.slice(0, 4).forEach((p, i) => {
@@ -153,7 +184,7 @@ function stageDowntown(game) {
 function stageSunset(game) {
   game.missions.setProgress(5, 0);
   const comet = game.cars.comet;
-  place(comet, 22, -182, PI);
+  place(comet, 20, -182, PI);
   comet.stolen = true;
   comet.speed = 0;
   game.police.state.wanted = 5;
@@ -168,8 +199,8 @@ function stageSunset(game) {
   const r = game.combat.spawnGunman(17, -183.5);
   r.mesh.children[8].visible = r.mesh.children[9].visible = false;
   r.mesh.rotation.y = 2.6;
-  const b = new ME(new BX(.5, .35, .22), new MB({ color: 0x1f2a1a }));
-  b.position.set(-.1, .8, -.4); r.mesh.add(b);
+  const b = new ME(new BX(.45, .4, .2), new MB({ color: 0x1f2a1a }));
+  b.position.set(-.1, 1.15, -.45); r.mesh.add(b);
   const p = game.player;
   p.pos.set(17, 0, -183.5);
   p.heading = PI;
@@ -177,7 +208,7 @@ function stageSunset(game) {
   p.mesh.rotation.y = p.heading;
   p.mesh.visible = false;
   pc(game, 15, -185, PI, 0);
-  for (const [ex, ez] of [[15, -185], [16.5, -184], [13.5, -186]]) game.combat.spawnExplosion(new V3(ex, 0, ez), 0.35);
+  for (const [ex, ez] of [[15, -185], [16.5, -184], [13.5, -186]]) game.combat.spawnExplosion(new V3(ex, 0, ez), 0.22);
   pc(game, 11, -186, PI, 0);
   const heli = game.police.heli;
   if (heli) {

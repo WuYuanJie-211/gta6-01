@@ -1,6 +1,7 @@
 import * as THREE from 'three';
-import{BX,CG,MB,MS,SG,ME,V3,GP,PI,AB,SP}from'./geo.js';
+import{BX,CG,MB,MS,SG,ME,V3,GP,PI,AB,SP,PG}from'./geo.js';
 import { PLAYER, WEAPONS, ECONOMY, EFFECTS } from './config.js';
+let shadowTex = null;
 const B=(g,w,h,d,m,x=0,y=0,z=0)=>{const q=new ME(new BX(w,h,d),m);q.position.set(x,y,z);g.add(q);return q;};
 const mt=(c,r=0.9)=>new MS({color:c,roughness:r});
 function createThugMesh() {
@@ -34,7 +35,14 @@ function createThugMesh() {
   group.userData.legR = legR;
   group.userData.armL = armL;
   group.userData.armR = armR;
-  B(group,0.9,.02,0.7,mt(0,1),0,.09,0);
+  if (shadowTex) {
+    const sh = new ME(new PG(1.3, 1.0), new MB({ map: shadowTex, transparent: true, depthWrite: false }));
+    sh.rotation.x = -PI / 2;
+    sh.position.set(0, 0.1, 0);
+    group.add(sh);
+  } else {
+    B(group,0.9,.02,0.7,mt(0,1),0,.09,0);
+  }
   return group;
 }
 function createGunmanMesh() {
@@ -51,6 +59,7 @@ function createGunmanMesh() {
   return group;
 }
 export function createCombat(game) {
+  shadowTex = game.textures && game.textures.shadow;
   const enemies = [];
   const tracers = [];
   const parts = [];
@@ -61,7 +70,7 @@ export function createCombat(game) {
   }
   function spawnFlash(pos) {
     const flash = new SP(new THREE.SpriteMaterial({ map: game.textures.fireball, transparent: true, blending: AB, depthWrite: false }));
-    flash.scale.set(.6,.6,1);
+    flash.scale.set(.35,.35,1);
     addPart(flash, pos, new V3(0, 0, 0), EFFECTS.flashLife);
   }
   function spawnCasing(pos, heading) {
@@ -89,7 +98,7 @@ export function createCombat(game) {
     const fire = game.textures && game.textures.fireball;
     if (fire) {
       const sprite = new SP(new THREE.SpriteMaterial({ map: fire, transparent: true, blending: AB, depthWrite: false }));
-      sprite.scale.set(3, 3, 1);
+      sprite.scale.set(2.6, 2.6, 1);
       addPart(sprite, origin, new V3(0, 0.5, 0), EFFECTS.explosionLife, 6, 0);
     } else {
       for (let i = 0; i < 8; i += 1) {
@@ -102,12 +111,12 @@ export function createCombat(game) {
       }
     }
     const smoke = game.textures && game.textures.smoke;
-    for (let i = 0; i < 5; i += 1) {
+    for (let i = 0; i < 4; i += 1) {
       const puff = smoke
-        ? new SP(new THREE.SpriteMaterial({ map: smoke, transparent: true, opacity: so, depthWrite: false }))
+        ? new SP(new THREE.SpriteMaterial({ map: smoke, transparent: true, opacity: so * 0.7, depthWrite: false }))
         : new ME(new SG(1.1, 8, 6), new MS({ color: 0x555555, roughness: 1, transparent: true, opacity: so }));
-      if (smoke) puff.scale.set(2, 2, 1);
-      addPart(puff, new V3(pos.x + (i - 2) * 0.8 - 1.2, pos.y + 2 + i * 0.5, pos.z), new V3(0, 1.2, 0), EFFECTS.explosionLife * 1.4, 2.5, 0);
+      if (smoke) puff.scale.set(1.6, 1.6, 1);
+      addPart(puff, new V3(pos.x + (i - 1.5) * 0.9 - 0.6, pos.y + 2 + i * 0.6, pos.z + (i % 2 ? 0.5 : -0.4)), new V3(0, 1.2, 0), EFFECTS.explosionLife * 1.4, 2.5, 0);
     }
     game.hud.shake();
   }

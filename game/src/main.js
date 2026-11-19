@@ -29,6 +29,7 @@ class Game {
     this.cameraAngle = PI;
     this.camDist = 9;
     this.camPitch = 0.32;
+    this.camLookOff = 0;
     this.lastDragAt = -10;
     this.ownedCars = [];
     this.canvas = document.getElementById('game');
@@ -50,7 +51,7 @@ class Game {
     sun.shadow.camera.bottom = -25;
     sun.shadow.camera.far = 400;
     this.scene.add(sun);
-    this.scene.add(new THREE.HemisphereLight(0xbfd9ff, 0x8a7a5a, 0.6));
+    this.scene.add(new THREE.HemisphereLight(0xffe0b8, 0x8a7a5a, 0.6));
     this.sun = sun;
     this.roads = buildRoads();
     this.city = buildCity(this.scene, this.rng, textures);
@@ -333,7 +334,9 @@ class Game {
       height,
       target.z + Math.cos(this.cameraAngle) * horiz + shake,
     );
-    this.camera.lookAt(target.x, 1.6, target.z);
+    const rx = Math.cos(this.cameraAngle);
+    const rz = -Math.sin(this.cameraAngle);
+    this.camera.lookAt(target.x + rx * this.camLookOff, 1.6, target.z + rz * this.camLookOff);
     this.sun.position.set(target.x + 130, 75, target.z + 55);
     this.sun.target.position.set(target.x, 0, target.z);
     this.sun.target.updateMatrixWorld();

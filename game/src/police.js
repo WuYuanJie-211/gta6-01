@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import{BX,CN,MB,MS,SG,ME,GP,PI}from'./geo.js';
+import{BX,CN,CI,MB,MS,ME,GP,PI}from'./geo.js';
 import { POLICE, CAR } from './config.js';
 const B=(g,w,h,d,m,x=0,y=0,z=0)=>{const q=new ME(new BX(w,h,d),m);q.position.set(x,y,z);g.add(q);return q;};
 const mt=(c,r=0.9)=>new MS({color:c,roughness:r});
@@ -26,22 +26,23 @@ function createHelicopterMesh() {
   const rotor2 = B(group, 0.5, 0.08, 9, mt(0x222222, 0.5), 0, 1.1, 0);
   const skidMat = mt(0x333333, 0.8);
   for (const side of [-1, 1]) B(group, 0.15, 0.15, 3.5, skidMat, side * 1.1, -1.1, 0);
-  const light = new ME(
-    new CN(3, 12, 16, 1, true),
-    new MB({ color: 0xfff8c0, transparent: true, opacity: 0.22, side: THREE.FrontSide }),
+  const scrim = new ME(
+    new CN(1.1, 3, 12, 1, true),
+    new MB({ color: 0xfff8c0, transparent: true, opacity: 0.12, side: THREE.FrontSide }),
   );
-  light.position.set(0, -6, 0);
-  group.add(light);
+  scrim.position.set(0, -1.8, 0);
+  group.add(scrim);
   const bulb = new ME(
-    new SG(0.5, 10, 8),
-    new MS({ color: 0xfff8c0, emissive: 0xcc9900, roughness: 0.3 }),
+    new CI(0.5, 16),
+    new MB({ color: 0xfff2b0 }),
   );
+  bulb.rotation.x = PI / 2;
   bulb.position.set(0, -1.2, 1.5);
   group.add(bulb);
   group.userData.rotor = rotor;
   group.userData.rotor2 = rotor2;
   group.userData.tailRotor = tailRotor;
-  group.userData.spotlight = light;
+  group.userData.spotlight = scrim;
   group.visible = false;
   return group;
 }

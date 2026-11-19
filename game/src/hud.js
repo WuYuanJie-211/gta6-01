@@ -86,7 +86,7 @@ export function createHud(game) {
       c.lineTo(x2, y1);
       c.stroke();
     }
-    c.fillStyle = 'rgba(255,255,255,0.55)';
+    c.fillStyle = 'rgba(255,255,255,0.35)';
     c.font = 'bold 8px system-ui, sans-serif';
     c.textAlign = 'center';
     for (const [name, x, z] of [['DOWNTOWN', 225, -225], ['PORT', -315, -315], ['SUBURBS', 315, 105], ['OLD TOWN', -60, 105], ['BEACH', 0, 258]]) {
@@ -119,7 +119,7 @@ export function createHud(game) {
       c.arc(x, y, 4, 0, Math.PI * 2);
       c.stroke();
     }
-    c.fillStyle = '#ffffff';
+    c.fillStyle = '#8b98a1';
     for (const car of game.cars.traffic) {
       const [x, y] = toMap(car.pos.x, car.pos.z);
       c.fillRect(x - 1.5, y - 1.5, 3, 3);

@@ -353,7 +353,7 @@ export function buildCity(scene, rng, tx = {}) {
   const zebraM=new MB({map:zebra,transparent:true});
   const arrowM=new MB({map:arrow,transparent:true});
   const lineM=new MB({color:0xf5f5f0});
-  for(const [ix,iz] of [[0,-180],[120,-180],[180,-180],[240,-180],[240,-120],[240,0],[0,0],[60,-180]]){flat(4.5,12,zebraM,ix+9,iz,0,0.09);flat(4.5,12,zebraM,ix,iz-9,PI/2,0.09);flat(1.2,6,lineM,ix+10,iz-3,0,.09);}
+  for(const [ix,iz] of [[0,-180],[120,-180],[180,-180],[240,-180],[240,-120],[240,0],[0,0],[60,-180]]){flat(4.5,12,zebraM,ix+9,iz,0,0.09);flat(4.5,12,zebraM,ix,iz-9,PI/2,0.09);flat(1.2,6,lineM,ix+13,iz-3,0,.09);}
   for(const [ax,az,ar] of [[60,-180,-PI/2],[180,-180,-PI/2],[300,-180,-PI/2],[-120,-180,PI/2],[240,-120,0],[0,120,0]])flat(2.2,4,arrowM,ax,az,ar);
   for(const [cx,cz,az] of [[240,-60,1],[0,-180,0],[0,-60,1]]){
     const L=az?660:780;
