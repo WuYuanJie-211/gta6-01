@@ -434,6 +434,8 @@ export function buildCity(scene, rng, textures = {}) {
   };
   for(let x=-330;x<330;x+=60)rail(x+14,-180,x+46,-180);
   for(let z=-330;z<240;z+=60)rail(240,z+14,240,z+46);
+  for(let x=-330;x<330;x+=60){colliders.push({minX:x+14,maxX:x+23,minZ:-180.3,maxZ:-179.7});colliders.push({minX:x+37,maxX:x+46,minZ:-180.3,maxZ:-179.7});}
+  for(let z=-330;z<240;z+=60){colliders.push({minX:239.7,maxX:240.3,minZ:z+14,maxZ:z+23});colliders.push({minX:239.7,maxX:240.3,minZ:z+37,maxZ:z+46});}
   for(const [hx,hz] of [[120,-183],[180,-177],[237,-90],[0,-30],[60,-183],[243,30],[-60,-177],[300,-183]]){
     const hole=new THREE.Mesh(new THREE.CylinderGeometry(0.55,0.55,0.06,12),M(0x222222,0.9));
     hole.position.set(hx,0.09,hz);scene.add(hole);

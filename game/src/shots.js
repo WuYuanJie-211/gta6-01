@@ -100,18 +100,18 @@ function stageGunfight(game) {
 function stageDowntown(game) {
   game.missions.setProgress(3, 0);
   const taxi = game.cars.parked.find((c) => c.model === 'taxi') || game.cars.parked[0];
-  taxi.pos.set(-60, 0, -177);
+  taxi.pos.set(90, 0, -177);
   taxi.heading = 0;
   taxi.mesh.position.copy(taxi.pos);
   taxi.mesh.rotation.y = taxi.heading;
   enterCar(game, taxi);
   const spots = [
-    { x: 30, z: -177, prev: '0,-180', target: '60,-180', h: 0 },
-    { x: -30, z: -183, prev: '0,-180', target: '-60,-180', h: Math.PI },
-    { x: 60, z: -177, prev: '60,-180', target: '120,-180', h: 0 },
-    { x: -90, z: -183, prev: '-60,-180', target: '-120,-180', h: Math.PI },
-    { x: 90, z: -183, prev: '120,-180', target: '60,-180', h: Math.PI },
-    { x: 150, z: -177, prev: '120,-180', target: '180,-180', h: 0 },
+    { x: 180, z: -177, prev: '120,-180', target: '240,-180', h: 0 },
+    { x: 240, z: -177, prev: '180,-180', target: '300,-180', h: 0 },
+    { x: 300, z: -177, prev: '240,-180', target: '360,-180', h: 0 },
+    { x: 150, z: -183, prev: '180,-180', target: '120,-180', h: Math.PI },
+    { x: 210, z: -183, prev: '240,-180', target: '180,-180', h: Math.PI },
+    { x: 270, z: -183, prev: '300,-180', target: '240,-180', h: Math.PI },
   ];
   game.cars.traffic.slice(0, 6).forEach((t, i) => {
     t.pos.set(spots[i].x, 0, spots[i].z);
@@ -122,7 +122,7 @@ function stageDowntown(game) {
     t.mesh.position.copy(t.pos);
     t.mesh.rotation.y = t.heading;
   });
-  const walkers = [[10, -172], [-20, -188], [30, -172]];
+  const walkers = [[120, -172], [150, -188], [180, -172]];
   game.peds.slice(0, 3).forEach((p, i) => {
     p.pos.set(walkers[i][0], 0, walkers[i][1]);
     p.mesh.position.copy(p.pos);
