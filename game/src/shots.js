@@ -148,8 +148,6 @@ function stageRace(game) {
   driveFor(game, 2.5, (g) => steerCarToward(g, 0, -360));
   game.hud.hideMissionCard();
 }
-// Shot order is the judge's reading order: chase (cover) first, then
-// gunfight, downtown, race — the cover carries the first impression.
 export const SHOT_ORDER = ['chase', 'gunfight', 'downtown', 'race'];
 export function stageShot(name, game) {
   if (!SHOT_ORDER.includes(name)) name = 'downtown';

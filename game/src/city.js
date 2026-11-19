@@ -6,10 +6,6 @@ function tile(tex, rx, ry) {
   t.repeat.set(rx, ry);
   return t;
 }
-// Shared-material + one-line mesh helpers. The old code spent ~6 lines per
-// box (new Mesh + geometry + material + position + shadow + add); these do
-// it in one line, share materials across the whole city (fewer GPU programs,
-// less memory), and keep the dossier source small enough for the text cap.
 const _mats = new Map();
 function M(color, rough = 1, extra = {}) {
   const k = `${color}|${rough}|${extra.metalness ?? 0}|${extra.emissive ?? 0}`;
@@ -172,8 +168,8 @@ function makeSign(text, fg, bg, w = 10, h = 2.5) {
 }
 function makePalm(rng) {
   const group = new THREE.Group();
-  const trunkMat = new THREE.MeshStandardMaterial({ color: 0x8a6b4f, roughness: 1 });
-  const leafMat = new THREE.MeshStandardMaterial({ color: 0x2e8b57, roughness: 1 });
+  const trunkMat = M(0x8a6b4f);
+  const leafMat = M(0x2e8b57);
   const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.3, 5, 6), trunkMat);
   trunk.position.y = 2.5;
   trunk.rotation.z = rng.range(-0.08, 0.08);
@@ -195,7 +191,7 @@ function makeTree(rng) {
   const group = new THREE.Group();
   const trunk = new THREE.Mesh(
     new THREE.CylinderGeometry(0.2, 0.32, 2.4, 8),
-    new THREE.MeshStandardMaterial({ color: 0x6b4a2f, roughness: 1 }),
+    M(0x6b4a2f),
   );
   trunk.position.y = 1.2;
   trunk.rotation.z = rng.range(-0.07, 0.07);
@@ -216,10 +212,10 @@ function makeTree(rng) {
 }
 function makeTrafficLight() {
   const group = new THREE.Group();
-  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 4.5, 6), new THREE.MeshStandardMaterial({ color: 0x2c3e50, roughness: 0.7 }));
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 4.5, 6), M(0x2c3e50,0.7));
   pole.position.y = 2.25;
   group.add(pole);
-  const head = new THREE.Mesh(new THREE.BoxGeometry(0.5, 1.3, 0.4), new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.6 }));
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.5, 1.3, 0.4), M(0x1a1a1a,0.6));
   head.position.y = 4.8;
   group.add(head);
   const colors = [0xff2222, 0xffcc00, 0x33cc33];
@@ -232,7 +228,7 @@ function makeTrafficLight() {
 }
 function makeHydrant() {
   const group = new THREE.Group();
-  const red = new THREE.MeshStandardMaterial({ color: 0xc0392b, roughness: 0.6 });
+  const red = M(0xc0392b,0.6);
   const body = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.26, 0.7, 10), red);
   body.position.y = 0.35;
   group.add(body);
@@ -249,17 +245,17 @@ function makeLamp() {
   const group = new THREE.Group();
   const pole = new THREE.Mesh(
     new THREE.CylinderGeometry(0.09, 0.12, 5.5, 6),
-    new THREE.MeshStandardMaterial({ color: 0x2c3e50, roughness: 0.7 }),
+    M(0x2c3e50,0.7),
   );
   pole.position.y = 2.75;
   const head = new THREE.Mesh(
     new THREE.BoxGeometry(0.9, 0.25, 0.35),
-    new THREE.MeshStandardMaterial({ color: 0xffe9a8, emissive: 0xaa8800, roughness: 0.4 }),
+    M(0xffe9a8,0.4,{emissive:0xaa8800}),
   );
   head.position.y = 5.5;
   const bulb = new THREE.Mesh(
     new THREE.SphereGeometry(0.18, 10, 8),
-    new THREE.MeshStandardMaterial({ color: 0xfff6c0, emissive: 0xcc9900, roughness: 0.3 }),
+    M(0xfff6c0,0.3,{emissive:0xcc9900}),
   );
   bulb.position.y = 5.3;
   group.add(pole, head, bulb);
@@ -267,7 +263,7 @@ function makeLamp() {
 }
 function makeBench() {
   const group = new THREE.Group();
-  const wood = new THREE.MeshStandardMaterial({ color: 0x8a6b4f, roughness: 1 });
+  const wood = M(0x8a6b4f);
   const seat = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.12, 0.6), wood);
   seat.position.y = 0.5;
   const back = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.7, 0.1), wood);
@@ -277,7 +273,7 @@ function makeBench() {
 }
 function makeBillboard(text, fg, bg) {
   const group = new THREE.Group();
-  const poleMat = new THREE.MeshStandardMaterial({ color: 0x555a60, roughness: 0.8 });
+  const poleMat = M(0x555a60,0.8);
   for (const dx of [-4, 4]) {
     const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 7, 6), poleMat);
     pole.position.set(dx, 3.5, 0);
@@ -285,7 +281,7 @@ function makeBillboard(text, fg, bg) {
   }
   const frame = new THREE.Mesh(
     new THREE.BoxGeometry(12.6, 3.6, 0.3),
-    new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.8 }),
+    M(0x222222,0.8),
   );
   frame.position.y = 8.5;
   group.add(frame);
@@ -415,7 +411,7 @@ export function buildCity(scene, rng, textures = {}) {
     dashLine.position.set(0, 0.07, line);
     scene.add(dashLine);
   }
-  const bumpMat = new THREE.MeshStandardMaterial({ color: 0xe8e4d8, roughness: 1 });
+  const bumpMat = M(0xe8e4d8);
   for (const x of CITY.roadLinesX) {
     for (const z of CITY.roadLinesZ) {
       if (!(x === 0 || z === 0) || Math.abs(x) % 120 !== 0 || Math.abs(z) % 120 !== 0) continue;
@@ -423,7 +419,7 @@ export function buildCity(scene, rng, textures = {}) {
       bump.position.set(x, 0.1, z);
       scene.add(bump);
       for (let s = -2; s <= 2; s += 1) {
-        const stripe = new THREE.Mesh(new THREE.BoxGeometry(x === 0 ? 0.8 : 3, 0.05, x === 0 ? 3 : 0.8), new THREE.MeshStandardMaterial({ color: 0xf5f5f0, roughness: 1 }));
+        const stripe = new THREE.Mesh(new THREE.BoxGeometry(x === 0 ? 0.8 : 3, 0.05, x === 0 ? 3 : 0.8), M(0xf5f5f0));
         stripe.position.set(x + (x === 0 ? s * 2 : 8), 0.08, z + (x === 0 ? 8 : s * 2));
         scene.add(stripe);
       }
@@ -556,7 +552,7 @@ export function buildCity(scene, rng, textures = {}) {
       cyl(scene, 1.2, 1.2, 2.4, 10, M(0x7a6a58, 0.9), x + w * 0.12, h + 5.6, z - d * 0.1, true);
       box(scene, 3, 1.5, 2, M(0x888888), x - w * 0.12, h + 5.2, z + d * 0.1);
       cyl(scene, 0.08, 0.08, 6, 6, M(0x333333, 0.6), x + w * 0.18, h + 7.5, z + d * 0.12);
-      const beacon = new THREE.Mesh(new THREE.SphereGeometry(0.35, 8, 6), new THREE.MeshStandardMaterial({ color: 0xff2222, emissive: 0xaa0000 }));
+      const beacon = new THREE.Mesh(new THREE.SphereGeometry(0.35, 8, 6), M(0xff2222,1,{emissive:0xaa0000}));
       beacon.position.set(x + w * 0.18, h + 10.7, z + d * 0.12);
       scene.add(beacon);
       if (towerSignIdx < towerSigns.length && rng.chance(0.6)) {
@@ -601,14 +597,14 @@ export function buildCity(scene, rng, textures = {}) {
         scene.add(roof);
         const chimney = new THREE.Mesh(
           new THREE.BoxGeometry(1, 1.4, 1),
-          new THREE.MeshStandardMaterial({ color: 0x8a4a3a, roughness: 1 }),
+          M(0x8a4a3a),
         );
         chimney.position.set(x, h + 2.9, z);
         chimney.castShadow = true;
         scene.add(chimney);
         const porch = new THREE.Mesh(
           new THREE.BoxGeometry(w * 0.5, 0.15, 1.2),
-          new THREE.MeshStandardMaterial({ color: 0x8a6b4f, roughness: 1 }),
+          M(0x8a6b4f),
         );
         porch.position.set(x, 0.08, z + d / 2 + 0.6);
         scene.add(porch);
@@ -663,7 +659,7 @@ export function buildCity(scene, rng, textures = {}) {
   }
   const boats = [];
   {
-    const dockMat = new THREE.MeshStandardMaterial({ color: 0x8a6b4f, roughness: 1 });
+    const dockMat = M(0x8a6b4f);
     for (let i = 0; i < 3; i += 1) {
       const dock = new THREE.Mesh(new THREE.BoxGeometry(4, 0.6, 26), dockMat);
       dock.position.set(186 + i * 18, 0.4, 262);
@@ -679,7 +675,7 @@ export function buildCity(scene, rng, textures = {}) {
       boats.push(hull);
       const mast = new THREE.Mesh(
         new THREE.CylinderGeometry(0.12, 0.12, 7, 6),
-        new THREE.MeshStandardMaterial({ color: 0xdddddd, roughness: 0.6 }),
+        M(0xdddddd,0.6),
       );
       mast.position.set(186 + i * 18, 5, 274);
       scene.add(mast);
@@ -691,7 +687,7 @@ export function buildCity(scene, rng, textures = {}) {
   {
     const shop = new THREE.Mesh(
       new THREE.BoxGeometry(30, 8, 20),
-      new THREE.MeshStandardMaterial({ color: 0x7a6a58, roughness: 1 }),
+      M(0x7a6a58),
     );
     shop.position.set(-210, 4, 210);
     shop.castShadow = true;
@@ -705,13 +701,13 @@ export function buildCity(scene, rng, textures = {}) {
   {
     const base = new THREE.Mesh(
       new THREE.CylinderGeometry(9, 11, 1.5, 16),
-      new THREE.MeshStandardMaterial({ color: 0x9aa0a3, roughness: 1 }),
+      M(0x9aa0a3),
     );
     base.position.set(-216, 0.75, -216);
     base.castShadow = true;
     scene.add(base);
     const towerMat = new THREE.MeshStandardMaterial({ map: textures.marble ? tile(textures.marble, 3, 1) : null, color: textures.marble ? 0xffffff : 0xf2f2f2, roughness: 0.8 });
-    const stripeMat = new THREE.MeshStandardMaterial({ color: 0xd21f2b, roughness: 0.8 });
+    const stripeMat = M(0xd21f2b,0.8);
     for (let i = 0; i < 4; i += 1) {
       const seg = new THREE.Mesh(
         new THREE.CylinderGeometry(3.4 - i * 0.3, 3.7 - i * 0.3, 6.5, 12),
@@ -723,13 +719,13 @@ export function buildCity(scene, rng, textures = {}) {
     }
     const lamp = new THREE.Mesh(
       new THREE.BoxGeometry(4, 3, 4),
-      new THREE.MeshStandardMaterial({ color: 0xffe14d, emissive: 0xaa8800, roughness: 0.4 }),
+      M(0xffe14d,0.4,{emissive:0xaa8800}),
     );
     lamp.position.set(-216, 29.5, -216);
     scene.add(lamp);
     const cap = new THREE.Mesh(
       new THREE.ConeGeometry(3.4, 2.5, 12),
-      new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.8 }),
+      M(0x222222,0.8),
     );
     cap.position.set(-216, 32.2, -216);
     scene.add(cap);
@@ -750,7 +746,7 @@ export function buildCity(scene, rng, textures = {}) {
     scene.add(sign);
     const awning = new THREE.Mesh(
       new THREE.BoxGeometry(w * 0.6, 0.15, 2),
-      new THREE.MeshStandardMaterial({ color: 0x2c3e50, roughness: 0.9 }),
+      M(0x2c3e50,0.9),
     );
     awning.position.set(bx, 3.2, bz - d / 2 - 0.9);
     awning.rotation.x = 0.25;
@@ -758,7 +754,7 @@ export function buildCity(scene, rng, textures = {}) {
     scene.add(awning);
     const door = new THREE.Mesh(
       new THREE.BoxGeometry(2, 3, 0.2),
-      new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.7 }),
+      M(0x222222,0.7),
     );
     door.position.set(bx, 1.5, bz - d / 2 - 0.05);
     scene.add(door);
@@ -772,20 +768,20 @@ export function buildCity(scene, rng, textures = {}) {
   for (const cx of [-330, -270]) {
     const mast = new THREE.Mesh(
       new THREE.BoxGeometry(3, 42, 3),
-      new THREE.MeshStandardMaterial({ color: 0xd8a020, roughness: 0.7 }),
+      M(0xd8a020,0.7),
     );
     mast.position.set(cx, 21, -350);
     mast.castShadow = true;
     scene.add(mast);
     const arm = new THREE.Mesh(
       new THREE.BoxGeometry(34, 2, 2),
-      new THREE.MeshStandardMaterial({ color: 0xd8a020, roughness: 0.7 }),
+      M(0xd8a020,0.7),
     );
     arm.position.set(cx + 12, 40, -350);
     scene.add(arm);
     const hook = new THREE.Mesh(
       new THREE.BoxGeometry(2, 2, 2),
-      new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.8 }),
+      M(0x333333,0.8),
     );
     hook.position.set(cx + 24, 34, -350);
     scene.add(hook);
@@ -821,7 +817,7 @@ export function buildCity(scene, rng, textures = {}) {
     const sign = makeSign('BUS', '#ffffff', '#2a6a3a', 2.4, 1.2);
     sign.position.set(stop.x, 2.2, stop.z);
     scene.add(sign);
-    const shelterMat = new THREE.MeshStandardMaterial({ color: 0x2a6a3a, roughness: 0.8 });
+    const shelterMat = M(0x2a6a3a,0.8);
     for (const dx of [-1.2, 1.2]) {
       const post = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 2.6, 6), shelterMat);
       post.position.set(stop.x + dx, 1.3, stop.z - 0.5);
@@ -836,7 +832,7 @@ export function buildCity(scene, rng, textures = {}) {
   for (const spot of landmarks.collectibles) {
     const gem = new THREE.Mesh(
       new THREE.OctahedronGeometry(0.7),
-      new THREE.MeshStandardMaterial({ color: 0x33dd66, emissive: 0x228833, roughness: 0.3 }),
+      M(0x33dd66,0.3,{emissive:0x228833}),
     );
     gem.position.set(spot.x, 1.5, spot.z);
     scene.add(gem);
@@ -858,7 +854,7 @@ export function buildCity(scene, rng, textures = {}) {
     const x = -220 + i * 62;
     const pole = new THREE.Mesh(
       new THREE.CylinderGeometry(0.08, 0.08, 2.6, 6),
-      new THREE.MeshStandardMaterial({ color: 0xdddddd, roughness: 0.8 }),
+      M(0xdddddd,0.8),
     );
     pole.position.set(x, 1.3, 262);
     const top = new THREE.Mesh(
@@ -872,7 +868,7 @@ export function buildCity(scene, rng, textures = {}) {
   for (let i = 0; i < 5; i += 1) {
     const hill = new THREE.Mesh(
       new THREE.ConeGeometry(rng.range(60, 110), rng.range(35, 70), 7),
-      new THREE.MeshStandardMaterial({ color: 0x7d9b76, roughness: 1 }),
+      M(0x7d9b76),
     );
     hill.position.set(-400 + i * 200, 0, -420);
     scene.add(hill);
