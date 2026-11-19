@@ -133,13 +133,6 @@ function stageDowntown(game) {
   driveFor(game, 3, (g) => steerCarToward(g, 360, -177));
   game.hud.hideMissionCard();
 }
-    p.mode = 'chat';
-    p.waiting = false;
-  });
-  cameraBehind(game);
-  driveFor(game, 3, (g) => steerCarToward(g, 360, -180));
-  game.hud.hideMissionCard();
-}
 function stageRace(game) {
   game.missions.setProgress(5, 0);
   const comet = game.cars.comet;
