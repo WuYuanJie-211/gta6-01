@@ -158,11 +158,11 @@ function makeTrafficLight(state){
   const g=new GP();
   cyl(g,0.1,0.13,5.5,6,M(0x2c3e50,0.7),0,2.75,0,true);
   const arm=cyl(g,0.08,0.08,3.6,6,M(0x2c3e50,0.7),0,5.4,1.8);arm.rotation.x=PI/2;
-  box(g,0.5,1.3,0.4,M(0x1a1a1a,0.6),0,4.9,3.6);
-  const cols=[0xff2222,0xffcc00,0x33cc33],on=state==='G'?2:0;
+  box(g,0.9,2.3,0.5,M(0x1a1a1a,0.6),0,4.9,3.6);
+  const cols=[0xff2a1e,0xffcc00,0x33cc33],on=state==='G'?2:0;
   for(let i=0;i<3;i+=1){
-    const lamp=new ME(new SG(0.15,8,6),SM({color:i===on?cols[i]:0x191919,emissive:cols[i],emissiveIntensity:i===on?1.8:0}));
-    lamp.position.set(0,5.35-i*0.4,3.82);g.add(lamp);
+    const lamp=new ME(new SG(0.32,8,6),SM({color:i===on?cols[i]:0x191919,emissive:cols[i],emissiveIntensity:i===on?3:0}));
+    lamp.position.set(0,5.7-i*0.8,3.9);g.add(lamp);
   }
   return g;
 }
@@ -374,7 +374,7 @@ export function buildCity(scene, rng, tx = {}) {
     const hole=new ME(new CG(0.55,0.55,0.06,12),M(0x222222,0.9));
     hole.position.set(hx,0.09,hz);scene.add(hole);
   }
-  for(const [tx,tz,tr,ts] of [[8,-172,PI,'R'],[-8,-188,0,'G'],[248,-172,PI,'R'],[232,-188,PI/2,'G'],[8,8,PI,'G'],[-8,-8,0,'R'],[248,8,PI,'R'],[232,-8,0,'G']]){
+  for(const [tx,tz,tr,ts] of [[8,-172,PI,'R'],[-8,-188,0,'R'],[248,-174,PI,'R'],[232,-188,PI/2,'R'],[8,8,PI,'G'],[-8,-8,0,'R'],[248,8,PI,'R'],[232,-8,0,'G']]){
     const tl=makeTrafficLight(ts);tl.position.set(tx,0,tz);tl.rotation.y=tr;scene.add(tl);
   }
   for(const [hx,hz] of [[30,10],[-60,-40],[150,60],[210,-30],[120,-174],[180,-186],[240,-150],[0,-174]]){

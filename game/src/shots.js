@@ -163,30 +163,30 @@ function stageGunfight(game) {
 function stageDowntown(game) {
   game.missions.setProgress(3, 0);
   const taxi = game.cars.parked.find((c) => c.model === 'taxi') || game.cars.parked[0];
-  place(taxi, 270, -183, PI);
+  place(taxi, 266, -183, PI);
   game.police.state.wanted = 4;
   taxi.speed = 0;
   enterCar(game, taxi);
   for (const gz of [-183.8, -182.2]) {
     const g = new ME(new BX(0.15, 0.25, 0.5), new MB({ color: 0xff2222, transparent: true, opacity: 0.85 }));
-    g.position.set(272, 0.75, gz);
+    g.position.set(268, 0.75, gz);
     game.scene.add(g);
   }
+  const b=new ME(new PG(2.4,1.4),new MB({color:0xff2a1e,transparent:true,opacity:.22,depthWrite:false}));b.rotation.x=-PI/2;b.position.set(256,.1,-183);game.scene.add(b);
   const spots = [
     { x: 180, z: -177, prev: '120,-180', target: '240,-180', h: PI },
     { x: 220, z: -177, prev: '180,-180', target: '300,-180', h: PI },
     { x: 300, z: -177, prev: '240,-180', target: '360,-180', h: PI },
     { x: 0, z: 300, prev: '240,-180', target: '300,-180', h: PI },
-    { x: 0, z: 300, prev: '240,-180', target: '300,-180', h: PI },
   ];
-  game.cars.traffic.slice(0, 5).forEach((t, i) => {
+  game.cars.traffic.slice(0, 4).forEach((t, i) => {
     place(t, spots[i].x, spots[i].z, spots[i].h);
     t.prevNode = game.roads.byKey.get(spots[i].prev);
     t.targetNode = game.roads.byKey.get(spots[i].target);
     t.speed = 0;
   });
   game.cars.traffic[3].mesh.children[0].material = new MS({ color: 0x39557a, roughness: .4, metalness: .4 });
-  game.cars.traffic.slice(5).forEach(t=>{place(t,0,300,0);});
+  game.cars.traffic.slice(4).forEach(t=>{place(t,0,300,0);});
   game.cars.parked.forEach(c=>{if(c!==taxi)place(c,0,300,0);});
   const walkers = [[120, -168], [150, -192], [180, -168], [200, -192]];
   game.peds.slice(0, 4).forEach((p, i) => {
