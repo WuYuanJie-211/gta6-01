@@ -7,57 +7,57 @@ const mt=(c,r=0.9)=>new THREE.MeshStandardMaterial({color:c,roughness:r});
 export const MISSIONS = [
   {
     title: 'First Fare',
-    story: 'Mara needs a ride to the Marina. Pick her up at the plaza, then drive her there. Drive like you mean it.',
+    story: 'Mara needs a ride to the Marina. Pick her up.',
     stages: [
-      { text: 'Pick up Mara at the plaza (walk to her, press E)', key: 'pickup', at: 'clientSpot' },
+      { text: 'Pick up Mara at the plaza', key: 'pickup', at: 'clientSpot' },
       { text: 'Drive Mara to the Marina', key: 'deliver', to: 'marina' },
     ],
   },
   {
     title: 'Hot Wheels',
-    story: 'The Comet GT is parked on Bay Street and nobody is watching. Steal it, shake the heat, and bring it to the chop shop.',
+    story: 'The Comet GT sits unwatched on Bay Street. Steal it.',
     stages: [
-      { text: 'Steal the Comet GT (press E by the red car)', key: 'steal', at: 'cometSpot' },
+      { text: 'Steal the Comet GT', key: 'steal', at: 'cometSpot' },
       { text: 'Deliver the Comet GT to the Chop Shop', key: 'deliver', to: 'chopShop', thugs: 2 },
     ],
   },
   {
     title: 'The Lighthouse Run',
-    story: 'One package, one lighthouse, every cop in the city. Deliver it and lose the tail — then Solara Bay is yours.',
+    story: 'One package, one lighthouse, every cop in the city.',
     stages: [
-      { text: 'Pick up the package at the Chop Shop (press E)', key: 'pickup', at: 'packageSpot' },
-      { text: 'Deliver the package to the Lighthouse — 3 stars on you!', key: 'deliver', to: 'lighthouse', heat: 3 },
-      { text: 'Lose the cops — get the wanted level to zero', key: 'escape' },
+      { text: 'Pick up the package', key: 'pickup', at: 'packageSpot' },
+      { text: 'Deliver the package to the Lighthouse', key: 'deliver', to: 'lighthouse', heat: 3 },
+      { text: 'Lose the cops', key: 'escape' },
     ],
   },
   {
     title: 'Downtown Taxi',
-    story: 'Mara runs a taxi rank now. Fares wait at the bus stops — grab a taxi, pick up three fares and drop them across town. Every fare pays.',
+    story: 'Fares wait at the bus stops. Grab a taxi, take three.',
     stages: [
-      { text: 'Pick up 3 fares at the bus stops (drive a taxi, press E)', key: 'fare', count: 3 },
+      { text: 'Pick up 3 fares at the bus stops', key: 'fare', count: 3 },
     ],
   },
   {
     title: 'Package Hunt',
-    story: 'Five green packages are hidden across the city. Find them all — each one pays on the spot.',
+    story: 'Five green packages hide across the city. Find them.',
     stages: [
-      { text: 'Find the 5 hidden packages (press E by a green gem)', key: 'collect', count: 5 },
+      { text: 'Find the 5 hidden packages', key: 'collect', count: 5 },
     ],
   },
   {
     title: 'Bay Street Grand Prix',
-    story: 'The bay street circuit: four checkpoints, one lap, three minutes on the clock. Beat it and the whole city hears your name.',
+    story: 'Four checkpoints, one lap, three minutes. Beat it.',
     stages: [
-      { text: 'Race the 4 checkpoints — 3:00 on the clock!', key: 'race', count: 4, timeLimit: 180 },
+      { text: 'Race the 4 checkpoints', key: 'race', count: 4, timeLimit: 180 },
     ],
   },
   {
     title: 'The Bank Job',
-    story: 'The armored van leaves the bank at noon. Take it to the chop shop — the whole city will be on you. This is the big one.',
+    story: 'The armored van leaves the bank at noon. Take it.',
     stages: [
-      { text: 'Steal the armored van by the Bank (press E)', key: 'steal', at: 'armoredSpot' },
-      { text: 'Deliver the armored van to the Chop Shop — 4 stars on you!', key: 'deliver', to: 'chopShop', heat: 4, gunmen: 3 },
-      { text: 'Lose the cops — break line of sight, keep moving, get wanted to zero', key: 'escape' },
+      { text: 'Steal the armored van', key: 'steal', at: 'armoredSpot' },
+      { text: 'Deliver the van to the Chop Shop', key: 'deliver', to: 'chopShop', heat: 4, gunmen: 3 },
+      { text: 'Lose the cops', key: 'escape' },
     ],
   },
 ];

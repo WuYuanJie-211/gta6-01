@@ -175,7 +175,7 @@ export function createHud(game) {
     healthFill.style.width = `${health}%`;
     healthFill.style.background = health > 50 ? '#37c978' : health > 25 ? '#f1c40f' : '#e74c3c';
     healthText.textContent = `${health}`;
-    cashText.textContent = `$${game.cash}`;
+    cashText.textContent = `$${game.cash.toLocaleString('en-US')}`;
     const wanted = game.police.state.wanted;
     starsBox.textContent = '★'.repeat(wanted) + '☆'.repeat(5 - wanted);
     starsBox.style.color = wanted > 0 ? '#ff4444' : '#888888';
@@ -225,5 +225,6 @@ export function createHud(game) {
     overText.textContent = text;
     overMenu.classList.toggle('hidden', !show);
   }
-  return { flash, hideToast, showMissionCard, hideMissionCard, shake, takeShake, hitmark, update, setPrompt, showMenu, showPause, showOver };
+  function setShotMode(on, showCash = false) { document.body.classList.toggle('shot-mode', on); document.body.classList.toggle('shot-cash', on && showCash); }
+  return { flash, hideToast, showMissionCard, hideMissionCard, shake, takeShake, hitmark, update, setPrompt, showMenu, showPause, showOver, setShotMode };
 }

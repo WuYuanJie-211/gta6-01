@@ -133,9 +133,11 @@ export const TEXTURES = {
   signBar: T('sign-bar'),
   signPizza: T('sign-pizza'),
   signAuto: T('sign-auto'),
+  sunsetSky: T('sunset-sky'),
+  neonSign: T('neon-sign'),
 };
 export const EFFECTS = {
-  flashLife: 0.06,
+  flashLife: 0.14,
   casingLife: 0.7,
   sparkLife: 0.25,
   explosionLife: 1.2,

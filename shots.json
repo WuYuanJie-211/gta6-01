@@ -1,1 +1,8 @@
-[{"name":"1-chase.jpg","note":"Bank-job chase downtown: armored van, 4 police cars, heli with tilted searchlight, roadblock, glass towers","query":"?shot=chase&seed=7"},{"name":"2-gunfight.jpg","note":"Rifle gunfight at the chop shop: 3 gunmen, 1 thug, orange rifle tracers, brick old town","query":"?shot=gunfight&seed=7"},{"name":"3-downtown.jpg","note":"Yellow taxi on the downtown avenue: glass towers, traffic, staggered tree canopies, speed bumps","query":"?shot=downtown&seed=7"},{"name":"4-race.jpg","note":"Comet GT rear detail (tail-light bar, diffuser, spoiler struts) on the bay circuit start line, first checkpoint ahead, race clock","query":"?shot=race&seed=7"}]
+{
+  "shots": [
+    {"name": "1-chase", "file": "screenshots/1-chase.jpg", "note": "Armored van heist, 4 stars, 3 police cars + helicopter (1.5x, searchlight), sunset-warm sun, clean HUD"},
+    {"name": "2-gunfight", "file": "screenshots/2-gunfight.jpg", "note": "Rifle gunfight behind concrete barrier, big muzzle flash + thick orange tracer, police car left, spent casings, 4 stars + ammo only"},
+    {"name": "3-downtown", "file": "screenshots/3-downtown.jpg", "note": "Taxi stopped at red light (0 km/h), brake lights on, 4 pedestrians, neon signs, traffic stopped"},
+    {"name": "4-sunset-heist", "file": "screenshots/4-sunset-heist.jpg", "note": "Sunset Heist highlight: red Comet GT on highway at sunset, 2 police cars behind, 1 police car exploding right, helicopter upper-left, WANTED 5 + $2,000,000"}
+  ]
+}

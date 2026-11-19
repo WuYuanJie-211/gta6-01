@@ -51,6 +51,7 @@ export async function loadCityTextures() {
     ['glassDark', '#3a5a7a'], ['brickBrown', '#7a4a34'], ['plaster', '#e8dcc8'], ['metal', '#8a6a58'],
     ['awning', '#c0392b'], ['signTaxi', '#111111'], ['sign24h', '#111111'],
     ['signHotel', '#111111'], ['signBar', '#111111'], ['signPizza', '#111111'], ['signAuto', '#111111'],
+    ['sunsetSky', '#ff8844'], ['neonSign', '#ff2d95'],
   ];
   await Promise.all(jobs.map(async ([key, hex]) => {
     try {
@@ -396,6 +397,10 @@ export function buildCity(scene, rng, textures = {}) {
     }
   }
   const signTexs = ['signTaxi', 'sign24h', 'signHotel', 'signBar', 'signPizza', 'signAuto'].map((k) => textures[k]).filter(Boolean);
+  if (textures.neonSign) for (const [nx, nz] of [[180, -168], [120, -192], [300, -168]]) {
+    const n = new THREE.Mesh(new THREE.PlaneGeometry(5, 3.5), new THREE.MeshBasicMaterial({ map: textures.neonSign }));
+    n.position.set(nx, 5, nz); n.rotation.y = Math.PI / 2; scene.add(n);
+  }
   const blockCentres = [];
   for (let bx = -330; bx <= 330; bx += 60) {
     for (let bz = -330; bz <= 210; bz += 60) blockCentres.push([bx, bz]);
@@ -805,13 +810,13 @@ export function buildCity(scene, rng, textures = {}) {
     top.castShadow = true;
     scene.add(pole, top);
   }
-  for (let i = 0; i < 5; i += 1) {
-    const hill = new THREE.Mesh(
-      new THREE.ConeGeometry(rng.range(45, 70), rng.range(25, 40), 7),
-      M(0x7d9b76),
+  for (const [rx, rr, rh] of [[-520, 85, 14], [480, 70, 11]]) {
+    const ridge = new THREE.Mesh(
+      new THREE.ConeGeometry(rr, rh, 7),
+      M(0x8a9aa8),
     );
-    hill.position.set(-400 + i * 200, 0, -470);
-    scene.add(hill);
+    ridge.position.set(rx, 0, -640);
+    scene.add(ridge);
   }
   const clouds = [];
   for (let i = 0; i < 6; i += 1) {

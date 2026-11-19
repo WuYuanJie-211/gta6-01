@@ -59,7 +59,7 @@ export function createCombat(game) {
   }
   function spawnFlash(pos) {
     const flash = new THREE.Mesh(
-      new THREE.OctahedronGeometry(0.6),
+      new THREE.OctahedronGeometry(1.3),
       new THREE.MeshBasicMaterial({ color: 0xffdd55, transparent: true }),
     );
     addPart(flash, pos, new THREE.Vector3(0, 0, 0), EFFECTS.flashLife);
@@ -146,13 +146,13 @@ export function createCombat(game) {
     const len = dir.length();
     if (len < 0.1) return;
     const tracer = new THREE.Mesh(
-      new THREE.BoxGeometry(0.1, 0.1, len),
-      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9 }),
+      new THREE.BoxGeometry(0.28, 0.28, len),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.95 }),
     );
     tracer.position.copy(from).addScaledVector(dir, 0.5);
     tracer.lookAt(to);
     game.scene.add(tracer);
-    tracers.push({ mesh: tracer, life: 0.09 });
+    tracers.push({ mesh: tracer, life: 0.16 });
   }
   function playerPunch() {
     const player = game.player;
@@ -355,7 +355,7 @@ export function createCombat(game) {
     for (let i = tracers.length - 1; i >= 0; i -= 1) {
       const tracer = tracers[i];
       tracer.life -= dt;
-      tracer.mesh.material.opacity = Math.max(0, tracer.life / 0.09) * 0.9;
+      tracer.mesh.material.opacity = Math.max(0, Math.min(1, tracer.life / 0.16)) * 0.95;
       if (tracer.life <= 0) {
         game.scene.remove(tracer.mesh);
         tracers.splice(i, 1);
@@ -375,5 +375,5 @@ export function createCombat(game) {
       if (part.mesh.material.transparent) part.mesh.material.opacity = Math.max(0, part.life / part.maxLife);
     }
   }
-  return { enemies, spawnThug, spawnGunman, spawnExplosion, playerPunch, playerShoot, reloadWeapon, update };
+  return { enemies, spawnThug, spawnGunman, spawnExplosion, spawnCasing, spawnSparks, playerPunch, playerShoot, reloadWeapon, update };
 }
