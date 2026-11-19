@@ -14,7 +14,7 @@ export function buildRoads() {
 }
 export function nodeNeighbours(roads, node) {
   const out = [];
-  const step = 60;
+  const step = CITY.roadLinesX[1] - CITY.roadLinesX[0];
   for (const [dx, dz] of [[step, 0], [-step, 0], [0, step], [0, -step]]) {
     const next = roads.byKey.get(`${node.x + dx},${node.z + dz}`);
     if (next) out.push(next);

@@ -124,4 +124,8 @@ export const TEXTURES = {
   container: 'textures/container-metal.jpg',
 };
 export const STEP = 1 / 60;
+export const DETAIL = {
+  cometTailBar: 1.9,
+  treeSpread: 0.5,
+};
 export const SAVE_KEY = 'solara-bay-save-v2';

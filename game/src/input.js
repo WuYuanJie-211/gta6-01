@@ -100,6 +100,7 @@ export function createInput(canvas) {
     setKey(key, down) {
       if (down) keys.add(key);
       else keys.delete(key);
+      if (key === 'h' && down) actions |= ACTION_HORN;
     },
     fireAction(action) {
       actions |= action;

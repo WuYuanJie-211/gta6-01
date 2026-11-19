@@ -209,7 +209,7 @@ export function createHud(game) {
     if (car) {
       const hp = Math.max(0, Math.round(car.health));
       if (car.wrecked || hp <= 0) {
-        durabilityText.textContent = 'WRECKED';
+        durabilityText.textContent = 'WRECKED — Garage repairs $60';
         durabilityText.style.color = '#e74c3c';
       } else {
         durabilityText.textContent = `Car ${hp}%`;

@@ -55,7 +55,7 @@ export const MISSIONS = [
     stages: [
       { text: 'Steal the armored van by the Bank (press E)', key: 'steal', at: 'armoredSpot' },
       { text: 'Deliver the armored van to the Chop Shop — 4 stars on you!', key: 'deliver', to: 'chopShop', heat: 4, gunmen: 3 },
-      { text: 'Lose the cops — get the wanted level to zero', key: 'escape' },
+      { text: 'Lose the cops — break line of sight, keep moving, get wanted to zero', key: 'escape' },
     ],
   },
 ];

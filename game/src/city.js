@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { CITY, COLOURS, TEXTURES, districtAt } from './config.js';
+import { CITY, COLOURS, DETAIL, TEXTURES, districtAt } from './config.js';
 function tile(tex, rx, ry) {
   const t = tex.clone();
   t.needsUpdate = true;
@@ -142,12 +142,13 @@ function makeTree(rng) {
   const greens = [0x2f7a44, 0x3e8f4f, 0x55a566];
   const sizes = [rng.range(1.6, 2.1), rng.range(1.1, 1.5), rng.range(0.7, 1.0)];
   const heights = [3.1, 4.4, 5.4];
+  const offsets = [[0, 0], [0.55, 0.35], [-0.45, -0.3]];
   for (let i = 0; i < 3; i += 1) {
     const puff = new THREE.Mesh(
       new THREE.IcosahedronGeometry(sizes[i], 1),
       new THREE.MeshStandardMaterial({ color: greens[i], roughness: 1 }),
     );
-    puff.position.y = heights[i];
+    puff.position.set(offsets[i][0] * DETAIL.treeSpread * 2, heights[i], offsets[i][1] * DETAIL.treeSpread * 2);
     puff.castShadow = true;
     group.add(puff);
   }
@@ -308,6 +309,15 @@ export function buildCity(scene, rng, textures = {}) {
       const dash = new THREE.Mesh(new THREE.BoxGeometry(3, 0.05, 0.4), dashMat);
       dash.position.set(d, 0.08, line);
       scene.add(dash);
+    }
+  }
+  const bumpMat = new THREE.MeshStandardMaterial({ color: 0xe8e4d8, roughness: 1 });
+  for (const x of CITY.roadLinesX) {
+    for (const z of CITY.roadLinesZ) {
+      if (!(x === 0 || z === 0) || Math.abs(x) % 120 !== 0 || Math.abs(z) % 120 !== 0) continue;
+      const bump = new THREE.Mesh(new THREE.BoxGeometry(x === 0 ? 11 : 1.2, 0.12, x === 0 ? 1.2 : 11), bumpMat);
+      bump.position.set(x, 0.1, z);
+      scene.add(bump);
     }
   }
   const facadeTextures = COLOURS.building.map((c) => {

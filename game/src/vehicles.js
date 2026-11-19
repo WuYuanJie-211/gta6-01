@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { CAR, CAR_MODELS, COLOURS, WORLD } from './config.js';
+import { CAR, CAR_MODELS, COLOURS, DETAIL, WORLD } from './config.js';
 import { nodeNeighbours, nearestNode, isIntersection } from './roads.js';
 import { resolveBuildingCollision } from './city.js';
 export function createCarMesh(color, kind = 'sedan') {
@@ -85,6 +85,20 @@ export function createCarMesh(color, kind = 'sedan') {
       const stripe = new THREE.Mesh(new THREE.BoxGeometry(len, 0.02, 0.5), new THREE.MeshStandardMaterial({ color: 0xffd94d, roughness: 0.4 }));
       stripe.position.set(0, 0.84, 0);
       group.add(stripe);
+      for (const sz of [-0.6, 0.6]) {
+        const strut = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.35, 0.12), paint);
+        strut.position.set(-len / 2 + 0.15, 0.95, sz);
+        group.add(strut);
+      }
+      const tailBar = new THREE.Mesh(
+        new THREE.BoxGeometry(0.08, 0.16, DETAIL.cometTailBar),
+        new THREE.MeshStandardMaterial({ color: 0xff2222, emissive: 0x660000 }),
+      );
+      tailBar.position.set(-len / 2 - 0.02, 0.62, 0);
+      group.add(tailBar);
+      const diffuser = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.18, 1.8), new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.8 }));
+      diffuser.position.set(-len / 2 - 0.02, 0.22, 0);
+      group.add(diffuser);
     }
   }
   if (kind === 'police') {
@@ -369,7 +383,7 @@ export function enterCar(game, car) {
     car.stolen = true;
     game.cars.parked = game.cars.parked.filter((c) => c !== car);
     if (car.kind === 'comet') game.cars.comet = null;
-    game.audio.honk();
+    game.audio.honkShort();
   }
   if (car.kind === 'armored') {
     car.stolen = true;

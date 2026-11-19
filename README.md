@@ -123,3 +123,13 @@ mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts
 ```
 
 three.js r160 is vendored as `game/vendor/three.module.min.js` (MIT).
+
+## v3 re-witness (fast pass)
+
+Small real fixes on top of the modeling upgrade: Comet GT rear detail
+(full-width tail-light bar, rear diffuser, spoiler struts), trees with
+staggered canopies, heli searchlight that tilts toward the player, wrecked-car
+hint pointing at the Garage, clearer M7 escape text, smoother walk-cycle
+fade, rifle tracers in orange, pedestrians who stop to check their phone,
+a short horn when stealing a car, save version 3, chop-shop payout scaled
+by car condition, and speed bumps on the main avenues.

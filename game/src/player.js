@@ -83,7 +83,9 @@ export function updatePlayerOnFoot(game, dt) {
   }
   player.mesh.position.copy(player.pos);
   player.mesh.rotation.y = player.heading;
-  const swing = moving ? Math.sin(game.time * 10) * 0.5 : 0;
+  player.swingAmp = player.swingAmp ?? 0;
+  player.swingAmp += ((moving ? 1 : 0) - player.swingAmp) * Math.min(1, dt * 6);
+  const swing = Math.sin(game.time * 10) * 0.5 * player.swingAmp;
   player.mesh.userData.legL.rotation.x = swing;
   player.mesh.userData.legR.rotation.x = -swing;
   player.mesh.userData.armL.rotation.x = -swing;

@@ -51,6 +51,11 @@ function createPedestrianMesh(rng) {
   group.userData.legR = legR;
   group.userData.armL = armL;
   group.userData.armR = armR;
+  const phone = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.16, 0.03), new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.4 }));
+  phone.position.set(0.38, 0.85, 0.25);
+  phone.visible = false;
+  group.add(phone);
+  group.userData.phone = phone;
   group.scale.set(1, height, 1);
   return group;
 }
@@ -118,6 +123,22 @@ export function updatePedestrians(game, dt) {
     }
     const dx = ped.target.x - ped.pos.x;
     const dz = ped.target.z - ped.pos.z;
+    if (!fleeing && ped.mode === 'stroll') {
+      if (ped.phonePause === undefined) ped.phonePause = 0;
+      if (ped.phonePause <= 0 && ped.phoneTimer === undefined) ped.phoneTimer = game.rng.range(10, 25);
+      if (ped.phoneTimer !== undefined) {
+        ped.phoneTimer -= dt;
+        if (ped.phoneTimer <= 0) { ped.phonePause = game.rng.range(2, 4); ped.phoneTimer = undefined; }
+      }
+      if (ped.phonePause > 0) {
+        ped.phonePause -= dt;
+        ped.mesh.userData.phone.visible = true;
+        ped.mesh.userData.armR.rotation.x = -1.2;
+        ped.mesh.position.copy(ped.pos);
+        continue;
+      }
+      ped.mesh.userData.phone.visible = false;
+    }
     const dist = Math.hypot(dx, dz);
     if (dist < 1.5) {
       ped.target = randomSidewalkPoint(game.rng);

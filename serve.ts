@@ -68,6 +68,12 @@ createServer((request, response) => {
     'cache-control': 'no-store',
   });
   createReadStream(file).pipe(response);
+}).on('error', (err: NodeJS.ErrnoException) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`Port ${port} is already in use — try: node serve.ts --port ${port + 1}`);
+    process.exit(1);
+  }
+  throw err;
 }).listen(port, '127.0.0.1', () => {
   console.log(`game/ is on http://localhost:${port}`);
   console.log('Shots: ?shot=chase&seed=7  ?shot=gunfight&seed=7  ?shot=downtown&seed=7  ?shot=race&seed=7');

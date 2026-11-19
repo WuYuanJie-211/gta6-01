@@ -159,6 +159,10 @@ export function createAudio() {
       blip(370, 0.18, 0.08);
       blip(466, 0.18, 0.08);
     },
+    honkShort() {
+      blip(370, 0.1, 0.07);
+      blip(466, 0.1, 0.07);
+    },
     punch() {
       blip(160, 0.1, 0.12);
     },

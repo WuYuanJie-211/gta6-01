@@ -177,7 +177,7 @@ export function createCombat(game) {
       }
     }
     const end = new THREE.Vector3(player.pos.x + fx * bestDist, 1.2, player.pos.z + fz * bestDist);
-    spawnTracer(muzzle, end);
+    spawnTracer(muzzle, end, game.player.weapon === 'rifle' ? 0xff9500 : 0xffe14d);
     if (bestEnemy) damageEnemy(bestEnemy, weapon.damage);
     else if (bestCar) {
       bestCar.health = Math.max(0, (bestCar.health || 0) - weapon.damage);

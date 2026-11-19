@@ -56,4 +56,6 @@ if (existsSync(join(here, 'screenshots'))) {
   cpSync(join(here, 'screenshots'), join(out, 'screenshots'), { recursive: true });
 }
 
-writeFileSync(join(out, 'dossier.json'), buildDossier(out, CAPS));
+const dossier = buildDossier(out, CAPS);
+writeFileSync(join(out, 'dossier.json'), dossier);
+console.log(`dossier text: ${Buffer.byteLength(JSON.parse(dossier).text ?? '')} bytes (cap ${CAPS.text_max_bytes})`);

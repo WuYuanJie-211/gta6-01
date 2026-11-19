@@ -2,6 +2,7 @@ import { SAVE_KEY } from './config.js';
 export function saveGame(game) {
   try {
     const data = {
+      version: 3,
       cash: game.cash,
       health: game.player.health,
       missionIndex: game.missions.state.index,
@@ -30,6 +31,7 @@ export function loadSave() {
     if (!raw) return null;
     const data = JSON.parse(raw);
     if (typeof data.cash !== 'number' || typeof data.missionIndex !== 'number') return null;
+    if (data.version === undefined) data.bestRaceTime = null;
     return data;
   } catch {
     return null;

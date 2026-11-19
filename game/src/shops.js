@@ -140,7 +140,8 @@ export function createShops(game) {
       return true;
     }
     let pay = game.rng.int(ECONOMY.chopSellMin, ECONOMY.chopSellMax);
-    if (car.wrecked || car.health <= 0) pay = Math.floor(pay / 2);
+    const condition = Math.max(0, Math.min(100, car.health || 0)) / 100;
+    pay = Math.floor(pay * (car.wrecked || car.health <= 0 ? 0.5 : 0.5 + 0.5 * condition));
     game.cash += pay;
     game.scene.remove(car.mesh);
     game.player.car = null;

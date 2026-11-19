@@ -59,6 +59,7 @@ function createHelicopterMesh() {
   group.userData.rotor = rotor;
   group.userData.rotor2 = rotor2;
   group.userData.tailRotor = tailRotor;
+  group.userData.spotlight = light;
   group.visible = false;
   return group;
 }
@@ -164,6 +165,11 @@ export function createPolice(game) {
       heli.userData.rotor2.rotation.y += dt * 22;
       heli.userData.tailRotor.rotation.x += dt * 30;
       heli.rotation.y = Math.atan2(playerPos.x - heli.position.x, playerPos.z - heli.position.z);
+      const spot = heli.userData.spotlight;
+      if (spot) {
+        const dist = Math.hypot(playerPos.x - heli.position.x, playerPos.z - heli.position.z);
+        spot.rotation.x = Math.PI + Math.max(-0.3, Math.min(0.3, dist * 0.008));
+      }
     }
     let nearestPolice = Infinity;
     for (const car of state.cars) {

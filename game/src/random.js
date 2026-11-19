@@ -22,8 +22,12 @@ export function createRandom(seed) {
       return next() < p;
     },
     pickWeighted(items, weights) {
+      if (items.length !== weights.length) throw new Error('pickWeighted: items/weights length mismatch');
       let total = 0;
-      for (const w of weights) total += w;
+      for (const w of weights) {
+        if (w < 0) throw new Error('pickWeighted: negative weight');
+        total += w;
+      }
       let roll = next() * total;
       for (let i = 0; i < items.length; i += 1) {
         roll -= weights[i];
