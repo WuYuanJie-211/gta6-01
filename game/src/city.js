@@ -86,7 +86,7 @@ function makeDashTexture() {
   canvas.height = 16;
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, 128, 16);
-  ctx.fillStyle = '#f5f5f0';
+  ctx.fillStyle = '#d5d5cc';
   ctx.fillRect(0, 0, 64, 16);
   const tex = new CT(canvas);
   tex.wrapS = RW;
@@ -120,11 +120,10 @@ function makePalm(rng) {
   trunk.rotation.z = rng.range(-0.08, 0.08);
   group.add(trunk);
   for (let i = 0; i < 6; i += 1) {
-    const leaf = new ME(new CN(0.5, 3.2, 4), leafMat);
+    const leaf = new ME(new SG(0.9, 8, 6), leafMat);
     const angle = (i / 6) * PI * 2;
-    leaf.position.set(Math.cos(angle) * 1.2, 5.4, Math.sin(angle) * 1.2);
-    leaf.rotation.z = Math.cos(angle) * 1.1;
-    leaf.rotation.x = -Math.sin(angle) * 1.1;
+    leaf.position.set(Math.cos(angle) * 1.1, 5.3, Math.sin(angle) * 1.1);
+    leaf.scale.set(1.3, 0.55, 1.3);
     group.add(leaf);
   }
   group.traverse((o) => {
@@ -346,14 +345,14 @@ export function buildCity(scene, rng, tx = {}) {
     scene.add(dashLine);
   }
   const cv=(w,h,f)=>{const c=document.createElement('canvas');c.width=w;c.height=h;f(c.getContext('2d'));const t=new CT(c);t.colorSpace=SC;t.wrapS=t.wrapT=RW;return t;};
-  const zebra=cv(128,64,(x)=>{x.fillStyle='#f5f5f0';for(let i=0;i<6;i++)x.fillRect(8+i*20,4,10,42);x.fillRect(0,54,128,8);});
-  const arrow=cv(64,64,(x)=>{x.fillStyle='#f5f5f0';x.fillRect(26,34,12,26);x.beginPath();x.moveTo(32,4);x.lineTo(52,30);x.lineTo(12,30);x.closePath();x.fill();});
+  const zebra=cv(128,64,(x)=>{x.fillStyle='#b8b8ae';for(let i=0;i<6;i++)x.fillRect(8+i*20,4,10,42);x.fillRect(0,54,128,8);});
+  const arrow=cv(64,64,(x)=>{x.fillStyle='#d5d5cc';x.fillRect(26,34,12,26);x.beginPath();x.moveTo(32,4);x.lineTo(52,30);x.lineTo(12,30);x.closePath();x.fill();});
   const railT=cv(64,32,(x)=>{x.fillStyle='rgba(90,95,100,0.45)';x.fillRect(0,0,64,32);x.fillStyle='#3a3e44';for(let i=0;i<8;i++)x.fillRect(1+i*8,0,6,32);x.fillStyle='#2c2f34';x.fillRect(0,0,64,5);x.fillRect(0,27,64,5);});
   const flat=(w,d,m,x,z,rz=0,y=0.08)=>{const p=new ME(new PG(w,d),m);p.rotation.x=-PI/2;p.rotation.z=rz;p.position.set(x,y,z);scene.add(p);};
   const zebraM=new MB({map:zebra,transparent:true});
   const arrowM=new MB({map:arrow,transparent:true});
-  const lineM=new MB({color:0xf5f5f0});
-  for(const [ix,iz] of [[0,-180],[120,-180],[180,-180],[240,-180],[240,-120],[240,0],[0,0],[60,-180]]){flat(4.5,12,zebraM,ix+9,iz,0,0.09);flat(4.5,12,zebraM,ix,iz-9,PI/2,0.09);flat(1.2,6,lineM,ix+13,iz-3,0,.09);}
+  const lineM=new MB({color:0xd5d5cc});
+  for(const [ix,iz] of [[0,-180],[120,-180],[180,-180],[240,-180],[240,-120],[240,0],[0,0],[60,-180]]){flat(4.5,12,zebraM,ix+9,iz,0,0.09);flat(4.5,12,zebraM,ix,iz-9,PI/2,0.09);flat(1.2,6,lineM,ix+15,iz-3,0,.09);}
   for(const [ax,az,ar] of [[60,-180,-PI/2],[180,-180,-PI/2],[300,-180,-PI/2],[-120,-180,PI/2],[240,-120,0],[0,120,0]])flat(2.2,4,arrowM,ax,az,ar);
   for(const [cx,cz,az] of [[240,-60,1],[0,-180,0],[0,-60,1]]){
     const L=az?660:780;
@@ -587,6 +586,7 @@ export function buildCity(scene, rng, tx = {}) {
         for (let f = 0; f < floors; f += 1) {
           box(scene, w * 0.4, 0.25, 1.4, M(0x6a5a4a), x, 4 + f * 7, z + d / 2 + 0.7, true);
           box(scene, w * 0.4, 0.7, 0.06, M(0x2c3e50, 0.7), x, 4 + f * 7 + 0.45, z + d / 2 + 1.35);
+          for (const s of [-1, 1]) box(scene, 0.06, 0.7, d * 0.4, M(0x2c3e50, 0.7), x + s * (w / 2 + 1.35), 4 + f * 7 + 0.45, z);
         }
       }
       if (h < 16 && rng.chance(0.6)) {

@@ -36,7 +36,7 @@ function createThugMesh() {
   group.userData.armL = armL;
   group.userData.armR = armR;
   if (shadowTex) {
-    const sh = new ME(new PG(1.3, 1.0), new MB({ map: shadowTex, transparent: true, depthWrite: false }));
+    const sh = new ME(new PG(1.3, 1.0), new MB({ map: shadowTex, transparent: true, opacity: .85, depthWrite: false }));
     sh.rotation.x = -PI / 2;
     sh.position.set(0, 0.1, 0);
     group.add(sh);
