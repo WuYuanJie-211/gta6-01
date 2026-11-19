@@ -231,7 +231,13 @@ export function spawnCars(game) {
     { x: 330, z: 180, heading: Math.PI / 2, color: 0xf1c40f, kind: 'compact' },
     { x: 180, z: 240, heading: 0, color: 0x2e86c1, kind: 'sedan' },
     { x: -180, z: 240, heading: Math.PI / 2, color: 0x16a085, kind: 'van' },
-    { x: 60, z: -300, heading: Math.PI, color: 0xecf0f1, kind: 'sedan' }, 
+    { x: 60, z: -300, heading: Math.PI, color: 0xecf0f1, kind: 'sedan' },
+    { x: 180, z: -185, heading: 0, color: 0xc0392b, kind: 'sedan' },
+    { x: 240, z: -175, heading: Math.PI, color: 0x2e86c1, kind: 'compact' },
+    { x: 300, z: -185, heading: 0, color: 0x16a085, kind: 'van' },
+    { x: 60, z: -175, heading: Math.PI, color: 0xf1c40f, kind: 'taxi' },
+    { x: 245, z: -120, heading: Math.PI / 2, color: 0x7d3c98, kind: 'sedan' },
+    { x: 235, z: -240, heading: -Math.PI / 2, color: 0xe67e22, kind: 'pickup' },
   ];
   for (const spot of parkedSpots) {
     const mesh = createCarMesh(spot.color, spot.kind);

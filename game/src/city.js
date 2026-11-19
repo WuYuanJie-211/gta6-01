@@ -210,21 +210,19 @@ function makeTree(rng) {
   }
   return group;
 }
-function makeTrafficLight() {
-  const group = new THREE.Group();
-  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 4.5, 6), M(0x2c3e50,0.7));
-  pole.position.y = 2.25;
-  group.add(pole);
-  const head = new THREE.Mesh(new THREE.BoxGeometry(0.5, 1.3, 0.4), M(0x1a1a1a,0.6));
-  head.position.y = 4.8;
-  group.add(head);
-  const colors = [0xff2222, 0xffcc00, 0x33cc33];
-  for (let i = 0; i < 3; i += 1) {
-    const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.14, 8, 6), new THREE.MeshStandardMaterial({ color: colors[i], emissive: colors[i], emissiveIntensity: 0.7 }));
-    lamp.position.set(0, 5.25 - i * 0.4, 0.22);
-    group.add(lamp);
+function makeTrafficLight(state){
+  const g=new THREE.Group();
+  cyl(g,0.1,0.13,5.5,6,M(0x2c3e50,0.7),0,2.75,0);
+  const arm=cyl(g,0.08,0.08,3.6,6,M(0x2c3e50,0.7),0,5.4,1.8);arm.rotation.x=Math.PI/2;
+  box(g,0.5,1.3,0.4,M(0x1a1a1a,0.6),0,4.9,3.6);
+  const cols=[0xff2222,0xffcc00,0x33cc33],on=state==='G'?2:0;
+  for(let i=0;i<3;i+=1){
+    const lamp=new THREE.Mesh(new THREE.SphereGeometry(0.15,8,6),new THREE.MeshStandardMaterial({color:cols[i],emissive:cols[i],emissiveIntensity:i===on?1.8:0.08}));
+    lamp.position.set(0,5.35-i*0.4,3.82);g.add(lamp);
   }
-  return group;
+  const pc=state==='G'?0xff2222:0x33cc33;
+  box(g,0.3,0.5,0.12,new THREE.MeshStandardMaterial({color:pc,emissive:pc,emissiveIntensity:1.5}),0,2.4,0.15);
+  return g;
 }
 function makeHydrant() {
   const group = new THREE.Group();
@@ -325,6 +323,7 @@ export function buildCity(scene, rng, textures = {}) {
       { x: 7.5, z: 60 },
       { x: -127.5, z: -120 },
       { x: 247.5, z: 120 },
+      { x: 187.5, z: -172 },
     ],
   };
   const ground = new THREE.Mesh(
@@ -411,31 +410,46 @@ export function buildCity(scene, rng, textures = {}) {
     dashLine.position.set(0, 0.07, line);
     scene.add(dashLine);
   }
-  const bumpMat = M(0xe8e4d8);
-  for (const x of CITY.roadLinesX) {
-    for (const z of CITY.roadLinesZ) {
-      if (!(x === 0 || z === 0) || Math.abs(x) % 120 !== 0 || Math.abs(z) % 120 !== 0) continue;
-      const bump = new THREE.Mesh(new THREE.BoxGeometry(x === 0 ? 11 : 1.2, 0.12, x === 0 ? 1.2 : 11), bumpMat);
-      bump.position.set(x, 0.1, z);
-      scene.add(bump);
-      for (let s = -2; s <= 2; s += 1) {
-        const stripe = new THREE.Mesh(new THREE.BoxGeometry(x === 0 ? 0.8 : 3, 0.05, x === 0 ? 3 : 0.8), M(0xf5f5f0));
-        stripe.position.set(x + (x === 0 ? s * 2 : 8), 0.08, z + (x === 0 ? 8 : s * 2));
-        scene.add(stripe);
-      }
+  const cv=(w,h,f)=>{const c=document.createElement('canvas');c.width=w;c.height=h;f(c.getContext('2d'));const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;t.wrapS=THREE.RepeatWrapping;t.wrapT=THREE.RepeatWrapping;return t;};
+  const zebra=cv(128,64,(x)=>{x.fillStyle='#f5f5f0';for(let i=0;i<6;i++)x.fillRect(8+i*20,4,10,42);x.fillRect(0,54,128,8);});
+  const arrow=cv(64,64,(x)=>{x.fillStyle='#f5f5f0';x.fillRect(26,34,12,26);x.beginPath();x.moveTo(32,4);x.lineTo(52,30);x.lineTo(12,30);x.closePath();x.fill();});
+  const railT=cv(64,32,(x)=>{x.fillStyle='#d8dde2';for(let i=0;i<8;i++)x.fillRect(2+i*8,0,3,32);x.fillRect(0,0,64,3);x.fillRect(0,29,64,3);});
+  const flat=(w,d,m,x,z,rz=0,y=0.08)=>{const p=new THREE.Mesh(new THREE.PlaneGeometry(w,d),m);p.rotation.x=-Math.PI/2;p.rotation.z=rz;p.position.set(x,y,z);scene.add(p);};
+  const zebraM=new THREE.MeshBasicMaterial({map:zebra,transparent:true});
+  const arrowM=new THREE.MeshBasicMaterial({map:arrow,transparent:true});
+  const lineM=new THREE.MeshBasicMaterial({color:0xf5f5f0});
+  for(const [ix,iz] of [[0,-180],[120,-180],[180,-180],[240,-180],[240,-120],[240,0],[0,0],[60,-180]]){flat(4.5,12,zebraM,ix+9,iz,0,0.09);flat(4.5,12,zebraM,ix,iz-9,Math.PI/2,0.09);}
+  for(const [ax,az,ar] of [[60,-180,-Math.PI/2],[180,-180,-Math.PI/2],[300,-180,-Math.PI/2],[-120,-180,Math.PI/2],[240,-120,0],[0,120,0]])flat(2.2,4,arrowM,ax,az,ar);
+  for(const [cx,cz,az] of [[240,-60,1],[0,-180,0],[0,-60,1]]){
+    const L=az?660:780;
+    for(const s of [-1,1]){
+      flat(az?0.18:L,az?L:0.18,lineM,cx+(az?s*5.7:0),cz+(az?0:s*5.7));
+      box(scene,az?0.4:L,0.18,az?L:0.4,M(0xb9b3a4),cx+(az?s*6.3:0),0.09,cz+(az?0:s*6.3));
     }
   }
-  const tl1 = makeTrafficLight();
-  tl1.position.set(8, 0, 8);
-  scene.add(tl1);
-  const tl2 = makeTrafficLight();
-  tl2.position.set(-128, 0, 8);
-  tl2.rotation.y = Math.PI / 2;
-  scene.add(tl2);
-  for (const [hx, hz] of [[30, 10], [-60, -40], [150, 60], [210, -30]]) {
-    const hyd = makeHydrant();
-    hyd.position.set(hx, 0, hz);
-    scene.add(hyd);
+  const rail=(x1,z1,x2,z2)=>{
+    const L=Math.hypot(x2-x1,z2-z1);
+    const p=new THREE.Mesh(new THREE.PlaneGeometry(L,0.85),new THREE.MeshBasicMaterial({map:tile(railT,L/2,1),transparent:true,side:THREE.DoubleSide}));
+    p.position.set((x1+x2)/2,0.72,(z1+z2)/2);p.rotation.y=x1===x2?Math.PI/2:0;scene.add(p);
+  };
+  for(let x=-330;x<330;x+=60)rail(x+14,-180,x+46,-180);
+  for(let z=-330;z<240;z+=60)rail(240,z+14,240,z+46);
+  for(const [hx,hz] of [[120,-183],[180,-177],[237,-90],[0,-30],[60,-183],[243,30],[-60,-177],[300,-183]]){
+    const hole=new THREE.Mesh(new THREE.CylinderGeometry(0.55,0.55,0.06,12),M(0x222222,0.9));
+    hole.position.set(hx,0.09,hz);scene.add(hole);
+  }
+  for(const [tx,tz,tr,ts] of [[8,-172,Math.PI,'R'],[-8,-188,0,'G'],[248,-172,Math.PI,'G'],[232,-188,0,'R'],[8,8,Math.PI,'G'],[-8,-8,0,'R'],[248,8,Math.PI,'R'],[232,-8,0,'G']]){
+    const tl=makeTrafficLight(ts);tl.position.set(tx,0,tz);tl.rotation.y=tr;scene.add(tl);
+  }
+  for(const [hx,hz] of [[30,10],[-60,-40],[150,60],[210,-30],[120,-174],[180,-186],[240,-150],[0,-174]]){
+    const hyd=makeHydrant();hyd.position.set(hx,0,hz);scene.add(hyd);
+  }
+  for(const [sx,sz,st] of [[-14,-172,'限速 40'],[14,-188,'直行'],[226,-172,'单行']]){
+    const sg=makeSign(st,'#ffffff','#1a3a5f',2.4,1.2);sg.position.set(sx,2.6,sz);scene.add(sg);
+    cyl(scene,0.05,0.05,2.6,6,M(0x888888),sx,1.3,sz);
+  }
+  for(let tx2=-300;tx2<=300;tx2+=120){
+    const tr2=makeTree(rng);tr2.position.set(tx2,0,-180+(tx2%240===0?-8.5:8.5));scene.add(tr2);
   }
   for (const lx of [-360, -240, -120, 0, 120, 240, 360]) {
     for (const lz of [-360, -240, -120, 0, 120, 240]) {
@@ -827,6 +841,9 @@ export function buildCity(scene, rng, textures = {}) {
     shelterRoof.position.set(stop.x, 2.7, stop.z - 0.5);
     shelterRoof.castShadow = true;
     scene.add(shelterRoof);
+    const rb = makeSign('1路 5路 12路', '#ffffff', '#1a3a5f', 2.2, 1);
+    rb.position.set(stop.x, 1.6, stop.z - 1.2);
+    scene.add(rb);
   }
   const collectibleMeshes = [];
   for (const spot of landmarks.collectibles) {
