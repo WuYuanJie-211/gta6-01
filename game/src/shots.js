@@ -88,7 +88,7 @@ function stageChase(game) {
   const vz = game.player.car.pos.z;
   place(van, vx + 1.2, vz + 14, -PI / 2);
   const c1 = pc(game, vx - 4.5, vz + 6, -PI / 2, 24);
-  const c2 = pc(game, vx + 8, vz - 2, -PI / 2, 24);
+  const c2 = pc(game, vx + 8, vz + 10, -PI / 2, 24);
   for (const c of [c1, c2]) {
     if (c.mesh.userData.lightR) {
       c.mesh.userData.lightR.material.emissive.setHex(0xff0000);
@@ -133,9 +133,9 @@ function stageGunfight(game) {
   player.mesh.scale.y = 0.85;
   const rifle = player.mesh.userData.rifle;
   rifle.position.set(0.15, 1.62, 0.75);
-  rifle.rotation.set(-0.12, 0.6, 0);
+  rifle.rotation.set(0.16, 0.6, 0);
   rifle.scale.setScalar(1.4);
-  game.aim=new V3(-179.1,0.1,198);
+  game.aim=new V3(-169.53,0.1,200.85);
   if (game.textures.shadow) { const s = new ME(new PG(.9,.5), SH(game.textures.shadow,.5)); s.rotation.x = -PI / 2; s.position.set(-178.86, .1, 192.93); game.scene.add(s); }
   for(const wy of[4.45,11.45]){const w=new ME(new BX(13,1.4,.1),new MB({color:0x2c3e50}));w.position.set(-151.7,wy,201.6);game.scene.add(w);}
   game.combat.spawnGunman(-178.1,196.1).mesh.scale.setScalar(1.15);
@@ -158,14 +158,14 @@ function stageGunfight(game) {
 function stageDowntown(game) {
   game.missions.setProgress(3, 0);
   const taxi = game.cars.parked.find((c) => c.model === 'taxi') || game.cars.parked[0];
-  place(taxi, 266, -183, PI);
+  place(taxi, 258, -183, PI);
   taxi.mesh.children.at(-1).position.x = .3;
   game.police.state.wanted = 4;
   taxi.speed = 0;
   enterCar(game, taxi);
   for (const gz of [-183.8, -182.2]) {
     const g = new ME(new BX(0.15, 0.25, 0.5), new MB({ color: 0xff2222, transparent: true, opacity: 0.5 }));
-    g.position.set(268, 0.75, gz);
+    g.position.set(260, 0.75, gz);
     game.scene.add(g);
   }
   const b=new ME(new PG(2.4,1.4),new MB({color:0xff2a1e,transparent:true,opacity:.14,depthWrite:false}));b.rotation.x=-PI/2;b.position.set(259,.1,-183);game.scene.add(b);

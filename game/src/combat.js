@@ -47,8 +47,8 @@ function createThugMesh() {
 }
 function createGunmanMesh() {
   const group = createThugMesh();
-  group.children[0].material = mt(0x1a1a2e);
-  B(group, 0.56, 0.12, 0.56, mt(0xd21f2b, 0.8), 0, 1.98, 0);
+  group.children[0].material = mt(0x0a0a0a);
+  B(group, 0.56, 0.12, 0.56, mt(0x5a0f0f, 0.8), 0, 1.98, 0);
   B(group, 0.78, 0.5, 0.46, mt(0x7b1a1a), 0, 1.2, 0);
   const gunMat = new MS({ color: 0x111111, roughness: 0.4, metalness: 0.5 });
   B(group, 0.09, 0.14, 0.9, gunMat, 0.35, 1.2, 0.35);
@@ -313,7 +313,7 @@ export function createCombat(game) {
       }
       enemy.flashT = Math.max(0, (enemy.flashT || 0) - dt);
       if (enemy.flashT > 0) {
-        enemy.mesh.userData.torso.material.emissive.setHex(0xffffff);
+        enemy.mesh.userData.torso.material.emissive.setHex(0x551111);
         enemy.mesh.rotation.x = -0.25;
       } else {
         enemy.mesh.userData.torso.material.emissive.setHex(0x000000);

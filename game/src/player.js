@@ -11,7 +11,7 @@ export function createPlayerMesh() {
   const torso = B(group, 0.7, 0.9, 0.4, jacket, 0, 1.15, 0);
   torso.castShadow = true;
   const head = new ME(new SG(0.26, 14, 12), skin);
-  head.position.y = 1.85;
+  head.position.y = 1.85;head.scale.y=.8;
   head.castShadow = true;
   group.add(head);
   const hair = new ME(new SG(0.27, 12, 8, 0, PI * 2, 0, PI / 2), mt(0x1a1a1a, 1));
