@@ -497,10 +497,9 @@ export function makeTrafficLightV31(initialState = 'R', phase = 0) {
     g.add(lamp);
     lamps.push(mat);
   }
-  // v35: one red halo on the lit lamp — the sphere alone blew out to
-  // peach at intensity 3 and read as a pale ball, not a red light.
-  const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: beamGlowTexture(), transparent: true, opacity: 0.55, blending: AB, depthWrite: false }));
-  glow.scale.set(1.8, 1.8, 1);
+  // v36: halo 3.2/0.8, forward of housing, lamp 1.8 — orb must read at range.
+  const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: beamGlowTexture(), transparent: true, opacity: 0.8, blending: AB, depthWrite: false }));
+  glow.scale.set(3.2, 3.2, 1);
   g.add(glow);
   function setState(s) {
     // s: 'R' (lamp 0), 'Y' (lamp 1), 'G' (lamp 2). Exactly one on.
@@ -510,14 +509,14 @@ export function makeTrafficLightV31(initialState = 'R', phase = 0) {
       if (i === on) {
         m.color.setHex(LIGHT_COLORS[i]);
         m.emissive.setHex(LIGHT_COLORS[i]);
-        m.emissiveIntensity = 1.2;
+        m.emissiveIntensity = 1.8;
       } else {
         m.color.setHex(0x330a06);
         m.emissive.setHex(0x000000);
         m.emissiveIntensity = 0;
       }
     }
-    glow.position.set(0, 5.7 - on * 0.8, 3.6);
+    glow.position.set(0, 5.7 - on * 0.8, 3.9);
     glow.material.color.setHex(LIGHT_COLORS[on]);
     g.userData.state = s;
   }

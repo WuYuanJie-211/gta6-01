@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import{BX,CG,MB,MS,ME,V3,PI,AB,PG,CT,DS,SH}from'./geo.js';
+import{BX,CG,MB,MS,ME,V3,PI,AB,PG,CT,DS,SH,CI}from'./geo.js';
 import { STEP } from './config.js';
 import { enterCar, spawnPoliceCar } from './vehicles.js';
 import { ACTION_SHOOT } from './input.js';
@@ -90,6 +90,11 @@ function stageChase(game) {
   // FRONT, not a flat rear panel. Camera is fixed (angle -0.1), so only
   // the van turns; the chase stays readable.
   place(van, vx + 1.2, vz + 14, -PI / 2 + 0.55);
+  // v36: inset windshield frame — the dark glass reads as a flat black
+  // panel with no border. A light plate just behind the glass rims it.
+  const wf = new ME(new BX(0.02, 0.95, 1.95), new MS({ color: 0xd8d8d8, roughness: 0.5, metalness: 0.3 }));
+  wf.position.set(van.mesh.userData.bodyLen / 2 + 0.03, 1.85, 0);
+  van.mesh.add(wf);
   const c1 = pc(game, vx - 4.5, vz + 6, -PI / 2, 24);
   const c2 = pc(game, vx + 8, vz + 10, -PI / 2, 24);
   for (const c of [c1, c2]) {
@@ -97,6 +102,14 @@ function stageChase(game) {
       c.mesh.userData.lightR.material.emissive.setHex(0xff0000);
       c.mesh.userData.lightB.material.emissive.setHex(0x0000ff);
     }
+  }
+  // v36: white roof plate — the dark glass cabin top peeks past the roof
+  // panel's front edge and reads as a thin dark line under the lightbar.
+  // The plate covers the cabin top with roof-white.
+  for (const c of [c1, c2]) {
+    const rp = new ME(new BX(1.95, 0.05, 1.72), new MS({ color: 0xffffff, roughness: 0.4 }));
+    rp.position.set(-0.2, 1.48, 0);
+    c.mesh.add(rp);
   }
   // v33: pan slightly east so the BODEGA / SUITES signs (cut by the
   // right frame edge in v32) read whole.
@@ -156,6 +169,14 @@ function stageGunfight(game) {
   rifle.position.set(0.15, 1.62, 0.55);
   rifle.rotation.set(0.16, 0.15, 0);
   rifle.scale.setScalar(1.0);
+  // v36: visible muzzle — the dark barrel is invisible against the dark
+  // road, so the tracer reads as firing from an unarmed man. A light
+  // steel tip at the muzzle anchors the tracer + flash to a weapon.
+  // Unlit basic material: a lit steel tip went dark (metalness + dusk).
+  const tip = new ME(new CG(0.065, 0.065, 0.4, 8), new MB({ color: 0x999999 }));
+  tip.rotation.x = PI / 2;
+  tip.position.set(0, 0.02, 0.95);
+  rifle.add(tip);
   // v31 defect (a): the old aim point (-169.53, 200.85) was ~9m east of the
   // duellist, so the tracer fired left onto the road away from him. Aim
   // at the duellist (first gunman, -178.1, 191.5) so the tracer hits him.
@@ -270,6 +291,14 @@ function stageSunset(game) {
   // blob offset SOUTH (toward the camera) lands on the crosswalk in
   // front of his feet. The green hip panel is gone (it read as a board).
   if (game.textures.shadow) { const s = new ME(new PG(2.4, 2.2), SH(game.textures.shadow, .9)); s.rotation.x = -PI / 2; s.position.set(243, .09, -179.3); game.scene.add(s); }
+  // v36: the soft blob is invisible on the dark asphalt (it only faintly
+  // greys the white dash). A hard-edged dark core ellipse on top reads
+  // as a contact shadow on both the dash and the asphalt.
+  const sh2 = new ME(new CI(1, 24), new MB({ color: 0x000000, transparent: true, opacity: 0.55, depthWrite: false }));
+  sh2.rotation.x = -PI / 2;
+  sh2.scale.set(1.5, 1.1, 1);
+  sh2.position.set(243.5, 0.11, -179.5);
+  game.scene.add(sh2);
   const p = game.player;
   p.pos.set(243, 0, -180);
   p.heading = PI;
@@ -287,7 +316,9 @@ function stageSunset(game) {
   const bm = bc.mesh.children;
   bm[7].material.color.setHex(0x241a14);bm[8].material=new MS({color:0x141018,roughness:.9});bm[1].material=new MS({color:0x0a0a0c,roughness:.9});bc.mesh.position.y=-.15;
   for (const [ex, ez] of [[243, -172], [242.2, -171.3], [243.8, -172.7]]) game.combat.spawnExplosion(new V3(ex, 0, ez), 0.22);
-  pc(game, 238, -186, PI, 0);
+  // v36: moved 2m south (was -186) — the zebra bar at z≈-187 crossed
+  // this cruiser's front bumper and wheels; at -184 it is clear of it.
+  pc(game, 238, -184, PI, 0);
   const heli = game.police.heli;
   if (heli) {
     heli.visible = true;
