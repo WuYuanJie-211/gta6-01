@@ -19,7 +19,7 @@ let _bt;
 function beam(g,a,b,rt,rb,o){
   if(!_bt){const c=document.createElement('canvas');c.width=1;c.height=8;
   const x=c.getContext('2d'),gr=x.createLinearGradient(0,0,0,8);
-  gr.addColorStop(0,'#000');gr.addColorStop(.5,'#fff');gr.addColorStop(1,'#000');
+  gr.addColorStop(0,'#000');gr.addColorStop(.5,'#fff');gr.addColorStop(1,'#fff');
   x.fillStyle=gr;x.fillRect(0,0,1,8);_bt=new CT(c);}
   const d=new V3(a.x-b.x,a.y-b.y,a.z-b.z),L=d.length();d.normalize();
   const m=new ME(new CG(rt,rb,L,12,1,true),new MB({map:_bt,transparent:true,opacity:o,blending:AB,depthWrite:false,side:DS}));
@@ -104,12 +104,12 @@ function stageChase(game) {
   const heli = game.police.heli;
   if (heli) {
     heli.visible = true;
-    heli.position.set(vx + 8, 14, vz - 20);
+    heli.position.set(vx + 8, 14, vz - 24);
     heli.scale.setScalar(1.5);
     heli.rotation.y = 0.4;
     heli.children[0].material.color.set(0x2a2f36);
-    beam(game, new V3(vx + 8, 13.15, vz - 20), new V3(vx + 1.2, 2.4, vz + 14), .3, 2.4, .12);
-    beam(game, new V3(vx + 8, 13.15, vz - 20), new V3(vx + 1.2, 2.4, vz + 14), .15, .6, .45);
+    beam(game, new V3(vx + 8, 13.15, vz - 24), new V3(vx + 1.2, 2.4, vz + 14), .3, 2.4, .12);
+    beam(game, new V3(vx + 8, 13.15, vz - 24), new V3(vx + 1.2, 2.4, vz + 14), .15, .6, .45);
     const rp=pool(game,vx+1.2,vz+14,1,.6,2.45);if(rp)rp.scale.set(1,.6,1);
     const st = new ME(new BX(1.4, .02, .9), new MB({ color: 0xe8f0ff, emissive: 0xe8f0ff, emissiveIntensity: 1 }));
     st.position.set(vx + 1.2, 2.45, vz + 14); game.scene.add(st);
@@ -125,39 +125,38 @@ function stageGunfight(game) {
   player.ownedWeapons = ['pistol', 'rifle'];
   player.mag = 30;
   player.ammo = 60;
-  player.pos.set(-180.5, 0, 193.3);
-  player.heading = 0.67;
+  player.pos.set(-180.66, 0, 192.93);
+  player.heading = 0.286;
   player.mesh.position.copy(player.pos);
   player.mesh.rotation.y = player.heading;
   player.mesh.rotation.x = 0;
   player.mesh.scale.y = 0.85;
   const rifle = player.mesh.userData.rifle;
   rifle.position.set(0.15, 1.62, 0.75);
-  rifle.rotation.set(-0.05, -0.41, 0);
+  rifle.rotation.set(-0.12, 0.119, 0);
   rifle.scale.setScalar(1.4);
-  if (game.textures.shadow) { const s = new ME(new PG(.9,.5), SH(game.textures.shadow,.5)); s.rotation.x = -PI / 2; s.position.set(-180.5, .1, 193.3); game.scene.add(s); }
+  if (game.textures.shadow) { const s = new ME(new PG(.9,.5), SH(game.textures.shadow,.5)); s.rotation.x = -PI / 2; s.position.set(-180.66, .1, 192.93); game.scene.add(s); }
   const barrier = new ME(new BX(3, 0.65, 0.7), new MS({ map: game.textures.concrete, roughness: 0.9 }));
   barrier.position.set(-180.5, 0.325, 194.1);
   barrier.castShadow = true;
   game.scene.add(barrier);
-  game.combat.spawnGunman(-179.3, 196.1);
-  const g2 = game.combat.spawnGunman(-183, 190);
+  game.combat.spawnGunman(-179.3,196.1).mesh.scale.setScalar(1.15);
+  const g2 = game.combat.spawnGunman(-176, 198.5);
   g2.mesh.rotation.y = .6;
-  const th = game.combat.spawnThug(-185, 188);
+  const th = game.combat.spawnThug(-174.8, 198.5);
   th.mesh.rotation.x = .3;
   th.mesh.scale.y = .85;
   for (const e of game.combat.enemies) e.mesh.children[8].visible = e.mesh.children[9].visible = false;
   game.police.state.wanted = 4;
   camB(game);
-  game.cameraAngle = -0.25;
-  game.camDist = 10;
-  game.camPitch = 0.16;
-  game.camX = -0.4;
+  game.camDist = 1.6;
+  game.camPitch = -0.12;
+  game.camX = 0.9;
   for (const [cx, cz] of [[-180, 192.4], [-181.5, 191.9], [-179.5, 192.6], [-181, 193]]) game.combat.spawnCasing(new V3(cx, 0.1, cz), player.heading);
   skid(game, -180.5, 196);
   game.input.fireAction(ACTION_SHOOT);
   game.step(STEP);
-  game.combat.spawnSparks(new V3(-179.4, 0.7, 194.1), 0xffcc44, 4);
+  game.combat.spawnSparks(new V3(-179.4, 0.7, 193.75), 0xffcc44, 5);
   for (const c of game.police.state.cars) place(c, 0, 300, 0);
 }
 function stageDowntown(game) {

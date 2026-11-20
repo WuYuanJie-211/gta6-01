@@ -71,7 +71,7 @@ export function createCombat(game) {
   }
   function spawnFlash(pos) {
     const flash = new SP(new THREE.SpriteMaterial({ map: game.textures.fireball, transparent: true, blending: AB, depthWrite: false }));
-    flash.scale.set(.5,.5,1);
+    flash.scale.set(.45,.45,1);
     addPart(flash, pos, new V3(0, 0, 0), EFFECTS.fl);
   }
   function spawnCasing(pos, heading) {
@@ -157,7 +157,7 @@ export function createCombat(game) {
     if (len < 0.1) return;
     dir.normalize();
     for (let i = 0; i < 3; i++) {
-      const tracer = new ME(new BX(0.05, 0.05, len / 4), new MB({ color, transparent: true, opacity: 0.75 }));
+      const tracer = new ME(new BX(0.05, 0.05, len / 4), new MB({ color, transparent: true, opacity: 0.7 }));
       tracer.position.copy(from).addScaledVector(dir, len * (i + 0.5) / 3);
       tracer.lookAt(to);
       game.scene.add(tracer);
@@ -368,7 +368,7 @@ export function createCombat(game) {
     for (let i = tracers.length - 1; i >= 0; i -= 1) {
       const tracer = tracers[i];
       tracer.life -= dt;
-      tracer.mesh.material.opacity = Math.max(0, Math.min(1, tracer.life / 0.16)) * 0.75;
+      tracer.mesh.material.opacity = Math.max(0, Math.min(1, tracer.life / 0.16)) * 0.7;
       if (tracer.life <= 0) {
         game.scene.remove(tracer.mesh);
         tracers.splice(i, 1);
