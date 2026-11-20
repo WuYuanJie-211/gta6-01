@@ -10,9 +10,7 @@ export function inHeroZone(x, z, pad = 0) {
 }
 
 // ---------------------------------------------------------------------------
-// 1. Facade atlas: one 1024x1024 canvas, 16 cells of 256px.
-//    6 palettes x 2 window styles = 12 facade cells + 4 storefront cells.
-//    One cell = 12m wide x 20m tall of facade on a building face.
+// 1. Facade atlas: 1024 canvas, 16 cells of 256px.
 // ---------------------------------------------------------------------------
 export const FACADE_PALETTES = ['#F2E3B3', '#F0C9C0', '#C9E6D8', '#CFE3F0', '#EDE4D3', '#E8A87C'];
 export const CELL_WORLD_W = 12;
@@ -39,8 +37,7 @@ function drawFacadeCell(ctx, ox, oy, palette, style, seedBase) {
   // subtle vertical grime / variation so the facade is not a flat slab
   ctx.fillStyle = 'rgba(0,0,0,0.05)';
   ctx.fillRect(ox, oy + 128, 256, 128);
-  // grid: 5 cols x 8 rows, pane 36x22, 4px side gap, 8px row gap so the
-  // 6px sill fits inside the gap without touching the next row.
+  // grid: 5 cols x 8 rows, pane 36x22, gaps so the sill fits.
   const cols = 5, rows = 8;
   const pw = 36, ph = 22, gx = 4, gy = 8;
   const x0 = ox + 30, y0 = oy + 12;
@@ -154,8 +151,7 @@ export function applyFacadeUVs(geometry, cell, w, h, d) {
 }
 
 // ---------------------------------------------------------------------------
-// 2. Sign system. 12 names (first word x surname), 4 build-first colours,
-//    unlit so they read at dusk. Cached by text+colour.
+// 2. Sign system: 12 names, unlit so they read at dusk.
 // ---------------------------------------------------------------------------
 export const SIGN_NAMES = [
   'HOTEL', 'CAFE', 'BODEGA', 'MARINE',
@@ -175,10 +171,8 @@ export function makeV31Sign(text, bg, fg = '#FFFFFF', w = 10, h = 2.5) {
     ctx.fillStyle = bg;
     ctx.fillRect(0, 0, 512, 128);
     ctx.fillStyle = fg;
-    // bold condensed sans, all caps, 5% letter spacing. v32: auto-fit —
-    // shrink the font until the whole word fits the 512px panel (the
-    // headless shell falls back to a wider font than Arial Narrow, so
-    // long names like BODEGA LA OLA were clipped to fragments).
+    // bold condensed sans, all caps. v32: auto-fit — shrink the font
+    // until the whole word fits the 512px panel.
     const chars = [...text];
     let size = 58;
     let widths = [];
@@ -262,8 +256,7 @@ export function addAOSkirt(parent, x, z, w, d, opacity = 0.25) {
 }
 
 // ---------------------------------------------------------------------------
-// 5. Skyline + sky. Dithered gradient dome (no banding), sun billboard,
-//    sea gradient, hill ridges, far skyline boxes sharing 4 baked textures.
+// 5. Skyline + sky. Dithered gradient dome, sun, sea, hills, skyline.
 // ---------------------------------------------------------------------------
 export function makeSkyDome() {
   const canvas = document.createElement('canvas');
@@ -277,15 +270,13 @@ export function makeSkyDome() {
   for (const [p, c] of stops) gr.addColorStop(p, c);
   ctx.fillStyle = gr;
   ctx.fillRect(0, 0, 1024, 1024);
-  // v33: 1% dither noise (was 5%) — 5% read as mottled static at 100%
-  // in all four skies; 2% still showed. 1% is the floor that still
-  // breaks the horizontal banding (periodic 64px tile).
+  // v35: 0.6% dither — 1% still grained in the purple sky at this res.
   const img = ctx.getImageData(0, 0, 1024, 1024);
   const data = img.data;
   for (let y = 0; y < 1024; y += 1) {
     for (let x = 0; x < 1024; x += 1) {
       const i = (y * 1024 + x) * 4;
-      const n = (hash01((x & 63) * 64 + (y & 63)) - 0.5) * 0.02 * 255;
+      const n = (hash01((x & 63) * 64 + (y & 63)) - 0.5) * 0.012 * 255;
       data[i] = Math.max(0, Math.min(255, data[i] + n));
       data[i + 1] = Math.max(0, Math.min(255, data[i + 1] + n));
       data[i + 2] = Math.max(0, Math.min(255, data[i + 2] + n));
@@ -493,12 +484,12 @@ export function makeTrafficLightV31(initialState = 'R', phase = 0) {
   arm.rotation.x = PI / 2;
   arm.position.set(0, 5.4, 1.8);
   g.add(arm);
-  const housing = new ME(new BX(0.9, 2.3, 0.3), new MS({ color: 0x1a1a1a, roughness: 0.6 }));
+  const housing = new ME(new BX(0.9, 2.3, 0.3), new MS({ color: 0x4a0f0a, roughness: 0.6 }));
   housing.position.set(0, 4.9, 3.6);
   g.add(housing);
   const lamps = [];
   for (let i = 0; i < 3; i += 1) {
-    const mat = new MS({ color: 0x111111, roughness: 0.4, emissive: 0x000000, emissiveIntensity: 0 });
+    const mat = new MS({ color: 0x330a06, roughness: 0.4, emissive: 0x000000, emissiveIntensity: 0 });
     // v33: ONE sphere per lamp, centred in the housing — the lit lamp
     // reads from ANY angle. Flat discs were edge-on/invisible sideways.
     const lamp = new ME(new SG(0.4, 12, 10), mat);
@@ -506,6 +497,11 @@ export function makeTrafficLightV31(initialState = 'R', phase = 0) {
     g.add(lamp);
     lamps.push(mat);
   }
+  // v35: one red halo on the lit lamp — the sphere alone blew out to
+  // peach at intensity 3 and read as a pale ball, not a red light.
+  const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: beamGlowTexture(), transparent: true, opacity: 0.55, blending: AB, depthWrite: false }));
+  glow.scale.set(1.8, 1.8, 1);
+  g.add(glow);
   function setState(s) {
     // s: 'R' (lamp 0), 'Y' (lamp 1), 'G' (lamp 2). Exactly one on.
     const on = s === 'G' ? 2 : s === 'Y' ? 1 : 0;
@@ -514,13 +510,15 @@ export function makeTrafficLightV31(initialState = 'R', phase = 0) {
       if (i === on) {
         m.color.setHex(LIGHT_COLORS[i]);
         m.emissive.setHex(LIGHT_COLORS[i]);
-        m.emissiveIntensity = 3;
+        m.emissiveIntensity = 1.2;
       } else {
-        m.color.setHex(0x111111);
+        m.color.setHex(0x330a06);
         m.emissive.setHex(0x000000);
         m.emissiveIntensity = 0;
       }
     }
+    glow.position.set(0, 5.7 - on * 0.8, 3.6);
+    glow.material.color.setHex(LIGHT_COLORS[on]);
     g.userData.state = s;
   }
   g.userData.lamps = lamps;

@@ -87,8 +87,8 @@ export function createCarMesh(color, kind = 'sedan') {
     // roof panel; lighter side glass so the cabin reads as glass, not black.
     B(len * 0.5, bodyH * 0.9, 2, VM(0x1a3a8f,0.4), 0, 0.55, 0);
     for (const side of [-1, 1]) B(1.6, 0.45, 0.04, VM(0x5a7a9a, 0.25), -0.2, 1.15, side * 0.87);
-    const lightR = B(0.3, 0.2, 0.55, VM(0xff2222,1,0xaa0000), -0.1, 1.63, 0.3);
-    const lightB = B(0.3, 0.2, 0.55, VM(0x2244ff,1,0x0000aa), -0.1, 1.63, -0.3);
+    const lightR = B(0.3, 0.2, 0.55, VM(0xff2222,1,0xaa0000), -0.1, 1.58, 0.3);
+    const lightB = B(0.3, 0.2, 0.55, VM(0x2244ff,1,0x0000aa), -0.1, 1.58, -0.3);
     group.userData.lightR = lightR;
     group.userData.lightB = lightB;
   }

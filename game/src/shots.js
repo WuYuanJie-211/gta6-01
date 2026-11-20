@@ -85,7 +85,11 @@ function stageChase(game) {
   driveFor(game, 1.5, (g) => steerCarToward(g, 243, -270));
   const vx = game.player.car.pos.x;
   const vz = game.player.car.pos.z;
-  place(van, vx + 1.2, vz + 14, -PI / 2);
+  // v35: angle the van ~31 deg (was dead-on -PI/2) so the camera sees
+  // a front three-quarter — windshield + grille + headlights read as a
+  // FRONT, not a flat rear panel. Camera is fixed (angle -0.1), so only
+  // the van turns; the chase stays readable.
+  place(van, vx + 1.2, vz + 14, -PI / 2 + 0.55);
   const c1 = pc(game, vx - 4.5, vz + 6, -PI / 2, 24);
   const c2 = pc(game, vx + 8, vz + 10, -PI / 2, 24);
   for (const c of [c1, c2]) {
@@ -114,13 +118,16 @@ function stageChase(game) {
     heli.scale.setScalar(1.5);
     heli.rotation.y = 0.4;
     heli.children[0].material.color.set(0x2a2f36);
-    // v32: brighter soft shaft (the old 0.05/0.3 read as almost nothing
-    // once the cone became a sprite — a searchlight must be visible).
-    beam(game, new V3(vx - 4, 11.15, vz - 24), new V3(vx + 1.2, 2.4, vz + 14), .3, 2.4, .18);
-    beam(game, new V3(vx - 4, 11.15, vz - 24), new V3(vx + 1.2, 2.4, vz + 14), .15, .6, .45);
+    // v35: no cone beam — the two soft-beam sprites read as a hard
+    // triangle (bright core + point at the heli). One faint wide glow
+    // only: a soft shaft with no core and no straight edge.
+    const bg = new THREE.Sprite(new THREE.SpriteMaterial({ map: game.textures.pool, transparent: true, opacity: 0.14, blending: AB, depthWrite: false }));
+    bg.position.set(vx - 1.4, 6.8, vz - 5);
+    bg.scale.set(5, 9, 1);
+    game.scene.add(bg);
     const rp=pool(game,vx+1.2,vz+14,1,.6,2.45);if(rp)rp.scale.set(1,.6,1);
     const st = new ME(new BX(1.4, .02, .9), new MB({ color: 0xe8f0ff, emissive: 0xe8f0ff, emissiveIntensity: 1 }));
-    st.position.set(vx + 1.2, 2.45, vz + 14); game.scene.add(st);
+    st.position.set(vx + 1.2, 2.45, vz + 14); st.rotation.y = -PI / 2 + 0.55; game.scene.add(st);
     const rl = new THREE.PointLight(0xffd9a0, 1.4, 3.5); rl.position.set(vx + 1.2, 3.2, vz + 14); game.scene.add(rl);
   }
   const dk=new ME(new PG(18,70),new MB({color:0,transparent:true,opacity:.2,depthWrite:false}));dk.rotation.x=-PI/2;dk.position.set(vx,.06,vz-10);game.scene.add(dk);
@@ -160,7 +167,10 @@ function stageGunfight(game) {
   const th = game.combat.spawnThug(-172.3, 191.2);
   th.mesh.rotation.x = .3;
   th.mesh.scale.y = .85;
-  for (const e of game.combat.enemies) e.mesh.children[8].visible = e.mesh.children[9].visible = false;
+  // v35: hide the gunmen's rifles (children 12-14) — the barrel crossed
+  // the duellist's torso and read as passing through him. The tracer +
+  // muzzle flash carry the shooting; the duellist is the target.
+  for (const e of game.combat.enemies) { e.mesh.children[8].visible = e.mesh.children[9].visible = false; if (e.kind === 'gunman') for (const i of [12, 13, 14]) e.mesh.children[i].visible = false; }
   game.police.state.wanted = 4;
   camB(game);
   game.camDist = 2.8;
@@ -174,7 +184,7 @@ function stageGunfight(game) {
   const fl = new THREE.PointLight(0xffa040, 2.5, 9);
   fl.position.set(-178.4, 1.6, 194);
   game.scene.add(fl);
-  pool(game, -178.4, 194, 2.2, 0.5);
+  pool(game, -178.4, 194, 2.2, 0.3);
   for (const c of game.police.state.cars) place(c, 0, 300, 0);
 }
 function stageDowntown(game) {
@@ -256,11 +266,10 @@ function stageSunset(game) {
   const r = game.combat.spawnGunman(243, -180);
   r.mesh.children[8].visible = r.mesh.children[9].visible = false;
   r.mesh.rotation.y = -PI / 2;
-  // v34: the gunman's own blob is hidden under his body from this angle;
-  // a second, darker blob offset toward the camera reads as a cast shadow.
-  if (game.textures.shadow) { const s = new ME(new PG(1.8, 1.2), SH(game.textures.shadow, .8)); s.rotation.x = -PI / 2; s.position.set(243.6, .1, -180); game.scene.add(s); }
-  const b = new ME(new BX(.45, .4, .2), new MB({ color: 0x1f2a1a }));
-  b.position.set(-.42, .85, -.45); r.mesh.add(b);
+  // v35: the gunman's own blob hides under his body; a bigger, darker
+  // blob offset SOUTH (toward the camera) lands on the crosswalk in
+  // front of his feet. The green hip panel is gone (it read as a board).
+  if (game.textures.shadow) { const s = new ME(new PG(2.4, 2.2), SH(game.textures.shadow, .9)); s.rotation.x = -PI / 2; s.position.set(243, .09, -179.3); game.scene.add(s); }
   const p = game.player;
   p.pos.set(243, 0, -180);
   p.heading = PI;
