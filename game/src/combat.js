@@ -83,7 +83,7 @@ export function createCombat(game) {
     const side = new V3(Math.cos(heading), 0, -Math.sin(heading));
     addPart(casing, new V3(pos.x + side.x * 0.4, 1.1, pos.z + side.z * 0.4), new V3(side.x * 1.5, 2.2, side.z * 1.5), EFFECTS.ca, 0, 12);
   }
-  function spawnSparks(pos, color = 0xffcc44, n = 6) {
+  function spawnSparks(pos, color = 0xffcc44, n = 4) {
     for (let i = 0; i < n; i += 1) {
       const spark = new ME(
         new BX(0.12, 0.12, 0.12),
@@ -250,7 +250,7 @@ export function createCombat(game) {
       }
     }
     const tg = bestEnemy || bestCar;
-    const end = tg ? new V3(tg.pos.x, 1.2, tg.pos.z) : new V3(player.pos.x + fx * bestDist, 1.2, player.pos.z + fz * bestDist);
+    const end=game.aim||(tg?new V3(tg.pos.x,1.2,tg.pos.z):new V3(player.pos.x+fx*bestDist,1.2,player.pos.z+fz*bestDist));
     const tf = player.weapon === 'rifle' && rf ? rf.localToWorld(new V3(0, .02, -.2)) : muzzle;
     spawnTracer(tf, end, game.player.weapon === 'rifle' ? 0xff9500 : 0xffe14d);
     spawnFlash(muzzle);

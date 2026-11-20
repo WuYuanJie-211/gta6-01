@@ -133,8 +133,9 @@ function stageGunfight(game) {
   player.mesh.scale.y = 0.85;
   const rifle = player.mesh.userData.rifle;
   rifle.position.set(0.15, 1.62, 0.75);
-  rifle.rotation.set(-0.12, -0.051, 0);
+  rifle.rotation.set(-0.12, 0.6, 0);
   rifle.scale.setScalar(1.4);
+  game.aim=new V3(-166.2,1.5,204);
   if (game.textures.shadow) { const s = new ME(new PG(.9,.5), SH(game.textures.shadow,.5)); s.rotation.x = -PI / 2; s.position.set(-178.86, .1, 192.93); game.scene.add(s); }
   const barrier = new ME(new BX(3, 0.65, 0.7), new MS({ map: game.textures.concrete, roughness: 0.9 }));
   barrier.position.set(-179.3, 0.325, 194.1);
