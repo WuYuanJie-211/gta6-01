@@ -143,9 +143,9 @@ function stageGunfight(game) {
   game.scene.add(barrier);
   for(const wy of[4.45,11.45]){const w=new ME(new BX(13,1.4,.1),new MB({color:0x2c3e50}));w.position.set(-151.7,wy,201.6);game.scene.add(w);}
   game.combat.spawnGunman(-178.1,196.1).mesh.scale.setScalar(1.15);
-  const g2 = game.combat.spawnGunman(-174.8, 198.5);
+  const g2 = game.combat.spawnGunman(-173.2, 194.7);
   g2.mesh.rotation.y = .6;
-  const th = game.combat.spawnThug(-173.6, 198.5);
+  const th = game.combat.spawnThug(-172.3, 194.9);
   th.mesh.rotation.x = .3;
   th.mesh.scale.y = .85;
   for (const e of game.combat.enemies) e.mesh.children[8].visible = e.mesh.children[9].visible = false;

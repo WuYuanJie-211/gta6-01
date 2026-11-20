@@ -251,7 +251,7 @@ export function createCombat(game) {
     }
     const tg = bestEnemy || bestCar;
     const end=game.aim||(tg?new V3(tg.pos.x,1.2,tg.pos.z):new V3(player.pos.x+fx*bestDist,1.2,player.pos.z+fz*bestDist));
-    const tf = player.weapon === 'rifle' && rf ? rf.localToWorld(new V3(0, .02, -.2)) : muzzle;
+    const tf = player.weapon === 'rifle' && rf ? rf.localToWorld(new V3(0, .02, .93)) : muzzle;
     spawnTracer(tf, end, game.player.weapon === 'rifle' ? 0xff9500 : 0xffe14d);
     spawnFlash(muzzle);
     spawnCasing(player.pos, player.heading);
