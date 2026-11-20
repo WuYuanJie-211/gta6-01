@@ -52,7 +52,7 @@ export async function loadCityTextures() {
     ['glassDark', '#3a5a7a'], ['brickBrown', '#7a4a34'], ['plaster', '#e8dcc8'], ['metal', '#8a6a58'],
     ['awning', '#c0392b'], ['signTaxi', '#111111'], ['sign24h', '#111111'],
     ['signHotel', '#111111'], ['signBar', '#111111'], ['signPizza', '#111111'], ['signAuto', '#111111'],
-    ['sunsetSky', '#ff8844'], ['neonSign', '#ff2d95'],
+    ['sunsetSky', '#ff8844'], ['neonSign', '#ff2d95'], ['pool', '#ffffff'], ['skid', '#222222'], ['shadow', '#000000'],
   ];
   await Promise.all(jobs.map(async ([key, hex]) => {
     try {
