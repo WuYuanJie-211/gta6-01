@@ -26,8 +26,11 @@ export function createCarMesh(color, kind = 'sedan') {
       group.add(stack);
     }
     if (kind === 'van' || kind === 'armored') {
-      B(0.08, 0.16, 1.9, VM(0xff2222,1,0x660000), -len / 2 - 0.02, 0.9, 0);
-      B(0.06, 0.5, 1.7, glass, -len / 2 - 0.03, bodyH - 0.1, 0);
+      B(0.08, 0.28, 1.9, VM(0xff2222,1,0x660000), -len / 2 - 0.02, 0.9, 0);
+      B(0.06, 0.8, 1.9, glass, -len / 2 - 0.03, bodyH - 0.1, 0);
+      // v33: side windows — the van read as a flat dark box with two
+      // small yellow squares and no readable glass from the side.
+      for (const side of [-1, 1]) B(len * 0.5, 0.55, 0.06, glass, -0.2, 1.55, side * 1.06);
       for (const sz of [-0.6, 0.6]) B(0.05, bodyH * 0.7, 0.06, VM(0x1a1a1a,0.6), -len / 2 - 0.04, 0.5 + bodyH / 2, sz);
     }
     if (kind === 'bus') {
@@ -76,11 +79,14 @@ export function createCarMesh(color, kind = 'sedan') {
     }
   }
   if (kind === 'police') {
-    B(len, bodyH, 2, new MS({ color: 0xf2f2f2, roughness: 0.4, metalness: 0.3 }), 0, 0.55, 0, true);
+    // v33: the extra white box (same size as the body) swallowed the
+    // glass cabin, so the cruiser read as a white slab; the body is
+    // already white. Keep the blue stripe; silver base + lower lights
+    // so the lightbar reads as attached to the roof, not floating.
     B(len * 0.5, bodyH * 0.9, 2.02, VM(0x1a3a8f,0.4), 0, 0.55, 0);
-    B(0.7, 0.18, 1.2, VM(0x222222,0.5), -0.1, 1.6, 0);
-    const lightR = B(0.3, 0.2, 0.55, VM(0xff2222,1,0xaa0000), -0.1, 1.72, 0.3);
-    const lightB = B(0.3, 0.2, 0.55, VM(0x2244ff,1,0x0000aa), -0.1, 1.72, -0.3);
+    B(0.7, 0.18, 1.2, VM(0x888888,0.5), -0.1, 1.6, 0);
+    const lightR = B(0.3, 0.2, 0.55, VM(0xff2222,1,0xaa0000), -0.1, 1.68, 0.3);
+    const lightB = B(0.3, 0.2, 0.55, VM(0x2244ff,1,0x0000aa), -0.1, 1.68, -0.3);
     group.userData.lightR = lightR;
     group.userData.lightB = lightB;
   }

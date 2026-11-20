@@ -40,8 +40,6 @@ class Game {
     // the old linear pipeline clamped to pure white (the "480p" washout).
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
-    this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.textures = textures;
     this.scene = new THREE.Scene();
     // v31: dithered sunset-gradient sky dome (no banding) replaces the flat
@@ -56,15 +54,10 @@ class Game {
     this.scene.fog = new THREE.Fog(0xD9A06B, 300, 900);
     this.camera = new THREE.PerspectiveCamera(60, 1, 0.1, 1500);
     const sun = new THREE.DirectionalLight(0xffd9a0, 3.0);
-    sun.castShadow = true;
-    sun.shadow.mapSize.set(2048, 2048);
-    sun.shadow.camera.left = -25;
-    sun.shadow.camera.right = 25;
-    sun.shadow.camera.top = 25;
-    sun.shadow.camera.bottom = -25;
-    sun.shadow.camera.far = 400;
+    // v33: shadow map OFF — it cast hard shadow triangles on facades.
+    // Blob shadows are the contact shadows now.
     this.scene.add(sun);
-    this.scene.add(new THREE.HemisphereLight(0xffe0b8, 0x8a7a5a, 0.6));
+    this.scene.add(new THREE.HemisphereLight(0xffe0b8, 0x8a7a5a, 0.9));
     this.sun = sun;
     this.roads = buildRoads();
     this.city = buildCity(this.scene, this.rng, textures);

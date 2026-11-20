@@ -250,7 +250,7 @@ export function blobShadowTexture() {
   return _blobTex;
 }
 
-export function addBlobShadow(parent, x, z, w, d, opacity = 0.55, y = 0.01) {
+export function addBlobShadow(parent, x, z, w, d, opacity = 0.55, y = 0.08) {
   const tex = blobShadowTexture();
   const m = new ME(
     new PG(w * 1.3, d * 1.3),
@@ -290,16 +290,15 @@ export function makeSkyDome() {
   for (const [p, c] of stops) gr.addColorStop(p, c);
   ctx.fillStyle = gr;
   ctx.fillRect(0, 0, 1024, 1024);
-  // v32: 5% dither noise on a 64px tile (1024/64 = 16, so it wraps
-  // seamlessly — the old per-pixel hash was not periodic in x, which left
-  // a darker vertical band at the sphere's UV seam, and 2% was too weak
-  // to break the horizontal banding).
+  // v33: 1% dither noise (was 5%) — 5% read as mottled static at 100%
+  // in all four skies; 2% still showed. 1% is the floor that still
+  // breaks the horizontal banding (periodic 64px tile).
   const img = ctx.getImageData(0, 0, 1024, 1024);
   const data = img.data;
   for (let y = 0; y < 1024; y += 1) {
     for (let x = 0; x < 1024; x += 1) {
       const i = (y * 1024 + x) * 4;
-      const n = (hash01((x & 63) * 64 + (y & 63)) - 0.5) * 0.1 * 255;
+      const n = (hash01((x & 63) * 64 + (y & 63)) - 0.5) * 0.02 * 255;
       data[i] = Math.max(0, Math.min(255, data[i] + n));
       data[i + 1] = Math.max(0, Math.min(255, data[i + 1] + n));
       data[i + 2] = Math.max(0, Math.min(255, data[i + 2] + n));
@@ -436,6 +435,9 @@ export function frondTexture() {
   ctx.lineTo(64, 10);
   ctx.stroke();
   _frondTex = new CT(canvas);
+  // v33: sRGB so the fronds render green, not the teal the linear
+  // interpretation produced under the sunset light.
+  _frondTex.colorSpace = SC;
   return _frondTex;
 }
 
@@ -473,13 +475,13 @@ export function makeRoadMarkingTexture() {
   canvas.height = 64;
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, 256, 64);
-  // v32: muted paint colours (the old full-bright #E8C547/#F2F2F2 blew out
-  // to flat white under the 3.0 sun with no tone mapping).
-  ctx.fillStyle = '#B8932A';
+  // v33: darker, less saturated paint (the old #B8932A/#C8C8C8 still blew
+  // out to near-white under the 3.0 sun and read as light shafts).
+  ctx.fillStyle = '#6b5316';
   ctx.fillRect(0, 26, 256, 4);
   ctx.fillRect(0, 34, 256, 4);
   // white lane dashes: 2m on / 2m off (half the tile is dash)
-  ctx.fillStyle = '#C8C8C8';
+  ctx.fillStyle = '#8f8f8f';
   ctx.fillRect(0, 8, 128, 3);
   ctx.fillRect(0, 53, 128, 3);
   const tex = new CT(canvas);
@@ -510,21 +512,11 @@ export function makeTrafficLightV31(initialState = 'R', phase = 0) {
   const lamps = [];
   for (let i = 0; i < 3; i += 1) {
     const mat = new MS({ color: 0x111111, roughness: 0.4, emissive: 0x000000, emissiveIntensity: 0 });
-    // v32: a lamp on the front AND back face sharing the one material, so
-    // exactly one lamp is lit from either side. (Four faces showed the
-    // same lamp as two orbs from a diagonal — it read as two lamps lit.)
-    // v32c: lamps are flat DISCS (cylinder, axis along z) standing proud
-    // of the housing face — a protruding sphere on each face showed as
-    // two orbs from a side angle, and a flush box z-fought invisible.
-    // A 0.1-thick disc is edge-on (invisible) from the side, so exactly
-    // one lamp reads as lit from any direction. The hero-zone lights
-    // are rotated to face south-east (see city.js) so one face is
-    // visible from both the north and the west cameras.
-    for (const lz of [3.92, 3.28]) {
-      const lamp = new ME(new CG(0.3, 0.3, 0.1, 12).rotateX(PI / 2), mat);
-      lamp.position.set(0, 5.7 - i * 0.8, lz);
-      g.add(lamp);
-    }
+    // v33: ONE sphere per lamp, centred in the housing — the lit lamp
+    // reads from ANY angle. Flat discs were edge-on/invisible sideways.
+    const lamp = new ME(new SG(0.32, 12, 10), mat);
+    lamp.position.set(0, 5.7 - i * 0.8, 3.6);
+    g.add(lamp);
     lamps.push(mat);
   }
   function setState(s) {

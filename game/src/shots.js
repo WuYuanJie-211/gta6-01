@@ -94,23 +94,27 @@ function stageChase(game) {
       c.mesh.userData.lightB.material.emissive.setHex(0x0000ff);
     }
   }
-  game.cameraAngle = 0;
+  // v33: pan slightly east so the BODEGA / SUITES signs (cut by the
+  // right frame edge in v32) read whole.
+  game.cameraAngle = -0.1;
   game.camDist = 7.5;
   game.camPitch = 0.09;
   game.camLookOff = 1.5;
-  game.camX = -2.2;
+  game.camX = 0;
   game.lastDragAt = game.time;
   const heli = game.police.heli;
   if (heli) {
     heli.visible = true;
-    heli.position.set(vx + 8, 14, vz - 24);
+    // v33: over the road (x=vx-4 ~ 240) and lower (12m) — the old
+    // (vx+8,14) sat against a building silhouette at ~x700.
+    heli.position.set(vx - 4, 12, vz - 24);
     heli.scale.setScalar(1.5);
     heli.rotation.y = 0.4;
     heli.children[0].material.color.set(0x2a2f36);
     // v32: brighter soft shaft (the old 0.05/0.3 read as almost nothing
     // once the cone became a sprite — a searchlight must be visible).
-    beam(game, new V3(vx + 8, 13.15, vz - 24), new V3(vx + 1.2, 2.4, vz + 14), .3, 2.4, .18);
-    beam(game, new V3(vx + 8, 13.15, vz - 24), new V3(vx + 1.2, 2.4, vz + 14), .15, .6, .45);
+    beam(game, new V3(vx - 4, 11.15, vz - 24), new V3(vx + 1.2, 2.4, vz + 14), .3, 2.4, .18);
+    beam(game, new V3(vx - 4, 11.15, vz - 24), new V3(vx + 1.2, 2.4, vz + 14), .15, .6, .45);
     const rp=pool(game,vx+1.2,vz+14,1,.6,2.45);if(rp)rp.scale.set(1,.6,1);
     const st = new ME(new BX(1.4, .02, .9), new MB({ color: 0xe8f0ff, emissive: 0xe8f0ff, emissiveIntensity: 1 }));
     st.position.set(vx + 1.2, 2.45, vz + 14); game.scene.add(st);
@@ -272,11 +276,9 @@ function stageSunset(game) {
   const heli = game.police.heli;
   if (heli) {
     heli.visible = true;
-    // v32: over the cross-street intersection, far west (31m) and high
-    // (15m) so it reads as a distant helicopter in open sky, not a looming
-    // rotor across a building face (the old 243,12,-194) nor out of frame
-    // (243,18,-180) nor looming (228,13,-180).
-    heli.position.set(220, 15, -180);
+    // v33: lower (10.5m, was 15m) so the rotor sits fully inside the
+    // frame — the old height cropped it at the top edge.
+    heli.position.set(220, 10.5, -180);
     heli.scale.setScalar(1.4);
     heli.rotation.y = 0.5;
     heli.children[0].material.color.set(0x2a2f36);
@@ -294,12 +296,19 @@ function stageSunset(game) {
   pool(game, 243, -172, 3, 0.55);
   game.cameraAngle = PI / 2;
   game.lastDragAt = game.time;
-  game.camDist = 8;
-  game.camPitch = 0.12;
+  // v33: closer + higher (was 8 / 0.12) — the rail moved to the west
+  // curb, and this framing keeps the gunman's feet and the ground in
+  // view instead of foreground sidewalk.
+  game.camDist = 7;
+  game.camPitch = 0.16;
 }
 export const SHOT_ORDER = ['chase', 'gunfight', 'downtown', 'sunset'];
 export function stageShot(name, game) {
   if (!SHOT_ORDER.includes(name)) name = 'downtown';
+  // v33: clock per shot — shots 1-3 are magenta dusk (17:31), shot 4 is
+  // orange sunset, later (18:12). One clock for two skies was the
+  // inconsistency.
+  game.shotClockMin = name === 'sunset' ? 18 * 60 + 12 : 17 * 60 + 31;
   game.screen = 'playing';
   game.camX = 0;
   game.hud.showMenu(false);

@@ -368,11 +368,12 @@ export function buildCity(scene, rng, tx = {}) {
   };
   for(let x=-330;x<330;x+=60)if(x!==240&&x!==180)rail(x+14,-180,x+30,-180);
   // v31 defect (d): the x=240 rail ran down the MIDDLE of the road the
-  // chase van drives (x=243), a plank across shot 1. Moved to the east
-  // curb (x=246.5), out of the driving lane and out of the shot's centre.
-  for(let z=-330;z<240;z+=60)rail(246.5,z+14,246.5,z+30);
+  // chase van drives (x=243), a plank across shot 1.
+  // v33: the east-curb rail sat 4.4m in front of the shot-4 camera and
+  // filled its bottom quarter — moved to the WEST curb (x=233.5).
+  for(let z=-330;z<240;z+=60)rail(233.5,z+14,233.5,z+30);
   for(let x=-330;x<330;x+=60)if(x!==240&&x!==180){col.push({minX:x+14,maxX:x+23,minZ:-180.3,maxZ:-179.7});col.push({minX:x+23,maxX:x+30,minZ:-180.3,maxZ:-179.7});}
-  for(let z=-330;z<240;z+=60){col.push({minX:246.2,maxX:246.8,minZ:z+14,maxZ:z+23});col.push({minX:246.2,maxX:246.8,minZ:z+23,maxZ:z+30});}
+  for(let z=-330;z<240;z+=60){col.push({minX:233.2,maxX:233.8,minZ:z+14,maxZ:z+23});col.push({minX:233.2,maxX:233.8,minZ:z+23,maxZ:z+30});}
   for(const [hx,hz] of [[120,-183],[180,-177],[237,-90],[0,-30],[60,-183],[243,30],[-60,-177],[300,-183]]){
     const hole=new ME(new CG(0.55,0.55,0.06,12),M(0x222222,0.9));
     hole.position.set(hx,0.09,hz);scene.add(hole);
@@ -644,9 +645,11 @@ export function buildCity(scene, rng, tx = {}) {
   }
   // ---- v31: hero-zone dressing, signs, far skyline ----
   // 8 v31 palms (frond planes) along the hero-zone sidewalks.
+  // v33: the (247.5,-175) palm stood in front of the BODEGA sign in
+  // shot 1 and its trunk hid the "BO" — moved north to -158.
   const heroPalmSpots = [
     [232.5, -195], [247.5, -195], [232.5, -185], [247.5, -185],
-    [232.5, -175], [247.5, -175], [232.5, -165], [247.5, -165],
+    [232.5, -175], [247.5, -158], [232.5, -165], [247.5, -165],
   ];
   for (const [px, pz] of heroPalmSpots) {
     const palm = makeV31Palm();
@@ -654,7 +657,9 @@ export function buildCity(scene, rng, tx = {}) {
     scene.add(palm);
   }
   // 4 streetlights in the hero zone.
-  for (const [lx, lz] of [[232.5, -190], [247.5, -190], [232.5, -170], [247.5, -170]]) {
+  // v33: the (232.5,-170) lamp stood on the shot-4 sightline to the
+  // AUTO DEALER sign and its pole hid the "D" — moved to -160.
+  for (const [lx, lz] of [[232.5, -190], [247.5, -190], [232.5, -160], [247.5, -170]]) {
     const lamp = makeLamp();
     lamp.position.set(lx, 0, lz);
     scene.add(lamp);
@@ -669,17 +674,19 @@ export function buildCity(scene, rng, tx = {}) {
   heroTowers.forEach((t, i) => {
     const name = SIGN_NAMES[i % SIGN_NAMES.length];
     const bg = SIGN_COLORS[i % SIGN_COLORS.length];
-    // v32: ALL 12 on the SOUTH face (the face the north-looking shot
-    // cameras see head-on), at y=7.0 — above the 5m palms, so no frond
-    // occludes the word. The old "face toward the centre" put most
-    // signs on side faces (edge-on, foreshortened to fragments), and
-    // y=5.0 sat at palm height.
+    // v33: HALF the signs on the EAST face, half on the SOUTH face.
+    // All-south read only in the north-looking shots (1,2); the
+    // west-looking shots (3,4) saw them edge-on. East faces read
+    // head-on from the west cameras.
     const signW = Math.min(14, t.w * 0.8);
     const sign = makeV31Sign(name, bg, '#FFFFFF', signW, signW * 0.25);
-    // podium south face: (d + 1.5) / 2 + 0.15 out
-    const faceDist = (t.d + 1.5) / 2 + 0.15;
-    sign.position.set(t.x, 7.0, t.z + faceDist);
-    sign.rotation.y = 0;
+    if (i % 2) {
+      sign.position.set(t.x + (t.w + 1.5) / 2 + 0.15, 7.0, t.z);
+      sign.rotation.y = PI / 2;
+    } else {
+      sign.position.set(t.x, 7.0, t.z + (t.d + 1.5) / 2 + 0.15);
+      sign.rotation.y = 0;
+    }
     scene.add(sign);
   });
   // Far skyline: 24 boxes at 450-550m sharing 4 baked facade cells.
@@ -758,11 +765,15 @@ export function buildCity(scene, rng, tx = {}) {
     scene.add(cap);
     col.push({ minX: -227, maxX: -205, minZ: -227, maxZ: -205 });
   }
+  let shopCell = 12;
   function shopFront(bx, bz, w, h, d, color, signText, signFg, signBg) {
-    const shop = new ME(
-      new BX(w, h, d),
-      SM({ color, roughness: 0.9 }),
-    );
+    const sg = new BX(w, h, d);
+    // v33: facade-atlas storefront cell instead of a flat colour — the
+    // flat 0x4a6a8a dealer box read as one untextured grey slab. h=20 so
+    // the V spans the full storefront cell.
+    applyFacadeUVs(sg, shopCell, w, 20, d);
+    shopCell = shopCell === 15 ? 12 : shopCell + 1;
+    const shop = new ME(sg, facadeMat);
     shop.position.set(bx, h / 2, bz);
     shop.castShadow = true;
     shop.receiveShadow = true;
@@ -905,22 +916,10 @@ export function buildCity(scene, rng, tx = {}) {
     ridge.position.set(rx, 0, -640);
     scene.add(ridge);
   }
+  // v33: clouds REMOVED — the hard-edged white ellipsoids read as
+  // floating rocks under "no floating mesh". Sky dome + sun + far
+  // skyline carry the atmosphere now.
   const clouds = [];
-  for (let i = 0; i < 6; i += 1) {
-    const cloud = new GP();
-    for (let j = 0; j < 3; j += 1) {
-      const puff = new ME(
-        new SG(rng.range(6, 12), 8, 6),
-        SM({ color: 0xffffff, roughness: 1, transparent: true, opacity: 0.85 }),
-      );
-      puff.scale.y = 0.45;
-      puff.position.set(j * 8 - 8, rng.range(-1, 1), rng.range(-3, 3));
-      cloud.add(puff);
-    }
-    cloud.position.set(rng.range(-350, 350), rng.range(85, 120), rng.range(-350, 250));
-    scene.add(cloud);
-    clouds.push(cloud);
-  }
   return { colliders: col, landmarks, sea, boats, clouds, collectibleMeshes, trafficLights, towers };
 }
 export function resolveBuildingCollision(pos, radius, colliders) {

@@ -216,7 +216,10 @@ export function createHud(game) {
     const p = car ? car.pos : game.player.pos;
     // v31: clock (in-game time, starts 17:31) + street-name toast that
     // shows when the district changes and fades after 4s.
-    const totalMin = 17 * 60 + 31 + Math.floor(game.time / 60);
+    // v33: shot mode uses the per-shot base time set by stageShot
+    // (sunset is later than the dusk shots), so the clock matches the sky.
+    const base = game.shotClockMin != null ? game.shotClockMin : 17 * 60 + 31;
+    const totalMin = base + Math.floor(game.time / 60);
     const hh = String(Math.floor(totalMin / 60) % 24).padStart(2, '0');
     const mm = String(totalMin % 60).padStart(2, '0');
     clockText.textContent = `${hh}:${mm}`;

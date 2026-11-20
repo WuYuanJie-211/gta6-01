@@ -36,12 +36,14 @@ function createThugMesh() {
   group.userData.armL = armL;
   group.userData.armR = armR;
   if (shadowTex) {
-    const sh = new ME(new PG(.9,.5), SH(shadowTex,.5));
+    // v33: bigger + darker (was 0.9x0.5 @ 0.5 — invisible on the light
+    // pavement; the shot-2 figures read as floating with no shadow).
+    const sh = new ME(new PG(1.6, 1.1), SH(shadowTex, .65));
     sh.rotation.x = -PI / 2;
     sh.position.set(0, 0.1, 0);
     group.add(sh);
   } else {
-    B(group,0.9,.02,0.7,mt(0,1),0,.09,0);
+    B(group, 1.6, .02, 1.1, mt(0, 1), 0, .09, 0);
   }
   return group;
 }
