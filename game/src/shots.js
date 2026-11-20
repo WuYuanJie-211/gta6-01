@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import{BX,CG,MB,MS,ME,V3,PI,AB,PG,CT,DS,SH,CI}from'./geo.js';
+import{BX,CG,MB,MS,ME,V3,PI,AB,PG,CT,DS,SH,CI,SC}from'./geo.js';
 import { STEP } from './config.js';
 import { enterCar, spawnPoliceCar } from './vehicles.js';
 import { ACTION_SHOOT } from './input.js';
@@ -21,6 +21,50 @@ function beam(g,a,b,rt,rb,o){
   // v31 defect (c): the old 12-segment cone had hard triangle facets.
   // Soft beam: 32 segments + smooth gradient + halo cone (see v31.js).
   makeSoftBeam(g.scene, a, b, rt, rb, o);
+}
+// v37: soft ground blob — radial-gradient texture, feathered edge, value
+// matched to the cars' under-shadows (same texture, 0.65). y must clear
+// the zebra (0.09) / road (0.05): the v35 blob at 0.09 was coplanar with
+// the zebra and invisible; the v36 hard disc at 0.11 read as a black disc.
+function blob(g,x,z,w,d,o,y=.12){
+  if(!g.textures.shadow)return;
+  const s=new ME(new PG(w,d),SH(g.textures.shadow,o));
+  s.rotation.x=-PI/2;s.position.set(x,y,z);g.scene.add(s);return s;
+}
+// v37: windshield frame for EVERY van/armored of the model, not just the
+// hero van — the v36 plate went on the armored van only, so the other
+// vans still showed unframed black glass. Plain vans have no front glass
+// at all (flat body panel), so they get glass + frame; armored already
+// has the v34 glass, so it gets the frame only.
+function frameVan(m,kind){
+  const L=m.userData.bodyLen||5;
+  const y=kind==='armored'?1.85:1.6;
+  if(kind==='van'){
+    const gl=new ME(new BX(0.05,0.7,1.7),new MS({color:0x1a2a3a,roughness:0.2,metalness:0.6}));
+    gl.position.set(L/2+0.05,y,0);m.add(gl);
+  }
+  const wf=new ME(new BX(0.02,0.95,1.95),new MS({color:0xd8d8d8,roughness:0.5,metalness:0.3}));
+  wf.position.set(L/2+0.03,y,0);m.add(wf);
+}
+// v37: TAXI roof-sign text — canvas texture, dark letters on taxi yellow.
+function taxiTextTex(){
+  const c=document.createElement('canvas');c.width=256;c.height=64;
+  const x=c.getContext('2d');x.fillStyle='#ffe14d';x.fillRect(0,0,256,64);
+  x.fillStyle='#1a1a1a';x.font='800 44px system-ui,sans-serif';
+  x.textAlign='center';x.textBaseline='middle';x.fillText('TAXI',128,34);
+  const t=new CT(c);t.colorSpace=SC;return t;
+}
+// v37: rear-glass texture — vertical gradient + diagonal reflection
+// streak, so the taxi glass reads as glass, not a flat grey card.
+function glassTex(){
+  const c=document.createElement('canvas');c.width=128;c.height=64;
+  const x=c.getContext('2d');
+  const g=x.createLinearGradient(0,0,0,64);
+  g.addColorStop(0,'#9db8cc');g.addColorStop(.6,'#5a7a9a');g.addColorStop(1,'#3a5a7a');
+  x.fillStyle=g;x.fillRect(0,0,128,64);
+  x.fillStyle='rgba(255,255,255,0.35)';x.beginPath();
+  x.moveTo(20,64);x.lineTo(70,0);x.lineTo(95,0);x.lineTo(45,64);x.closePath();x.fill();
+  const t=new CT(c);t.colorSpace=SC;return t;
 }
 function steerCarToward(game, tx, tz) {
   const car = game.player.car;
@@ -90,11 +134,16 @@ function stageChase(game) {
   // FRONT, not a flat rear panel. Camera is fixed (angle -0.1), so only
   // the van turns; the chase stays readable.
   place(van, vx + 1.2, vz + 14, -PI / 2 + 0.55);
-  // v36: inset windshield frame — the dark glass reads as a flat black
-  // panel with no border. A light plate just behind the glass rims it.
-  const wf = new ME(new BX(0.02, 0.95, 1.95), new MS({ color: 0xd8d8d8, roughness: 0.5, metalness: 0.3 }));
-  wf.position.set(van.mesh.userData.bodyLen / 2 + 0.03, 1.85, 0);
-  van.mesh.add(wf);
+  // v37: frame EVERY van/armored in the scene (v36 framed the hero van
+  // only). Plain vans get front glass + frame; armored gets the frame.
+  for (const c of [...game.cars.parked, ...game.cars.traffic, game.player.car]) {
+    if (c && (c.model === 'van' || c.model === 'armored')) frameVan(c.mesh, c.model);
+  }
+  // v37: the blue compact parked at (240,-175) sits half-clipped at the
+  // left/bottom frame edge and reads as a background artefact (Superbot
+  // called it the leftmost cruiser). Move it out of the shot.
+  const edge = game.cars.parked.find((c) => c.pos.x === 240 && c.pos.z === -175);
+  if (edge) place(edge, 0, 300, 0);
   const c1 = pc(game, vx - 4.5, vz + 6, -PI / 2, 24);
   const c2 = pc(game, vx + 8, vz + 10, -PI / 2, 24);
   for (const c of [c1, c2]) {
@@ -192,6 +241,12 @@ function stageGunfight(game) {
   // the duellist's torso and read as passing through him. The tracer +
   // muzzle flash carry the shooting; the duellist is the target.
   for (const e of game.combat.enemies) { e.mesh.children[8].visible = e.mesh.children[9].visible = false; if (e.kind === 'gunman') for (const i of [12, 13, 14]) e.mesh.children[i].visible = false; }
+  // v37: ground shadows under the duellist + the two background figures —
+  // they stood on light pavement with nothing beneath them while the
+  // foreground player had a blob.
+  blob(game, -178.1, 191.5, 1.2, 0.9, 0.5, 0.1);
+  blob(game, -173.2, 191.0, 1.2, 0.9, 0.5, 0.1);
+  blob(game, -172.3, 191.2, 1.2, 0.9, 0.5, 0.1);
   game.police.state.wanted = 4;
   camB(game);
   game.camDist = 2.8;
@@ -213,6 +268,19 @@ function stageDowntown(game) {
   const taxi = game.cars.parked.find((c) => c.model === 'taxi') || game.cars.parked[0];
   place(taxi, 258, -183, PI);
   taxi.mesh.children.at(-1).position.x = .3;
+  // v37: TAXI roof-sign text + textured rear glass — the sign was a blank
+  // pale slab and the glass a flat grey card. Text plane on the sign's
+  // rear face (local -x, toward the camera); glass overlay just outside
+  // the rear window. Local rot -PI/2: the car itself is rotated PI, so
+  // the planes face the rear camera and read left-to-right.
+  const tsign = new ME(new PG(0.9, 0.25), new MB({ map: taxiTextTex() }));
+  tsign.rotation.y = -PI / 2;
+  tsign.position.set(-0.47, 1.65, 0);
+  taxi.mesh.add(tsign);
+  const rglass = new ME(new PG(1.5, 0.45), new MB({ map: glassTex() }));
+  rglass.rotation.y = -PI / 2;
+  rglass.position.set(-0.2 - taxi.mesh.userData.bodyLen * 0.45 / 2 - 0.08, 1.15, 0);
+  taxi.mesh.add(rglass);
   game.police.state.wanted = 4;
   taxi.speed = 0;
   enterCar(game, taxi);
@@ -255,6 +323,9 @@ function stageDowntown(game) {
     p.mesh.rotation.y = PI;
     p.mode = 'chat';
     p.waiting = false;
+    // v37: ground shadow under each walker — the far-left one (and the
+    // rest) stood with nothing beneath them.
+    blob(game, walkers[i][0], walkers[i][1], 1.0, 0.8, 0.5, 0.1);
   });
   camB(game);
   game.camDist = 5.5;
@@ -287,18 +358,12 @@ function stageSunset(game) {
   const r = game.combat.spawnGunman(243, -180);
   r.mesh.children[8].visible = r.mesh.children[9].visible = false;
   r.mesh.rotation.y = -PI / 2;
-  // v35: the gunman's own blob hides under his body; a bigger, darker
-  // blob offset SOUTH (toward the camera) lands on the crosswalk in
-  // front of his feet. The green hip panel is gone (it read as a board).
-  if (game.textures.shadow) { const s = new ME(new PG(2.4, 2.2), SH(game.textures.shadow, .9)); s.rotation.x = -PI / 2; s.position.set(243, .09, -179.3); game.scene.add(s); }
-  // v36: the soft blob is invisible on the dark asphalt (it only faintly
-  // greys the white dash). A hard-edged dark core ellipse on top reads
-  // as a contact shadow on both the dash and the asphalt.
-  const sh2 = new ME(new CI(1, 24), new MB({ color: 0x000000, transparent: true, opacity: 0.55, depthWrite: false }));
-  sh2.rotation.x = -PI / 2;
-  sh2.scale.set(1.5, 1.1, 1);
-  sh2.position.set(243.5, 0.11, -179.5);
-  game.scene.add(sh2);
+  // v37: ONE soft radial blob (same texture + value as the cars'
+  // under-shadows, 0.65) at y=0.12, above the zebra (0.09). Replaces the
+  // v35 blob (coplanar with the zebra, invisible) and the v36 hard disc
+  // (read as a black oil stain). Soft falloff, value matching the nearby
+  // asphalt shadow, not darker than the car's shadow.
+  blob(game, 243.5, -179.5, 2.8, 2.2, 0.65, 0.12);
   const p = game.player;
   p.pos.set(243, 0, -180);
   p.heading = PI;
@@ -322,9 +387,9 @@ function stageSunset(game) {
   const heli = game.police.heli;
   if (heli) {
     heli.visible = true;
-    // v33: lower (10.5m, was 15m) so the rotor sits fully inside the
-    // frame — the old height cropped it at the top edge.
-    heli.position.set(220, 10.5, -180);
+    // v37: lower (8.5m, was 10.5m) — the rotor disc ran off the top edge
+    // and read as a cropped object, not a helicopter in frame.
+    heli.position.set(220, 8.5, -180);
     heli.scale.setScalar(1.4);
     heli.rotation.y = 0.5;
     heli.children[0].material.color.set(0x2a2f36);

@@ -489,7 +489,10 @@ export function makeTrafficLightV31(initialState = 'R', phase = 0) {
   g.add(housing);
   const lamps = [];
   for (let i = 0; i < 3; i += 1) {
-    const mat = new MS({ color: 0x330a06, roughness: 0.4, emissive: 0x000000, emissiveIntensity: 0 });
+    // v37: unlit basic material — the lit lamp must read as a saturated
+    // red orb against ANY background. A lit standard material + additive
+    // halo washed to peach over the bright facade (v36).
+    const mat = new MB({ color: 0x330a06 });
     // v33: ONE sphere per lamp, centred in the housing — the lit lamp
     // reads from ANY angle. Flat discs were edge-on/invisible sideways.
     const lamp = new ME(new SG(0.4, 12, 10), mat);
@@ -497,24 +500,17 @@ export function makeTrafficLightV31(initialState = 'R', phase = 0) {
     g.add(lamp);
     lamps.push(mat);
   }
-  // v36: halo 3.2/0.8, forward of housing, lamp 1.8 — orb must read at range.
-  const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: beamGlowTexture(), transparent: true, opacity: 0.8, blending: AB, depthWrite: false }));
-  glow.scale.set(3.2, 3.2, 1);
+  // v37: halo 2.0/0.7, NORMAL blending — additive washed to peach over
+  // the bright facade; normal blending reads as a red ring. Smaller so
+  // the lamp sphere itself shows as the bright core.
+  const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: beamGlowTexture(), transparent: true, opacity: 0.7, depthWrite: false }));
+  glow.scale.set(2.0, 2.0, 1);
   g.add(glow);
   function setState(s) {
     // s: 'R' (lamp 0), 'Y' (lamp 1), 'G' (lamp 2). Exactly one on.
     const on = s === 'G' ? 2 : s === 'Y' ? 1 : 0;
     for (let i = 0; i < 3; i += 1) {
-      const m = lamps[i];
-      if (i === on) {
-        m.color.setHex(LIGHT_COLORS[i]);
-        m.emissive.setHex(LIGHT_COLORS[i]);
-        m.emissiveIntensity = 1.8;
-      } else {
-        m.color.setHex(0x330a06);
-        m.emissive.setHex(0x000000);
-        m.emissiveIntensity = 0;
-      }
+      lamps[i].color.setHex(i === on ? LIGHT_COLORS[i] : 0x330a06);
     }
     glow.position.set(0, 5.7 - on * 0.8, 3.9);
     glow.material.color.setHex(LIGHT_COLORS[on]);
