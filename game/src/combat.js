@@ -153,12 +153,12 @@ export function createCombat(game) {
   }
   function spawnTracer(from, to, color = 0xffe14d) {
     const dir = new V3().subVectors(to, from);
-    const len = Math.min(dir.length(), 3);
+    const len = dir.length();
     if (len < 0.1) return;
     dir.normalize();
-    for (let i = 0; i < 3; i++) {
-      const tracer = new ME(new BX(0.05, 0.05, len / 4), new MB({ color, transparent: true, opacity: 0.7 }));
-      tracer.position.copy(from).addScaledVector(dir, len * (i + 0.5) / 3);
+    for (let i = 0; i < 6; i++) {
+      const tracer = new ME(new BX(.07, .07, len / 6), new MB({ color, transparent: true, opacity: .9, blending: AB }));
+      tracer.position.copy(from).addScaledVector(dir, len * (i + .5) / 6);
       tracer.lookAt(to);
       game.scene.add(tracer);
       tracers.push({ mesh: tracer, life: 0.16 });
@@ -251,7 +251,8 @@ export function createCombat(game) {
     }
     const tg = bestEnemy || bestCar;
     const end = tg ? new V3(tg.pos.x, 1.2, tg.pos.z) : new V3(player.pos.x + fx * bestDist, 1.2, player.pos.z + fz * bestDist);
-    spawnTracer(muzzle, end, game.player.weapon === 'rifle' ? 0xff9500 : 0xffe14d);
+    const tf = player.weapon === 'rifle' && rf ? rf.localToWorld(new V3(0, .02, -.2)) : muzzle;
+    spawnTracer(tf, end, game.player.weapon === 'rifle' ? 0xff9500 : 0xffe14d);
     spawnFlash(muzzle);
     spawnCasing(player.pos, player.heading);
     game.hud.hitmark();
@@ -368,7 +369,7 @@ export function createCombat(game) {
     for (let i = tracers.length - 1; i >= 0; i -= 1) {
       const tracer = tracers[i];
       tracer.life -= dt;
-      tracer.mesh.material.opacity = Math.max(0, Math.min(1, tracer.life / 0.16)) * 0.7;
+      tracer.mesh.material.opacity = Math.max(0, Math.min(1, tracer.life / 0.16)) * .9;
       if (tracer.life <= 0) {
         game.scene.remove(tracer.mesh);
         tracers.splice(i, 1);
