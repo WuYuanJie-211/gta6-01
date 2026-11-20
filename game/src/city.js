@@ -321,7 +321,7 @@ export function buildCity(scene, rng, tx = {}) {
     );
     marking.rotation.x = -PI / 2;
     marking.rotation.z = PI / 2;
-    marking.position.set(line, 0.06, -60);
+    marking.position.set(line, 0.055, -60);
     scene.add(marking);
   }
   for (const line of CITY.roadLinesZ) {
@@ -341,7 +341,7 @@ export function buildCity(scene, rng, tx = {}) {
       new MB({ map: tile(markTex, roadLenX / 4, 1), transparent: true, depthWrite: false }),
     );
     marking.rotation.x = -PI / 2;
-    marking.position.set(0, 0.06, line);
+    marking.position.set(0, 0.055, line);
     scene.add(marking);
   }
   const cv=(w,h,f)=>{const c=document.createElement('canvas');c.width=w;c.height=h;f(c.getContext('2d'));const t=new CT(c);t.colorSpace=SC;t.wrapS=t.wrapT=RW;return t;};
@@ -382,7 +382,7 @@ export function buildCity(scene, rng, tx = {}) {
   // is visible from both the north cameras (shots 1, 3) and the west
   // camera (shot 3 looks west from the east) — the old PI/PI/2 left the
   // [248,-174] light showing its blank side to the shot-3 camera.
-  for(const [tx,tz,tr,ts] of [[8,-172,PI,'R'],[-8,-188,0,'R'],[248,-174,PI/4,'R'],[232,-188,PI/4,'R'],[8,8,PI,'G'],[-8,-8,0,'R'],[248,8,PI,'R'],[232,-8,0,'G']]){
+  for(const [tx,tz,tr,ts] of [[8,-172,PI,'R'],[-8,-188,0,'R'],[248,-174,PI/4,'R'],[226,-188,PI/4,'R'],[8,8,PI,'G'],[-8,-8,0,'R'],[248,8,PI,'R'],[232,-8,0,'G']]){
     const tl=makeTrafficLight(ts, trafficLights.length * 5.3);tl.position.set(tx,0,tz);tl.rotation.y=tr;scene.add(tl);trafficLights.push(tl);
   }
   for(const [hx,hz] of [[30,10],[-60,-40],[150,60],[210,-30],[120,-174],[180,-186],[240,-150],[0,-174]]){
@@ -634,7 +634,9 @@ export function buildCity(scene, rng, tx = {}) {
         }
       }
       if (h < 16 && rng.chance(0.6)) {
-        box(scene, w * 0.7, 3, 0.2, M(0x1a2a1a, 0.3, { metalness: 0.4 }), x, 1.5, z + d / 2 + 0.1);
+        // v34: storefront cell, not a flat dark box — the face shot 2 sees.
+        const sw = box(scene, w * 0.7, 3, 0.2, facadeMat, x, 1.5, z + d / 2 + 0.1);
+        applyFacadeUVs(sw.geometry, 12, w * 0.7, 20, 0.2);
         const awn2 = box(scene, w * 0.75, 0.15, 2, TM(tx.awning, 2, 1, 0.9), x, 3.4, z + d / 2 + 1);
         awn2.rotation.x = 0.22;
         if (stex.length) { const sg2 = new ME(new PG(7, 1.8), new MB({ map: rng.pick(stex) })); sg2.position.set(x, 4.8, z + d / 2 + 0.2); scene.add(sg2); }
@@ -659,7 +661,7 @@ export function buildCity(scene, rng, tx = {}) {
   // 4 streetlights in the hero zone.
   // v33: the (232.5,-170) lamp stood on the shot-4 sightline to the
   // AUTO DEALER sign and its pole hid the "D" — moved to -160.
-  for (const [lx, lz] of [[232.5, -190], [247.5, -190], [232.5, -160], [247.5, -170]]) {
+  for (const [lx, lz] of [[226.5, -190], [247.5, -190], [232.5, -160], [247.5, -170]]) {
     const lamp = makeLamp();
     lamp.position.set(lx, 0, lz);
     scene.add(lamp);

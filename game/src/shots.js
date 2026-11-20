@@ -105,6 +105,9 @@ function stageChase(game) {
   const heli = game.police.heli;
   if (heli) {
     heli.visible = true;
+    // v34: hide the heli's cream scrim cone — it rendered as two hard-edged
+    // triangles under the heli; the soft beam sprites stay.
+    heli.userData.spotlight.visible = false;
     // v33: over the road (x=vx-4 ~ 240) and lower (12m) — the old
     // (vx+8,14) sat against a building silhouette at ~x700.
     heli.position.set(vx - 4, 12, vz - 24);
@@ -253,6 +256,9 @@ function stageSunset(game) {
   const r = game.combat.spawnGunman(243, -180);
   r.mesh.children[8].visible = r.mesh.children[9].visible = false;
   r.mesh.rotation.y = -PI / 2;
+  // v34: the gunman's own blob is hidden under his body from this angle;
+  // a second, darker blob offset toward the camera reads as a cast shadow.
+  if (game.textures.shadow) { const s = new ME(new PG(1.8, 1.2), SH(game.textures.shadow, .8)); s.rotation.x = -PI / 2; s.position.set(243.6, .1, -180); game.scene.add(s); }
   const b = new ME(new BX(.45, .4, .2), new MB({ color: 0x1f2a1a }));
   b.position.set(-.42, .85, -.45); r.mesh.add(b);
   const p = game.player;

@@ -1,18 +1,5 @@
-// Solara Bay v31 — surface + staging upgrade (Superbot's 9-system plan).
-// Geometry and mission logic are unchanged from v30; this module only adds
-// surface detail, staging, sky and shadows on top of the existing city.
-//
-// Systems (in plan order):
-//   6. Ground shadow pass (blob shadows + AO skirts) — FIRST
-//   1. Window texture / facades / rooftop props (1024 atlas, 6 palettes)
-//   2. Sign system (12 in the hero zone, 4 colours, unlit)
-//   3. Ground system (markings, sidewalks, palms, lights)
-//   4. Vehicle readability (glass band, tail lights, shadow) — via vehicles.js
-//   5. Skyline + sky (dithered gradient dome, sun, sea, ridges, far skyline)
-//   7. Spawn density rule (40x40m hero zone, full budget)
-//   8. HUD polish (in hud.js / index.html)
-// Plus the 4 v30 defect fixes: tracer aim, white gun stock, beam edges,
-// rail plank in shot 1; and the traffic-light one-lamp state machine.
+// v31 surface/staging upgrade (Superbot 9-system plan). Geometry + missions
+// unchanged from v30; adds facades, signs, ground, sky, shadows, traffic lights.
 import * as THREE from 'three';
 import { BX, CG, CN, PG, SG, MS, MB, ME, GP, V3, PI, CT, SC, RW, DS, AB } from './geo.js';
 
@@ -475,15 +462,15 @@ export function makeRoadMarkingTexture() {
   canvas.height = 64;
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, 256, 64);
-  // v33: darker, less saturated paint (the old #B8932A/#C8C8C8 still blew
-  // out to near-white under the 3.0 sun and read as light shafts).
-  ctx.fillStyle = '#6b5316';
+  // v34: deep olive + mid-grey, dashes inset from the curb — survives the
+  // sunset grade and reads as paint, not light shafts / curb bleed.
+  ctx.fillStyle = '#4a3510';
   ctx.fillRect(0, 26, 256, 4);
   ctx.fillRect(0, 34, 256, 4);
   // white lane dashes: 2m on / 2m off (half the tile is dash)
-  ctx.fillStyle = '#8f8f8f';
-  ctx.fillRect(0, 8, 128, 3);
-  ctx.fillRect(0, 53, 128, 3);
+  ctx.fillStyle = '#707070';
+  ctx.fillRect(0, 14, 128, 3);
+  ctx.fillRect(0, 47, 128, 3);
   const tex = new CT(canvas);
   tex.wrapS = RW;
   tex.wrapT = RW;
@@ -506,7 +493,7 @@ export function makeTrafficLightV31(initialState = 'R', phase = 0) {
   arm.rotation.x = PI / 2;
   arm.position.set(0, 5.4, 1.8);
   g.add(arm);
-  const housing = new ME(new BX(0.9, 2.3, 0.5), new MS({ color: 0x1a1a1a, roughness: 0.6 }));
+  const housing = new ME(new BX(0.9, 2.3, 0.3), new MS({ color: 0x1a1a1a, roughness: 0.6 }));
   housing.position.set(0, 4.9, 3.6);
   g.add(housing);
   const lamps = [];
@@ -514,7 +501,7 @@ export function makeTrafficLightV31(initialState = 'R', phase = 0) {
     const mat = new MS({ color: 0x111111, roughness: 0.4, emissive: 0x000000, emissiveIntensity: 0 });
     // v33: ONE sphere per lamp, centred in the housing — the lit lamp
     // reads from ANY angle. Flat discs were edge-on/invisible sideways.
-    const lamp = new ME(new SG(0.32, 12, 10), mat);
+    const lamp = new ME(new SG(0.4, 12, 10), mat);
     lamp.position.set(0, 5.7 - i * 0.8, 3.6);
     g.add(lamp);
     lamps.push(mat);

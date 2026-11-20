@@ -41,8 +41,10 @@ export function createCarMesh(color, kind = 'sedan') {
       B(len - 0.5, 0.8, 2.2, new MS({ color: 0x6a6f75, roughness: 0.5, metalness: 0.6 }), 0, 1.5, 0);
       const dm = VM(0x222222, 0.6);
       for (const s of [-0.55, 0.55]) B(0.08, 1.6, 0.1, dm, len / 2 + 0.04, 1.4, s);
-      B(0.04, 0.12, 1.9, dm, len / 2 + 0.04, 2.05, 0);
-      B(0.04, 0.6, 1.8, dm, len / 2 + 0.04, 0.95, 0);
+      // v34: real front — glass windshield (bars read as pillars), chrome
+      // grille slats over the dark recess; the blank panel + top bar go.
+      B(0.05, 0.7, 1.7, glass, len / 2 + 0.05, 1.85, 0);
+      for (const gy of [0.8, 1.05]) B(0.05, 0.06, 1.5, VM(0xaaaaaa, 0.4), len / 2 + 0.06, gy, 0);
       B(0.04, 0.3, 0.7, VM(0xf2f2f2, 0.5), len / 2 + 0.04, 0.55, 0);
       for (const s of [-0.7, 0.7]) B(0.06, 0.18, 0.3, VM(0xfff2cc, 1, 0xaa8800), len / 2 + 0.04, 1.35, s);
     }
@@ -63,10 +65,12 @@ export function createCarMesh(color, kind = 'sedan') {
       B(len * 0.45, 0.5, 1.9, VM(0x333333,0.9), -len / 2 + len * 0.225, 0.7, 0);
     }
     if (kind === 'taxi') {
-      B(0.5, 0.25, 0.9, VM(0xffe14d,1,0x886600), -0.2, 1.5, 0);
+      // v34: roof sign stands proud of the roof (was half-sunk, read as a
+      // flat decal); rear window is lighter glass, not pure black.
+      B(0.5, 0.25, 0.9, VM(0xffe14d,1,0x886600), -0.2, 1.65, 0);
       for (const side of [-1, 1]) B(1.6, 0.4, 0.05, VM(0x222222,0.6), 0, 0.55, side * 1.02);
       B(0.08, 0.16, DETAIL.ctb, VM(0xff2222,1,0x660000), -len / 2 - 0.02, 0.62, 0);
-      B(0.06, 0.3, 1.5, glass, -0.2 - cabinL / 2 - 0.03, 1.15, 0);
+      B(0.06, 0.45, 1.5, VM(0x5a7a9a, 0.25), -0.2 - cabinL / 2 - 0.03, 1.15, 0);
       B(0.03, 0.04, 1.6, VM(0x222222, 0.6), -len / 2 - 0.03, 0.95, 0);
       B(0.04, 0.2, 0.5, VM(0xf2f2f2, 0.5), -len / 2 - 0.14, 0.35, 0);
     }
@@ -79,24 +83,22 @@ export function createCarMesh(color, kind = 'sedan') {
     }
   }
   if (kind === 'police') {
-    // v33: the extra white box (same size as the body) swallowed the
-    // glass cabin, so the cruiser read as a white slab; the body is
-    // already white. Keep the blue stripe; silver base + lower lights
-    // so the lightbar reads as attached to the roof, not floating.
-    B(len * 0.5, bodyH * 0.9, 2.02, VM(0x1a3a8f,0.4), 0, 0.55, 0);
-    B(0.7, 0.18, 1.2, VM(0x888888,0.5), -0.1, 1.6, 0);
-    const lightR = B(0.3, 0.2, 0.55, VM(0xff2222,1,0xaa0000), -0.1, 1.68, 0.3);
-    const lightB = B(0.3, 0.2, 0.55, VM(0x2244ff,1,0x0000aa), -0.1, 1.68, -0.3);
+    // v34: no roof plate (it overhung the front); lightbar flush on the
+    // roof panel; lighter side glass so the cabin reads as glass, not black.
+    B(len * 0.5, bodyH * 0.9, 2, VM(0x1a3a8f,0.4), 0, 0.55, 0);
+    for (const side of [-1, 1]) B(1.6, 0.45, 0.04, VM(0x5a7a9a, 0.25), -0.2, 1.15, side * 0.87);
+    const lightR = B(0.3, 0.2, 0.55, VM(0xff2222,1,0xaa0000), -0.1, 1.63, 0.3);
+    const lightB = B(0.3, 0.2, 0.55, VM(0x2244ff,1,0x0000aa), -0.1, 1.63, -0.3);
     group.userData.lightR = lightR;
     group.userData.lightB = lightB;
   }
-  B(0.03, 0.18, 0.7, VM(0xf2f2f2,0.5), -len / 2 - 0.07, 0.42, 0);
+  B(0.03, 0.18, 0.7, VM(0xf2f2f2,0.5), -len / 2 - 0.01, 0.42, 0);
   const tall = kind === 'van' || kind === 'armored' || kind === 'truck' || kind === 'bus' || kind === 'police';
   B(0.08, tall ? 0.6 : 0.3, 1.4, VM(0x222222,0.6), len / 2 + 0.02, tall ? 0.9 : 0.45, 0);
   const bumperMat = VM(0x333333,0.6);
-  for (const bx of [len / 2 + 0.05, -len / 2 - 0.05]) B(0.15, 0.25, 2.1, bumperMat, bx, 0.35, 0);
+  for (const bx of [len / 2 + 0.05, -len / 2 - 0.05]) B(0.15, 0.25, 2.3, bumperMat, bx, 0.35, 0);
   const mirrorMat = VM(0x222222,0.5);
-  for (const side of [-1, 1]) B(0.15, 0.12, 0.25, mirrorMat, tall ? len / 2 - 0.8 : 0.3, tall ? 1.5 : 1.05, side * (tall ? 1.12 : 1.05));
+  for (const side of [-1, 1]) B(0.15, 0.12, 0.25, mirrorMat, tall ? len / 2 - 0.2 : 0.3, tall ? 1.5 : 1.05, side * (tall ? 1.18 : 1.05));
   const headMat = VM(0xfff8c0,1,0x888866);
   const tailMat = VM(0xff2222,1,0x660000);
   for (const side of [-0.7, 0.7]) {
