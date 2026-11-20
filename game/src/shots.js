@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import{BX,CG,MB,MS,ME,V3,PI,AB,PG,CT,DS}from'./geo.js';
+import{BX,CG,MB,MS,ME,V3,PI,AB,PG,CT,DS,SH}from'./geo.js';
 import { STEP } from './config.js';
 import { enterCar, spawnPoliceCar } from './vehicles.js';
 import { ACTION_SHOOT } from './input.js';
@@ -111,9 +111,9 @@ function stageChase(game) {
     beam(game, new V3(vx + 8, 13.15, vz - 20), new V3(vx + 1.2, 2.4, vz + 14), .3, 2.4, .12);
     beam(game, new V3(vx + 8, 13.15, vz - 20), new V3(vx + 1.2, 2.4, vz + 14), .15, .6, .45);
     const rp=pool(game,vx+1.2,vz+14,1,.6,2.45);if(rp)rp.scale.set(1,.6,1);
-    const st = new ME(new BX(1.8, .06, .06), new MB({ color: 0xe8f0ff, emissive: 0xe8f0ff, emissiveIntensity: 1 }));
-    st.position.set(vx + 1.2, 2.5, vz + 13.2); game.scene.add(st);
-    const rl = new THREE.PointLight(0xffd9a0, .9, 3.5); rl.position.set(vx + 1.2, 3.2, vz + 14); game.scene.add(rl);
+    const st = new ME(new BX(1.4, .02, .9), new MB({ color: 0xe8f0ff, emissive: 0xe8f0ff, emissiveIntensity: 1 }));
+    st.position.set(vx + 1.2, 2.45, vz + 14); game.scene.add(st);
+    const rl = new THREE.PointLight(0xffd9a0, 1.4, 3.5); rl.position.set(vx + 1.2, 3.2, vz + 14); game.scene.add(rl);
   }
   const dk=new ME(new PG(18,70),new MB({color:0,transparent:true,opacity:.2,depthWrite:false}));dk.rotation.x=-PI/2;dk.position.set(vx,.06,vz-10);game.scene.add(dk);
   skid(game, vx, vz + 12);
@@ -135,7 +135,7 @@ function stageGunfight(game) {
   rifle.position.set(0.15, 1.62, 0.75);
   rifle.rotation.set(-0.05, -0.41, 0);
   rifle.scale.setScalar(1.4);
-  if (game.textures.shadow) { const s = new ME(new PG(1.4, 1.1), new MB({ map: game.textures.shadow, transparent: true, opacity: .85, depthWrite: false })); s.rotation.x = -PI / 2; s.position.set(-180.5, .1, 193.3); game.scene.add(s); }
+  if (game.textures.shadow) { const s = new ME(new PG(.9,.5), SH(game.textures.shadow,.5)); s.rotation.x = -PI / 2; s.position.set(-180.5, .1, 193.3); game.scene.add(s); }
   const barrier = new ME(new BX(3, 0.65, 0.7), new MS({ map: game.textures.concrete, roughness: 0.9 }));
   barrier.position.set(-180.5, 0.325, 194.1);
   barrier.castShadow = true;

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import{BX,CG,MB,MS,SG,ME,V3,GP,PI,AB,SP,PG}from'./geo.js';
+import{BX,CG,MB,MS,SG,ME,V3,GP,PI,AB,SP,PG,SH}from'./geo.js';
 import { PLAYER, WEAPONS, ECONOMY, EFFECTS } from './config.js';
 let shadowTex = null;
 const B=(g,w,h,d,m,x=0,y=0,z=0)=>{const q=new ME(new BX(w,h,d),m);q.position.set(x,y,z);g.add(q);return q;};
@@ -36,7 +36,7 @@ function createThugMesh() {
   group.userData.armL = armL;
   group.userData.armR = armR;
   if (shadowTex) {
-    const sh = new ME(new PG(1.3, 1.0), new MB({ map: shadowTex, transparent: true, opacity: .85, depthWrite: false }));
+    const sh = new ME(new PG(.9,.5), SH(shadowTex,.5));
     sh.rotation.x = -PI / 2;
     sh.position.set(0, 0.1, 0);
     group.add(sh);

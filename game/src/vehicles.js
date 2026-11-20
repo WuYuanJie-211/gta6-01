@@ -1,4 +1,4 @@
-import{BX,CG,MS,ME,V3,GP,PI,PG,MB}from'./geo.js';
+import{BX,CG,MS,ME,V3,GP,PI,PG,SH}from'./geo.js';
 const _vm=new Map();
 function VM(c,r=1,e){const k=c+'|'+r+'|'+(e||0);let m=_vm.get(k);if(!m){m=new MS({color:c,roughness:r,...(e?{emissive:e}:{})});_vm.set(k,m)}return m}
 import { CAR, CAR_MODELS, COLOURS, DETAIL, WORLD } from './config.js';
@@ -117,7 +117,7 @@ export function createCarMesh(color, kind = 'sedan') {
   group.userData.wheels = wheels;
   group.userData.bodyLen = len;
   if (carTextures && carTextures.shadow) {
-    const sh = new ME(new PG(len + 0.8, 3.0), new MB({ map: carTextures.shadow, transparent: true, depthWrite: false }));
+    const sh = new ME(new PG(len*1.15,2.5), SH(carTextures.shadow,.4));
     sh.rotation.x = -PI / 2;
     sh.position.set(0, 0.09, 0);
     group.add(sh);
