@@ -3,6 +3,7 @@ import{BX,CG,MB,MS,ME,V3,PI,AB,PG,CT,DS,SH}from'./geo.js';
 import { STEP } from './config.js';
 import { enterCar, spawnPoliceCar } from './vehicles.js';
 import { ACTION_SHOOT } from './input.js';
+import { makeSoftBeam } from './v31.js';
 function pool(g,x,z,r,o,y=.07){
   const t=g.textures&&g.textures.pool;if(!t)return;
   const p=new ME(new PG(r*2,r*2),new MB({map:t,transparent:true,opacity:o,blending:AB,depthWrite:false}));
@@ -17,14 +18,9 @@ function skid(g,x,z,o=.5){
 }
 let _bt;
 function beam(g,a,b,rt,rb,o){
-  if(!_bt){const c=document.createElement('canvas');c.width=1;c.height=8;
-  const x=c.getContext('2d'),gr=x.createLinearGradient(0,0,0,8);
-  gr.addColorStop(0,'#000');gr.addColorStop(.5,'#fff');gr.addColorStop(1,'#fff');
-  x.fillStyle=gr;x.fillRect(0,0,1,8);_bt=new CT(c);}
-  const d=new V3(a.x-b.x,a.y-b.y,a.z-b.z),L=d.length();d.normalize();
-  const m=new ME(new CG(rt,rb,L,12,1,true),new MB({map:_bt,transparent:true,opacity:o,blending:AB,depthWrite:false,side:DS}));
-  m.position.set((a.x+b.x)/2,(a.y+b.y)/2,(a.z+b.z)/2);
-  m.quaternion.setFromUnitVectors(new V3(0,1,0),d);g.scene.add(m);
+  // v31 defect (c): the old 12-segment cone had hard triangle facets.
+  // Soft beam: 32 segments + smooth gradient + halo cone (see v31.js).
+  makeSoftBeam(g.scene, a, b, rt, rb, o);
 }
 function steerCarToward(game, tx, tz) {
   const car = game.player.car;
@@ -78,12 +74,15 @@ function camB(game) {
 function stageChase(game) {
   game.missions.setProgress(6, 1);
   const van = game.cars.armored;
-  place(van, 243, -60, PI / 2);
+  // v31: chase re-staged into the 40x40m hero zone (240,-180). The van
+  // starts at z=-177, drives ~17m north in 1.5s, and is re-placed 14m back
+  // to z=-180 — the shot lands dead-centre in the hero zone.
+  place(van, 243, -177, PI / 2);
   van.stolen = true;
   enterCar(game, van);
   game.police.state.wanted = 4;
   camB(game);
-  driveFor(game, 1.5, (g) => steerCarToward(g, 243, -360));
+  driveFor(game, 1.5, (g) => steerCarToward(g, 243, -270));
   const vx = game.player.car.pos.x;
   const vz = game.player.car.pos.z;
   place(van, vx + 1.2, vz + 14, -PI / 2);
@@ -135,7 +134,10 @@ function stageGunfight(game) {
   rifle.position.set(0.15, 1.62, 0.75);
   rifle.rotation.set(0.16, 0.6, 0);
   rifle.scale.setScalar(1.4);
-  game.aim=new V3(-169.53,0.1,200.85);
+  // v31 defect (a): the old aim point (-169.53, 200.85) was ~9m east of the
+  // duellist, so the tracer fired left onto the road away from him. Aim
+  // at the duellist (first gunman, -178.1, 196.1) so the tracer hits him.
+  game.aim=new V3(-178.1,1.2,196.1);
   if (game.textures.shadow) { const s = new ME(new PG(.9,.5), SH(game.textures.shadow,.5)); s.rotation.x = -PI / 2; s.position.set(-178.86, .1, 192.93); game.scene.add(s); }
   for(const wy of[4.45,11.45]){const w=new ME(new BX(13,1.4,.1),new MB({color:0x2c3e50}));w.position.set(-151.7,wy,201.6);game.scene.add(w);}
   game.combat.spawnGunman(-178.1,196.1).mesh.scale.setScalar(1.15);
@@ -169,23 +171,34 @@ function stageDowntown(game) {
     game.scene.add(g);
   }
   const b=new ME(new PG(2.4,1.4),new MB({color:0xff2a1e,transparent:true,opacity:.14,depthWrite:false}));b.rotation.x=-PI/2;b.position.set(259,.1,-183);game.scene.add(b);
+  // v31: 6 traffic cars in the hero zone. The taxi (258,-183, westbound)
+  // is stopped at the red light; two cars queue ahead of it in the same
+  // lane (252 / 246, at the stop line), three come eastbound in the north
+  // lane, one more westbound past the intersection.
   const spots = [
-    { x: 180, z: -177, prev: '120,-180', target: '240,-180', h: PI },
-    { x: 220, z: -177, prev: '180,-180', target: '300,-180', h: PI },
-    { x: 300, z: -177, prev: '240,-180', target: '360,-180', h: PI },
-    { x: 0, z: 300, prev: '240,-180', target: '300,-180', h: PI },
+    { x: 252, z: -183, prev: '300,-180', target: '240,-180', h: PI },
+    { x: 246, z: -183, prev: '300,-180', target: '240,-180', h: PI },
+    { x: 230, z: -177, prev: '180,-180', target: '240,-180', h: 0 },
+    { x: 222, z: -177, prev: '180,-180', target: '240,-180', h: 0 },
+    { x: 240, z: -177, prev: '240,-180', target: '300,-180', h: 0 },
+    { x: 228, z: -183, prev: '240,-180', target: '180,-180', h: PI },
   ];
-  game.cars.traffic.slice(0, 4).forEach((t, i) => {
+  game.cars.traffic.slice(0, 6).forEach((t, i) => {
     place(t, spots[i].x, spots[i].z, spots[i].h);
     t.prevNode = game.roads.byKey.get(spots[i].prev);
     t.targetNode = game.roads.byKey.get(spots[i].target);
     t.speed = 0;
   });
-  game.cars.traffic[3].mesh.children[0].material = new MS({ color: 0x39557a, roughness: .4, metalness: .4 });
-  game.cars.traffic.slice(4).forEach(t=>{place(t,0,300,0);});
-  game.cars.parked.forEach(c=>{if(c!==taxi)place(c,0,300,0);});
-  const walkers = [[120, -168], [150, -192], [180, -168], [200, -192]];
-  game.peds.slice(0, 4).forEach((p, i) => {
+  game.cars.traffic[0].mesh.children[0].material = new MS({ color: 0x39557a, roughness: .4, metalness: .4 });
+  game.cars.traffic.slice(6).forEach(t=>{place(t,0,300,0);});
+  // v31: 3 parked cars in the hero zone (curb-side, out of the lanes).
+  const parkedSpots = [[232, -192], [248, -192], [232, -168]];
+  const others = game.cars.parked.filter(c=>c!==taxi);
+  others.slice(0, 3).forEach((c, i) => place(c, parkedSpots[i][0], parkedSpots[i][1], PI / 2));
+  others.slice(3).forEach(c=>{place(c,0,300,0);});
+  // v31: 6 pedestrians in the hero zone (was 4, spread across the map).
+  const walkers = [[232, -168], [248, -168], [232, -192], [248, -192], [240, -165], [240, -195]];
+  game.peds.slice(0, 6).forEach((p, i) => {
     p.pos.set(walkers[i][0], 0, walkers[i][1]);
     p.mesh.position.copy(p.pos);
     p.mesh.rotation.y = PI;
@@ -199,7 +212,10 @@ function stageDowntown(game) {
 function stageSunset(game) {
   game.missions.setProgress(5, 0);
   const comet = game.cars.comet;
-  place(comet, 22, -188, PI);
+  // v31: sunset heist re-staged into the 40x40m hero zone (was at 17,-188,
+  // far from the other shots). All positions shifted +226,+16 so the
+  // relative layout — comet, gunman, police, explosions, heli — is kept.
+  place(comet, 248, -172, PI);
   comet.stolen = true;
   comet.speed = 0;
   game.police.state.wanted = 5;
@@ -210,27 +226,38 @@ function stageSunset(game) {
     game.scene.background = tex;
     game.scene.fog.color.set(0x8a4a6a);
   }
+  // v31: hide the dithered sky dome + sun billboard so the equirectangular
+  // sunset texture is the sky for this shot (no double sun).
+  if (game.skyDome) game.skyDome.visible = false;
+  if (game.sunBillboard) game.sunBillboard.visible = false;
   game.sun.color.set(0xff7733);
-  const r = game.combat.spawnGunman(17, -183.5);
+  const r = game.combat.spawnGunman(243, -167.5);
   r.mesh.children[8].visible = r.mesh.children[9].visible = false;
   r.mesh.rotation.y = 2.6;
   const b = new ME(new BX(.45, .4, .2), new MB({ color: 0x1f2a1a }));
   b.position.set(-.42, .85, -.45); r.mesh.add(b);
   const p = game.player;
-  p.pos.set(17, 0, -183.5);
+  p.pos.set(243, 0, -167.5);
   p.heading = PI;
+  // v31: arm the player so the weapon bar reads "Rifle" — the visible
+  // gunman is an NPC, but the HUD follows the player, who defaults to
+  // fists (which renders as an empty pill in shot mode).
+  p.weapon = 'rifle';
+  p.ownedWeapons = ['pistol', 'rifle'];
+  p.mag = 30;
+  p.ammo = 60;
   p.mesh.position.copy(p.pos);
   p.mesh.rotation.y = p.heading;
   p.mesh.visible = false;
-  const bc = pc(game, 17, -189, PI, 0);
+  const bc = pc(game, 243, -173, PI, 0);
   const bm = bc.mesh.children;
   bm[7].material.color.setHex(0x241a14);bm[8].material=new MS({color:0x141018,roughness:.9});bm[1].material=new MS({color:0x0a0a0c,roughness:.9});bc.mesh.position.y=-.15;
-  for (const [ex, ez] of [[17, -189], [16.2, -188.3], [17.8, -189.7]]) game.combat.spawnExplosion(new V3(ex, 0, ez), 0.22);
-  pc(game, 9, -189.5, PI, 0);
+  for (const [ex, ez] of [[243, -173], [242.2, -172.3], [243.8, -173.7]]) game.combat.spawnExplosion(new V3(ex, 0, ez), 0.22);
+  pc(game, 235, -173.5, PI, 0);
   const heli = game.police.heli;
   if (heli) {
     heli.visible = true;
-    heli.position.set(17, 12, -210);
+    heli.position.set(243, 12, -194);
     heli.scale.setScalar(1.4);
     heli.rotation.y = 0.5;
     heli.children[0].material.color.set(0x2a2f36);
@@ -238,7 +265,7 @@ function stageSunset(game) {
     const stripe = new ME(new BX(.06, .5, 2.2), new MB({ color: 0xffffff }));
     stripe.position.set(1.21, 0, 0);
     heli.add(stripe);
-    pool(game, 17, -183.5, 1.1, .12);
+    pool(game, 243, -167.5, 1.1, .12);
   }
   game.cameraAngle = 0;
   game.lastDragAt = game.time;

@@ -29,7 +29,11 @@ export function createPlayerMesh() {
   group.add(shoeR);
   const armL = B(group, 0.2, 0.7, 0.22, jacket, -0.48, 1.2, 0);
   const armR = B(group, 0.2, 0.7, 0.22, jacket, 0.48, 1.2, 0);
-  const gunMat = new MS({ color: 0x1a1a1a, roughness: 0.4, metalness: 0.5 });
+  // v31 defect (b): the old gunMat (metalness 0.5) threw a bright specular
+  // highlight that read as a WHITE gun stock in shot 2. Matte it down,
+  // and give the stock/grip a dead-matte dark wood finish.
+  const gunMat = new MS({ color: 0x1a1a1a, roughness: 0.6, metalness: 0.15 });
+  const stockMat = new MS({ color: 0x1a1210, roughness: 1, metalness: 0 });
   const pistol = new GP();
   B(pistol, 0.08, 0.14, 0.4, gunMat, 0, 0, 0);
   B(pistol, 0.08, 0.18, 0.1, gunMat, 0, -0.12, -0.1);
@@ -39,8 +43,8 @@ export function createPlayerMesh() {
   pistol.visible = false;
   const rifle = new GP();
   B(rifle, 0.09, 0.14, 0.9, gunMat, 0, 0, 0);
-  B(rifle, 0.08, 0.16, 0.3, gunMat, 0, -0.05, -0.45);
-  B(rifle, 0.07, 0.2, 0.12, gunMat, 0, -0.14, 0.05);
+  B(rifle, 0.08, 0.16, 0.3, stockMat, 0, -0.05, -0.45);
+  B(rifle, 0.07, 0.2, 0.12, stockMat, 0, -0.14, 0.05);
   const rifleBarrel = new ME(new CG(0.03, 0.03, 0.5, 8), gunMat);
   rifleBarrel.rotation.x = PI / 2;
   rifleBarrel.position.set(0, 0.02, 0.68);

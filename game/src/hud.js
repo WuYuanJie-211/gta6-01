@@ -2,9 +2,11 @@ import { CITY, districtAt } from './config.js';
 import { MISSIONS } from './missions.js';
 export function createHud(game) {
   const el = (id) => document.getElementById(id);
-  const [healthFill, healthText, cashText, starsBox, objectiveText, missionList, weaponText, durabilityText, districtText, timerText, promptText, toast, missionCard, missionTitle, missionStory, menu, pauseMenu, overMenu, overText, minimap, speedText] = ['health-fill', 'health-text', 'cash', 'stars', 'objective-text', 'mission-list', 'weapon', 'durability', 'district', 'timer', 'prompt', 'toast', 'mission-card', 'mission-title', 'mission-story', 'menu', 'pause-menu', 'over-menu', 'over-text', 'minimap', 'speed'].map(el);
+  const [healthFill, healthText, cashText, starsBox, objectiveText, missionList, weaponText, durabilityText, districtText, timerText, promptText, toast, missionCard, missionTitle, missionStory, menu, pauseMenu, overMenu, overText, minimap, speedText, clockText, streetToast] = ['health-fill', 'health-text', 'cash', 'stars', 'objective-text', 'mission-list', 'weapon', 'durability', 'district', 'timer', 'prompt', 'toast', 'mission-card', 'mission-title', 'mission-story', 'menu', 'pause-menu', 'over-menu', 'over-text', 'minimap', 'speed', 'clock', 'street-toast'].map(el);
   const c = minimap.getContext('2d');
   let toastTimer = null;
+  let streetTimer = null;
+  let lastDistrict = '';
   let shakeTime = 0;
   const missionRows = MISSIONS.map((m, i) => {
     const row = document.createElement('div');
@@ -200,7 +202,20 @@ export function createHud(game) {
       durabilityText.textContent = '';
     }
     const p = car ? car.pos : game.player.pos;
-    districtText.textContent = districtAt(p.x, p.z);
+    // v31: clock (in-game time, starts 17:31) + street-name toast that
+    // shows when the district changes and fades after 4s.
+    const totalMin = 17 * 60 + 31 + Math.floor(game.time / 60);
+    const hh = String(Math.floor(totalMin / 60) % 24).padStart(2, '0');
+    const mm = String(totalMin % 60).padStart(2, '0');
+    clockText.textContent = `${hh}:${mm}`;
+    const district = districtAt(p.x, p.z);
+    districtText.textContent = district;
+    if (district !== lastDistrict) {
+      lastDistrict = district;
+      streetToast.classList.add('show');
+      if (streetTimer) clearTimeout(streetTimer);
+      streetTimer = setTimeout(() => streetToast.classList.remove('show'), 4000);
+    }
     timerText.textContent = game.missions.state.timerText || '';
     speedText.textContent = car ? `${Math.round(Math.abs(car.speed) * 3.6)} km/h` : '';
     drawMinimap();

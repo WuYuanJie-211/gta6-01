@@ -1,6 +1,11 @@
 import * as THREE from 'three';
 import{BX,CG,CN,PG,SG,MS,MB,ME,GP,PI,RW,SC,CT,OG,DS}from'./geo.js';
 import { CITY, COLOURS, DETAIL, TEXTURES, districtAt } from './config.js';
+import {
+  makeFacadeAtlas, applyFacadeUVs, makeV31Sign, SIGN_NAMES, SIGN_COLORS,
+  makeV31Palm, makeRoadMarkingTexture, makeTrafficLightV31, makeFarSkyline,
+  makeRidge, makeSeaGradient, addBlobShadow, addAOSkirt, inHeroZone, HERO_ZONE,
+} from './v31.js';
 const SM=(o)=>new MS(o);
 function tile(tex, rx, ry) {
   const t = tex.clone();
@@ -80,18 +85,6 @@ const GUN_BLOCK = '150,-210';
 const GARAGE_BLOCK = '270,30';
 const DINER_BLOCK = '30,150';
 const BANK_BLOCK = '330,-270';
-function makeDashTexture() {
-  const canvas = document.createElement('canvas');
-  canvas.width = 128;
-  canvas.height = 16;
-  const ctx = canvas.getContext('2d');
-  ctx.clearRect(0, 0, 128, 16);
-  ctx.fillStyle = '#b0b0a6';
-  ctx.fillRect(0, 0, 64, 16);
-  const tex = new CT(canvas);
-  tex.wrapS = RW;
-  return tex;
-}
 function makeSign(text, fg, bg, w = 10, h = 2.5) {
   const canvas = document.createElement('canvas');
   canvas.width = 256;
@@ -129,6 +122,7 @@ function makePalm(rng) {
   group.traverse((o) => {
     if (o.isMesh) o.castShadow = true;
   });
+  addBlobShadow(group, 0, 0, 1.6, 1.6, 0.36);
   return group;
 }
 function makeTree(rng) {
@@ -152,19 +146,13 @@ function makeTree(rng) {
     puff.position.set(offsets[i][0] * DETAIL.ts * 2, heights[i], offsets[i][1] * DETAIL.ts * 2);
     group.add(puff);
   }
+  // v31: blob shadow so trees stop floating (the shadow pass flagged all 24).
+  addBlobShadow(group, 0, 0, 1.8, 1.8, 0.36);
   return group;
 }
-function makeTrafficLight(state){
-  const g=new GP();
-  cyl(g,0.1,0.13,5.5,6,M(0x2c3e50,0.7),0,2.75,0,true);
-  const arm=cyl(g,0.08,0.08,3.6,6,M(0x2c3e50,0.7),0,5.4,1.8);arm.rotation.x=PI/2;
-  box(g,0.9,2.3,0.5,M(0x1a1a1a,0.6),0,4.9,3.6);
-  const cols=[0xff2a1e,0xffcc00,0x33cc33],on=state==='G'?2:0;
-  for(let i=0;i<3;i+=1){
-    const lamp=new ME(new SG(0.32,8,6),SM({color:i===on?cols[i]:0x191919,emissive:cols[i],emissiveIntensity:i===on?3:0}));
-    lamp.position.set(0,5.7-i*0.8,3.9);g.add(lamp);
-  }
-  return g;
+function makeTrafficLight(state, phase = 0) {
+  // v31: proper state machine — exactly ONE lamp lit, always.
+  return makeTrafficLightV31(state, phase);
 }
 function makeHydrant() {
   const group = new GP();
@@ -179,6 +167,7 @@ function makeHydrant() {
   nozzle.rotation.z = PI / 2;
   nozzle.position.set(0.25, 0.4, 0);
   group.add(nozzle);
+  addBlobShadow(group, 0, 0, 0.9, 0.9, 0.36);
   return group;
 }
 function makeLamp() {
@@ -200,6 +189,7 @@ function makeLamp() {
   );
   bulb.position.y = 5.3;
   group.add(pole, head, bulb);
+  addBlobShadow(group, 0, 0, 1.0, 1.0, 0.36);
   return group;
 }
 function makeBench() {
@@ -210,6 +200,7 @@ function makeBench() {
   const back = new ME(new BX(2.2, 0.7, 0.1), wood);
   back.position.set(0, 0.9, -0.28);
   group.add(seat, back);
+  addBlobShadow(group, 0, 0, 2.4, 1.0, 0.32);
   return group;
 }
 function makeBillboard(text, fg, bg) {
@@ -229,10 +220,17 @@ function makeBillboard(text, fg, bg) {
   const face = makeSign(text, fg, bg, 12, 3);
   face.position.set(0, 8.5, 0.2);
   group.add(face);
+  // v31: blob shadow so the billboard poles stop floating.
+  addBlobShadow(group, 0, 0, 13, 3, 0.32);
   return group;
 }
 export function buildCity(scene, rng, tx = {}) {
   const col = [];
+  const towers = [];
+  const trafficLights = [];
+  // v31: one facade atlas + one shared material for every tower.
+  const facadeAtlas = makeFacadeAtlas();
+  const facadeMat = SM({ map: facadeAtlas, roughness: 0.9 });
   const landmarks = {
     plaza: { x: 0, z: 12 },
     clientSpot: { x: 6, z: 12 },
@@ -290,15 +288,15 @@ export function buildCity(scene, rng, tx = {}) {
     scene.add(plaza);
   }
   const sea = new ME(
-    new PG(900, 300),
-    SM({ color: COLOURS.sea, roughness: 0.3, metalness: 0.1 }),
+    new PG(1200, 600),
+    SM({ map: makeSeaGradient(), roughness: 0.3, metalness: 0.1 }),
   );
   sea.rotation.x = -PI / 2;
-  sea.position.set(0, 0.02, 456);
+  sea.position.set(0, 0.02, 600);
   scene.add(sea);
   const roadMat = TM(tx.asphalt, 20, 1);
   const walkMat = TM(tx.sidewalk, 60, 1);
-  const dashTex = makeDashTexture();
+  const markTex = makeRoadMarkingTexture();
   const roadLenX = 780;
   const roadLenZ = 660;
   for (const line of CITY.roadLinesX) {
@@ -315,14 +313,16 @@ export function buildCity(scene, rng, tx = {}) {
       walk.position.set(line + side * (CITY.roadWidth / 2 + 1.5), 0.06, -60);
       scene.add(walk);
     }
-    const dashLine = new ME(
-      new PG(roadLenZ, 0.4),
-      new MB({ map: tile(dashTex, roadLenZ / 12, 1), transparent: true }),
+    // v31: double yellow centre + white lane dashes, ONE texture on the
+    // road plane (2m on / 2m off), not separate geometry.
+    const marking = new ME(
+      new PG(roadLenZ, CITY.roadWidth),
+      new MB({ map: tile(markTex, roadLenZ / 4, 1), transparent: true, depthWrite: false }),
     );
-    dashLine.rotation.x = -PI / 2;
-    dashLine.rotation.z = PI / 2;
-    dashLine.position.set(line, 0.07, -60);
-    scene.add(dashLine);
+    marking.rotation.x = -PI / 2;
+    marking.rotation.z = PI / 2;
+    marking.position.set(line, 0.06, -60);
+    scene.add(marking);
   }
   for (const line of CITY.roadLinesZ) {
     const strip = new ME(new PG(roadLenX, CITY.roadWidth), roadMat);
@@ -336,13 +336,13 @@ export function buildCity(scene, rng, tx = {}) {
       walk.position.set(0, 0.06, line + side * (CITY.roadWidth / 2 + 1.5));
       scene.add(walk);
     }
-    const dashLine = new ME(
-      new PG(roadLenX, 0.4),
-      new MB({ map: tile(dashTex, roadLenX / 12, 1), transparent: true }),
+    const marking = new ME(
+      new PG(roadLenX, CITY.roadWidth),
+      new MB({ map: tile(markTex, roadLenX / 4, 1), transparent: true, depthWrite: false }),
     );
-    dashLine.rotation.x = -PI / 2;
-    dashLine.position.set(0, 0.07, line);
-    scene.add(dashLine);
+    marking.rotation.x = -PI / 2;
+    marking.position.set(0, 0.06, line);
+    scene.add(marking);
   }
   const cv=(w,h,f)=>{const c=document.createElement('canvas');c.width=w;c.height=h;f(c.getContext('2d'));const t=new CT(c);t.colorSpace=SC;t.wrapS=t.wrapT=RW;return t;};
   const zebra=cv(128,64,(x)=>{x.fillStyle='#5a5a52';for(let i=0;i<6;i++)x.fillRect(8+i*20,4,10,42);x.fillRect(0,54,128,8);});
@@ -367,15 +367,18 @@ export function buildCity(scene, rng, tx = {}) {
     p.position.set((x1+x2)/2,0.45,(z1+z2)/2);p.rotation.y=x1===x2?PI/2:0;scene.add(p);
   };
   for(let x=-330;x<330;x+=60)if(x!==240&&x!==180)rail(x+14,-180,x+30,-180);
-  for(let z=-330;z<240;z+=60)rail(240,z+14,240,z+30);
+  // v31 defect (d): the x=240 rail ran down the MIDDLE of the road the
+  // chase van drives (x=243), a plank across shot 1. Moved to the east
+  // curb (x=246.5), out of the driving lane and out of the shot's centre.
+  for(let z=-330;z<240;z+=60)rail(246.5,z+14,246.5,z+30);
   for(let x=-330;x<330;x+=60)if(x!==240&&x!==180){col.push({minX:x+14,maxX:x+23,minZ:-180.3,maxZ:-179.7});col.push({minX:x+23,maxX:x+30,minZ:-180.3,maxZ:-179.7});}
-  for(let z=-330;z<240;z+=60){col.push({minX:239.7,maxX:240.3,minZ:z+14,maxZ:z+23});col.push({minX:239.7,maxX:240.3,minZ:z+23,maxZ:z+30});}
+  for(let z=-330;z<240;z+=60){col.push({minX:246.2,maxX:246.8,minZ:z+14,maxZ:z+23});col.push({minX:246.2,maxX:246.8,minZ:z+23,maxZ:z+30});}
   for(const [hx,hz] of [[120,-183],[180,-177],[237,-90],[0,-30],[60,-183],[243,30],[-60,-177],[300,-183]]){
     const hole=new ME(new CG(0.55,0.55,0.06,12),M(0x222222,0.9));
     hole.position.set(hx,0.09,hz);scene.add(hole);
   }
   for(const [tx,tz,tr,ts] of [[8,-172,PI,'R'],[-8,-188,0,'R'],[248,-174,PI,'R'],[232,-188,PI/2,'R'],[8,8,PI,'G'],[-8,-8,0,'R'],[248,8,PI,'R'],[232,-8,0,'G']]){
-    const tl=makeTrafficLight(ts);tl.position.set(tx,0,tz);tl.rotation.y=tr;scene.add(tl);
+    const tl=makeTrafficLight(ts, trafficLights.length * 5.3);tl.position.set(tx,0,tz);tl.rotation.y=tr;scene.add(tl);trafficLights.push(tl);
   }
   for(const [hx,hz] of [[30,10],[-60,-40],[150,60],[210,-30],[120,-174],[180,-186],[240,-150],[0,-174]]){
     const hyd=makeHydrant();hyd.position.set(hx,0,hz);scene.add(hyd);
@@ -383,6 +386,8 @@ export function buildCity(scene, rng, tx = {}) {
   for(const [sx,sz,st] of [[-14,-172,'限速 40'],[-2,-188,'直行'],[226,-172,'单行']]){
     const sg=makeSign(st,'#ffffff','#1a3a5f',2.4,1.2);sg.position.set(sx,2.6,sz);scene.add(sg);
     cyl(scene,0.05,0.05,2.6,6,M(0x888888),sx,1.3,sz);
+    // v31: blob shadow under the road-sign post so it stops floating.
+    addBlobShadow(scene, sx, sz, 0.7, 0.7, 0.36);
   }
   for(let tx2=-300;tx2<=300;tx2+=120){
     const tr2=makeTree(rng);tr2.position.set(tx2,0,-180+(tx2%240===0?-8.5:8.5));scene.add(tr2);
@@ -470,11 +475,18 @@ export function buildCity(scene, rng, tx = {}) {
       const h = landmark ? rng.range(105, 120) : dc < 90 ? rng.range(70, 110) : dc < 170 ? rng.range(45, 75) : rng.range(25, 50);
       const x = bx + rng.range(-6, 6);
       const z = bz + rng.range(-6, 6);
-      const glassTex = rng.chance(0.5) ? tx.glassDark : tx.glass;
-      const tex = tile(glassTex, Math.max(1, Math.round(w / 8)), Math.max(1, Math.round(h / 10)));
-      const towerMat = SM({ map: tex, roughness: 0.55, metalness: 0.15 });
-      const tower = box(scene, w, h, d, towerMat, x, h / 2, z, true);
+      // v31: facade atlas (one material, UVs baked per building) instead of
+      // the flat glass texture. Cell = palette x window style.
+      const cell = Math.floor(rng.range(0, 12));
+      const towerGeo = new BX(w, h, d);
+      applyFacadeUVs(towerGeo, cell, w, h, d);
+      const tower = new ME(towerGeo, facadeMat);
+      tower.position.set(x, h / 2, z);
+      tower.castShadow = true;
       tower.receiveShadow = true;
+      scene.add(tower);
+      towers.push({ x, z, w, d, h });
+      addAOSkirt(scene, x, z, w + 1.5, d + 1.5);
       for (const [fx, fz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) box(scene, 0.7, h, 0.7, M(0x14202c, 0.4, { metalness: 0.5 }), x + fx * (w / 2 - 0.2), h / 2, z + fz * (d / 2 - 0.2));
       box(scene, w + 0.6, 0.5, d + 0.6, M(0x3a3f45), x, h - 0.25, z);
       for (const [pw, pd, px, pz] of [[w + 0.4, 0.5, 0, d / 2], [w + 0.4, 0.5, 0, -d / 2], [0.5, d + 0.4, w / 2, 0], [0.5, d + 0.4, -w / 2, 0]]) box(scene, pw, 0.8, pd, M(0x3a3f45), x + px, h + 0.4, z + pz);
@@ -483,13 +495,18 @@ export function buildCity(scene, rng, tx = {}) {
       const awn = box(scene, w * 0.85, 0.18, 2.4, TM(tx.awning, 3, 1, 0.9), x, 3.7, z + d / 2 + 1.9);
       awn.rotation.x = 0.22;
       if (stex.length) { const sg = new ME(new PG(9, 2.2), new MB({ map: rng.pick(stex) })); sg.position.set(x, 5.6, z + d / 2 + 0.95); scene.add(sg); }
-      const tierMat = SM({ map: tile(glassTex, 2, 1), roughness: 0.6, metalness: 0.1 });
       let tw = w, td = d, ty = h;
       const tiers = h >= 60 ? 3 : h >= 35 ? 2 : 1;
       for (let t = 0; t < tiers; t += 1) {
         tw *= 0.72; td *= 0.72;
         const th = t === tiers - 1 ? 3 : 5;
-        box(scene, tw, th, td, tierMat, x, ty + th / 2, z, true);
+        // v31: tiers use the facade atlas too (glassTex is gone).
+        const tierGeo = new BX(tw, th, td);
+        applyFacadeUVs(tierGeo, cell, tw, th, td);
+        const tier = new ME(tierGeo, facadeMat);
+        tier.position.set(x, ty + th / 2, z);
+        tier.castShadow = true;
+        scene.add(tier);
         box(scene, tw + 0.4, 0.5, td + 0.4, M(0x3a3f45), x, ty + th + 0.25, z);
         ty += th + 0.5;
       }
@@ -508,6 +525,17 @@ export function buildCity(scene, rng, tx = {}) {
         const beacon = new ME(new SG(0.35, 8, 6), M(0xff2222,1,{emissive:0xaa0000}));
         beacon.position.set(x + tw * 0.3, ty + 6.2, z + td * 0.2);
         scene.add(beacon);
+      }
+      // v31: rooftop props — AC boxes on the roof corners (outside the
+      // tier footprint, visible from the air) + a water tank on one in five.
+      const acCorners = [[w / 2 - 1, d / 2 - 1], [-w / 2 + 1, d / 2 - 1], [w / 2 - 1, -d / 2 + 1]];
+      const acN = rng.int(1, 3);
+      for (let a = 0; a < acN; a += 1) {
+        const [ax, az] = acCorners[a];
+        box(scene, 0.6, 0.5, 0.4, M(0xE8EBE8, 0.9), x + ax, h + 0.75, z + az, true);
+      }
+      if (rng.chance(0.2)) {
+        cyl(scene, 0.9, 0.9, 2.0, 10, M(0x7a6a58, 0.9), x - w / 2 + 1, h + 1.5, z - d / 2 + 1, true);
       }
       if (tsi < tsigns.length && rng.chance(0.6)) {
         const sign = makeSign(tsigns[tsi], '#ffffff', '#1a1a2e', 12, 3);
@@ -578,6 +606,9 @@ export function buildCity(scene, rng, tx = {}) {
       const tex = tile(brickTex, Math.max(1, Math.round(w / 8)), Math.max(1, Math.round(h / 8)));
       const building = box(scene, w, h, d, SM({ map: tex, roughness: 0.9 }), x, h / 2, z, true);
       building.receiveShadow = true;
+      addAOSkirt(scene, x, z, w, d);
+      // v31: AC box on the roof (0.6x0.5x0.4, #E8EBE8).
+      if (rng.chance(0.5)) box(scene, 0.6, 0.5, 0.4, M(0xE8EBE8, 0.9), x + w / 4, h + 0.65, z, true);
       box(scene, w + 0.4, 0.4, d + 0.4, M(0x555a60), x, h + 0.2, z);
       for (const [pw, pd, px, pz] of [[w + 0.3, 0.4, 0, d / 2], [w + 0.3, 0.4, 0, -d / 2], [0.4, d + 0.3, w / 2, 0], [0.4, d + 0.3, -w / 2, 0]]) box(scene, pw, 0.6, pd, M(0x6a5a4a), x + px, h + 0.5, z + pz);
       if (rng.chance(0.3)) box(scene, 2.5, 1.2, 1.8, M(0x888888), x + w / 4, h + 0.8, z);
@@ -599,6 +630,46 @@ export function buildCity(scene, rng, tx = {}) {
       col.push({ minX: x - w / 2, maxX: x + w / 2, minZ: z - d / 2, maxZ: z + d / 2 });
     }
   }
+  // ---- v31: hero-zone dressing, signs, far skyline ----
+  // 8 v31 palms (frond planes) along the hero-zone sidewalks.
+  const heroPalmSpots = [
+    [232.5, -195], [247.5, -195], [232.5, -185], [247.5, -185],
+    [232.5, -175], [247.5, -175], [232.5, -165], [247.5, -165],
+  ];
+  for (const [px, pz] of heroPalmSpots) {
+    const palm = makeV31Palm();
+    palm.position.set(px, 0, pz);
+    scene.add(palm);
+  }
+  // 4 streetlights in the hero zone.
+  for (const [lx, lz] of [[232.5, -190], [247.5, -190], [232.5, -170], [247.5, -170]]) {
+    const lamp = makeLamp();
+    lamp.position.set(lx, 0, lz);
+    scene.add(lamp);
+  }
+  // 12 signs: the 12 towers nearest the hero-zone centre, one sign each,
+  // 60-70% of the facing facade width, mounted over the entrance (y=5.6),
+  // unlit so they read at dusk.
+  const heroTowers = towers
+    .map((t) => ({ ...t, dist: Math.hypot(t.x - HERO_ZONE.cx, t.z - HERO_ZONE.cz) }))
+    .sort((a, b) => a.dist - b.dist)
+    .slice(0, 12);
+  heroTowers.forEach((t, i) => {
+    const name = SIGN_NAMES[i % SIGN_NAMES.length];
+    const bg = SIGN_COLORS[i % SIGN_COLORS.length];
+    const ang = Math.atan2(HERO_ZONE.cx - t.x, HERO_ZONE.cz - t.z);
+    const fx = Math.sin(ang), fz = Math.cos(ang);
+    const faceW = Math.abs(fx) > Math.abs(fz) ? t.w : t.d;
+    const signW = Math.min(12, faceW * 0.65);
+    const sign = makeV31Sign(name, bg, '#FFFFFF', signW, signW * 0.25);
+    // podium face toward the centre: (face + 1.5) / 2 + 0.15 out
+    const faceDist = (faceW + 1.5) / 2 + 0.15;
+    sign.position.set(t.x + fx * faceDist, 5.6, t.z + fz * faceDist);
+    sign.rotation.y = ang;
+    scene.add(sign);
+  });
+  // Far skyline: 24 boxes at 450-550m sharing 4 baked facade cells.
+  scene.add(makeFarSkyline(facadeAtlas));
   const boats = [];
   {
     const dockMat = M(0x8a6b4f);
@@ -809,6 +880,8 @@ export function buildCity(scene, rng, tx = {}) {
     top.position.set(x, 3, 262);
     top.castShadow = true;
     scene.add(pole, top);
+    // v31: blob shadow under the beach umbrella pole so it stops floating.
+    addBlobShadow(scene, x, 262, 1.2, 1.2, 0.32);
   }
   for (const [rx, rr, rh] of [[-520, 85, 14], [480, 70, 11]]) {
     const ridge = new ME(
@@ -834,7 +907,7 @@ export function buildCity(scene, rng, tx = {}) {
     scene.add(cloud);
     clouds.push(cloud);
   }
-  return { colliders: col, landmarks, sea, boats, clouds, collectibleMeshes };
+  return { colliders: col, landmarks, sea, boats, clouds, collectibleMeshes, trafficLights, towers };
 }
 export function resolveBuildingCollision(pos, radius, colliders) {
   let hit = false;

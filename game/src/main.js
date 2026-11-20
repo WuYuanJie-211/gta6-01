@@ -16,6 +16,7 @@ import { createHud } from './hud.js';
 import { saveGame, loadSave, hasSave } from './save.js';
 import { createAudio } from './audio.js';
 import { stageShot } from './shots.js';
+import { makeSkyDome, makeSunBillboard, updateTrafficLights, shadowAudit } from './v31.js';
 const params = new URLSearchParams(window.location.search);
 const shot = params.get('shot');
 const seedParam = Number.parseInt(params.get('seed') ?? '', 10);
@@ -39,8 +40,16 @@ class Game {
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.textures = textures;
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x8ec9ee);
-    this.scene.fog = new THREE.Fog(0x8ec9ee, 160, 550);
+    // v31: dithered sunset-gradient sky dome (no banding) replaces the flat
+    // blue background. Fallback background is the warm horizon colour.
+    this.scene.background = new THREE.Color(0xFFB86B);
+    this.skyDome = makeSkyDome();
+    this.scene.add(this.skyDome);
+    this.sunBillboard = makeSunBillboard();
+    this.scene.add(this.sunBillboard);
+    // v31: warm haze, pushed out so the far skyline (450-550m) reads
+    // through it instead of being washed out. The dome is unfogged.
+    this.scene.fog = new THREE.Fog(0xD9A06B, 280, 900);
     this.camera = new THREE.PerspectiveCamera(60, 1, 0.1, 1500);
     const sun = new THREE.DirectionalLight(0xffd9a0, 3.0);
     sun.castShadow = true;
@@ -257,6 +266,8 @@ class Game {
   }
   step(dt) {
     this.time += dt;
+    // v31: traffic-light state machine (exactly one lamp lit, always).
+    if (this.city.trafficLights) updateTrafficLights(this.city.trafficLights, this.time);
     const playing = this.screen === 'playing';
     updateTraffic(this, dt);
     updatePedestrians(this, dt);
@@ -349,6 +360,16 @@ class Game {
 const textures = await loadCityTextures();
 const game = new Game(textures);
 window.__game = game;
+// v31 debug: ?audit=1 logs the shadow audit + hero-zone sign count.
+// (shadowAudit lists grounded meshes with no blob/AO shadow beneath.)
+if (params.get('audit') === '1') {
+  setTimeout(() => {
+    const signs = [];
+    game.scene.traverse((o) => { if (o.userData && o.userData.v31sign) signs.push(o.userData.v31sign); });
+    console.log('[v31-audit] signs=' + signs.length + ' ' + JSON.stringify(signs));
+    console.log('[v31-audit] unshadowed=' + JSON.stringify(shadowAudit(game.scene)));
+  }, 2500);
+}
 function runShot(name) {
   stageShot(name, game);
   game.setScreen('playing');

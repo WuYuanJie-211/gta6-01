@@ -1,6 +1,7 @@
 import{BX,CG,MS,SG,ME,V3,GP,PI}from'./geo.js';
 import { CITY } from './config.js';
 import { isOnRoad } from './roads.js';
+import { addBlobShadow } from './v31.js';
 const B=(g,w,h,d,m,x=0,y=0,z=0)=>{const q=new ME(new BX(w,h,d),m);q.position.set(x,y,z);g.add(q);return q;};
 const mt=(c,r=0.9)=>new MS({color:c,roughness:r});
 const SHIRTS = [0xe74c3c, 0x3498db, 0x2ecc71, 0xf39c12, 0x9b59b6, 0xecf0f1, 0x1abc9c, 0xe67e22];
@@ -44,6 +45,10 @@ function createPedestrianMesh(rng) {
   phone.visible = false;
   group.userData.phone = phone;
   group.scale.set(1, height, 1);
+  // v31: blob shadow so pedestrians stop floating (the shadow pass flagged
+  // every pedestrian's legs). A soft radial blob; the group's Y scale
+  // stretches it ≤12% in one axis, invisible on a soft blob.
+  addBlobShadow(group, 0, 0, 0.9, 0.9, 0.36);
   return group;
 }
 function randomSidewalkPoint(rng) {
