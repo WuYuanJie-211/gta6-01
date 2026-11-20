@@ -48,7 +48,7 @@ function createPedestrianMesh(rng) {
   // v31: blob shadow so pedestrians stop floating (the shadow pass flagged
   // every pedestrian's legs). A soft radial blob; the group's Y scale
   // stretches it ≤12% in one axis, invisible on a soft blob.
-  addBlobShadow(group, 0, 0, 0.9, 0.9, 0.36);
+  addBlobShadow(group, 0, 0, 0.9, 0.9, 0.55);
   return group;
 }
 function randomSidewalkPoint(rng) {

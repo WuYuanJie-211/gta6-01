@@ -45,8 +45,20 @@ export function createHud(game) {
   }
   function drawMinimap() {
     const size = minimap.width;
-    const scale = size / (CITY.halfSize * 2 + 80);
-    const toMap = (x, z) => [(x + CITY.halfSize + 40) * scale, (z + CITY.halfSize + 40) * scale];
+    const p0 = game.player.car ? game.player.car.pos : game.player.pos;
+    // v32: clip to a true circle INSIDE the canvas (the CSS border-radius
+    // only masked a square canvas, which read as a faceted ring), and in
+    // shot mode zoom to the 240m around the player so each shot's minimap
+    // reflects its own location instead of the whole-city grid.
+    c.save();
+    c.beginPath();
+    c.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+    c.clip();
+    const span = game.shotMode ? 240 : (CITY.halfSize * 2 + 80);
+    const cx = game.shotMode ? p0.x : 0;
+    const cz = game.shotMode ? p0.z : 0;
+    const scale = size / span;
+    const toMap = (x, z) => [(x - cx + span / 2) * scale, (z - cz + span / 2) * scale];
     c.fillStyle = '#0e2a3a';
     c.fillRect(0, 0, size, size);
     const [, seaY] = toMap(0, CITY.seaStart);
@@ -146,8 +158,7 @@ export function createHud(game) {
       c.closePath();
       c.fill();
     }
-    const p = game.player.car ? game.player.car.pos : game.player.pos;
-    const [px, py] = toMap(p.x, p.z);
+    const [px, py] = toMap(p0.x, p0.z);
     let fx;
     let fz;
     if (game.player.car) {
@@ -164,6 +175,7 @@ export function createHud(game) {
     c.lineTo(px + fz * 5 - fx * 4, py - fx * 5 - fz * 4);
     c.closePath();
     c.fill();
+    c.restore();
   }
   function update() {
     const health = Math.max(0, Math.round(game.player.health));
@@ -210,7 +222,15 @@ export function createHud(game) {
     clockText.textContent = `${hh}:${mm}`;
     const district = districtAt(p.x, p.z);
     districtText.textContent = district;
-    if (district !== lastDistrict) {
+    if (game.shotMode) {
+      // v32: in shot mode the toast must be on screen when the frame is
+      // taken — show it and cancel any fade scheduled before shot mode
+      // (a game.step during staging schedules one while shotMode is off,
+      // which is why shots 1-2 lost the toast).
+      lastDistrict = district;
+      streetToast.classList.add('show');
+      if (streetTimer) { clearTimeout(streetTimer); streetTimer = null; }
+    } else if (district !== lastDistrict) {
       lastDistrict = district;
       streetToast.classList.add('show');
       if (streetTimer) clearTimeout(streetTimer);

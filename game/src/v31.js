@@ -171,9 +171,9 @@ export function applyFacadeUVs(geometry, cell, w, h, d) {
 //    unlit so they read at dusk. Cached by text+colour.
 // ---------------------------------------------------------------------------
 export const SIGN_NAMES = [
-  'HOTEL SERIWA', 'CAFE PELICANO', 'BODEGA LA OLA', 'MARINE MONTERO',
-  'GARAGE ODALYS', 'SUITES MALUN', 'PALACE PIRA', 'CANTINA LAGUNA',
-  'FARMACIA KUMALA', 'PENSION BINTU', 'MERCADO TEKO', 'TALLER RASI',
+  'HOTEL', 'CAFE', 'BODEGA', 'MARINE',
+  'GARAGE', 'SUITES', 'PALACE', 'CANTINA',
+  'FARMACIA', 'PENSION', 'MERCADO', 'TALLER',
 ];
 export const SIGN_COLORS = ['#C0392B', '#1F6F8B', '#E67E22', '#2C3E50'];
 const _signCache = new Map();
@@ -188,15 +188,26 @@ export function makeV31Sign(text, bg, fg = '#FFFFFF', w = 10, h = 2.5) {
     ctx.fillStyle = bg;
     ctx.fillRect(0, 0, 512, 128);
     ctx.fillStyle = fg;
-    // bold condensed sans, all caps, 5% letter spacing
-    ctx.font = '800 58px "Arial Narrow", "Helvetica Neue Condensed", system-ui, sans-serif';
+    // bold condensed sans, all caps, 5% letter spacing. v32: auto-fit —
+    // shrink the font until the whole word fits the 512px panel (the
+    // headless shell falls back to a wider font than Arial Narrow, so
+    // long names like BODEGA LA OLA were clipped to fragments).
+    const chars = [...text];
+    let size = 58;
+    let widths = [];
+    let total = 0;
+    while (size >= 26) {
+      ctx.font = `800 ${size}px "Arial Narrow", "Helvetica Neue Condensed", system-ui, sans-serif`;
+      const spacing = size * 0.05;
+      widths = chars.map((ch) => ctx.measureText(ch).width);
+      total = widths.reduce((a, b) => a + b, 0) + spacing * (chars.length - 1);
+      if (total <= 496) break;
+      size -= 2;
+    }
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     // manual letter-spacing (canvas has no letterSpacing in all browsers)
-    const spacing = 58 * 0.05;
-    const chars = [...text];
-    const widths = chars.map((ch) => ctx.measureText(ch).width);
-    const total = widths.reduce((a, b) => a + b, 0) + spacing * (chars.length - 1);
+    const spacing = size * 0.05;
     let x = 256 - total / 2;
     chars.forEach((ch, i) => {
       ctx.fillText(ch, x + widths[i] / 2, 66);
@@ -226,9 +237,12 @@ export function blobShadowTexture() {
   canvas.width = 128;
   canvas.height = 128;
   const ctx = canvas.getContext('2d');
+  // v32: much darker + wider dark core so the blob reads on dark asphalt
+  // (the old 0.85/0.45 falloff was invisible on the road).
   const gr = ctx.createRadialGradient(64, 64, 4, 64, 64, 62);
-  gr.addColorStop(0, 'rgba(0,0,0,0.85)');
-  gr.addColorStop(0.55, 'rgba(0,0,0,0.45)');
+  gr.addColorStop(0, 'rgba(0,0,0,0.95)');
+  gr.addColorStop(0.5, 'rgba(0,0,0,0.7)');
+  gr.addColorStop(0.75, 'rgba(0,0,0,0.35)');
   gr.addColorStop(1, 'rgba(0,0,0,0)');
   ctx.fillStyle = gr;
   ctx.fillRect(0, 0, 128, 128);
@@ -236,10 +250,10 @@ export function blobShadowTexture() {
   return _blobTex;
 }
 
-export function addBlobShadow(parent, x, z, w, d, opacity = 0.36, y = 0.01) {
+export function addBlobShadow(parent, x, z, w, d, opacity = 0.55, y = 0.01) {
   const tex = blobShadowTexture();
   const m = new ME(
-    new PG(w * 1.15, d * 1.15),
+    new PG(w * 1.3, d * 1.3),
     new MB({ map: tex, transparent: true, opacity, depthWrite: false }),
   );
   m.rotation.x = -PI / 2;
@@ -248,74 +262,16 @@ export function addBlobShadow(parent, x, z, w, d, opacity = 0.36, y = 0.01) {
   return m;
 }
 
-export function addAOSkirt(parent, x, z, w, d, opacity = 0.14) {
+export function addAOSkirt(parent, x, z, w, d, opacity = 0.25) {
   const tex = blobShadowTexture();
   const m = new ME(
-    new PG(w + 0.8, d + 0.8),
+    new PG(w + 1.2, d + 1.2),
     new MB({ map: tex, transparent: true, opacity, depthWrite: false }),
   );
   m.rotation.x = -PI / 2;
   m.position.set(x, 0.012, z);
   parent.add(m);
   return m;
-}
-
-// Debug pass: list every mesh whose bounding-box bottom sits under 0.05
-// with no shadow child (i.e. it would float). Returns the offenders.
-export function shadowAudit(scene) {
-  const bad = [];
-  const box = new THREE.Box3();
-  const tmp = new THREE.Vector3();
-  // Scene-level shadow planes (building AO skirts live on the scene, not
-  // on the building group): world pos + half-extents, so a facade detail
-  // can be matched to the skirt under its building.
-  const groundPlanes = [];
-  scene.traverse((o) => {
-    if (!o.isMesh || !o.material || !o.material.transparent) return;
-    if (!o.geometry || o.geometry.type !== 'PlaneGeometry') return;
-    o.getWorldPosition(tmp);
-    if (tmp.y > 0.15) return;
-    const p = o.geometry.parameters || {};
-    groundPlanes.push({ x: tmp.x, z: tmp.z, hx: (p.width || 2) / 2 + 1, hz: (p.height || 2) / 2 + 1 });
-  });
-  scene.traverse((o) => {
-    if (!o.isMesh) return;
-    if (o.material && o.material.transparent && o.material.opacity < 0.5) return;
-    if (o.geometry && o.geometry.type === 'PlaneGeometry' && o.rotation.x === -PI / 2) return;
-    box.setFromObject(o);
-    if (box.min.y < 0.05 && box.min.y > -0.5) {
-      o.getWorldPosition(tmp);
-      // Far scenery (the 200-500m skyline) needs no blob shadow.
-      if (Math.hypot(tmp.x, tmp.z) > 300) return;
-      // A shadow counts if this mesh, any child, or any ancestor up to the
-      // scene carries a transparent shadow plane near the ground (car
-      // under-shadows sit at y=0.09, blob/AO at y~0.01 — accept y<0.15),
-      // or a scene-level AO skirt covers this object's XZ footprint.
-      let hasShadow = false;
-      o.traverse((c) => {
-        if (c !== o && c.isMesh && c.material && c.material.transparent) hasShadow = true;
-      });
-      let p = o.parent;
-      while (!hasShadow && p && p !== scene) {
-        for (const s of p.children) {
-          if (s !== o && s.isMesh && s.material && s.material.transparent
-            && s.position.y < 0.15) { hasShadow = true; break; }
-        }
-        p = p.parent;
-      }
-      if (!hasShadow) {
-        for (const gp of groundPlanes) {
-          if (Math.abs(tmp.x - gp.x) <= gp.hx && Math.abs(tmp.z - gp.z) <= gp.hz) { hasShadow = true; break; }
-        }
-      }
-      if (!hasShadow) {
-        const geo = o.geometry ? o.geometry.type : '?';
-        const col = o.material && o.material.color ? '#' + o.material.color.getHexString() : '?';
-        bad.push(`${geo}${col}@(${tmp.x.toFixed(1)},${tmp.y.toFixed(2)},${tmp.z.toFixed(1)})`);
-      }
-    }
-  });
-  return bad;
 }
 
 // ---------------------------------------------------------------------------
@@ -334,15 +290,20 @@ export function makeSkyDome() {
   for (const [p, c] of stops) gr.addColorStop(p, c);
   ctx.fillStyle = gr;
   ctx.fillRect(0, 0, 1024, 1024);
-  // 2% dither noise — breaks the gradient into imperceptible grain so the
-  // sky never shows banding steps.
+  // v32: 5% dither noise on a 64px tile (1024/64 = 16, so it wraps
+  // seamlessly — the old per-pixel hash was not periodic in x, which left
+  // a darker vertical band at the sphere's UV seam, and 2% was too weak
+  // to break the horizontal banding).
   const img = ctx.getImageData(0, 0, 1024, 1024);
   const data = img.data;
-  for (let i = 0; i < data.length; i += 4) {
-    const n = (hash01(i * 0.37) - 0.5) * 0.04 * 255;
-    data[i] = Math.max(0, Math.min(255, data[i] + n));
-    data[i + 1] = Math.max(0, Math.min(255, data[i + 1] + n));
-    data[i + 2] = Math.max(0, Math.min(255, data[i + 2] + n));
+  for (let y = 0; y < 1024; y += 1) {
+    for (let x = 0; x < 1024; x += 1) {
+      const i = (y * 1024 + x) * 4;
+      const n = (hash01((x & 63) * 64 + (y & 63)) - 0.5) * 0.1 * 255;
+      data[i] = Math.max(0, Math.min(255, data[i] + n));
+      data[i + 1] = Math.max(0, Math.min(255, data[i + 1] + n));
+      data[i + 2] = Math.max(0, Math.min(255, data[i + 2] + n));
+    }
   }
   ctx.putImageData(img, 0, 0);
   const tex = new CT(canvas);
@@ -355,26 +316,30 @@ export function makeSkyDome() {
 
 export function makeSunBillboard() {
   const g = new GP();
-  // 26m sun disc at 8 degrees elevation, additive; 60m soft glow behind it.
+  // v32: ONE wide soft glow with a long gradual falloff (no separate hard
+  // disc) + a small dim core. The old 26m core used the same texture as
+  // the 60m glow, so it read as a hard-edged disc sitting on the horizon.
   const canvas = document.createElement('canvas');
   canvas.width = 256;
   canvas.height = 256;
   const ctx = canvas.getContext('2d');
-  const gr = ctx.createRadialGradient(128, 128, 4, 128, 128, 126);
-  gr.addColorStop(0, 'rgba(255,244,200,1)');
-  gr.addColorStop(0.25, 'rgba(255,200,110,0.9)');
-  gr.addColorStop(0.6, 'rgba(255,140,90,0.35)');
-  gr.addColorStop(1, 'rgba(255,140,90,0)');
+  const gr = ctx.createRadialGradient(128, 128, 2, 128, 128, 126);
+  gr.addColorStop(0, 'rgba(255,244,200,0.95)');
+  gr.addColorStop(0.12, 'rgba(255,220,150,0.75)');
+  gr.addColorStop(0.3, 'rgba(255,190,110,0.45)');
+  gr.addColorStop(0.55, 'rgba(255,150,90,0.2)');
+  gr.addColorStop(0.8, 'rgba(255,130,80,0.06)');
+  gr.addColorStop(1, 'rgba(255,130,80,0)');
   ctx.fillStyle = gr;
   ctx.fillRect(0, 0, 256, 256);
   const tex = new CT(canvas);
   tex.colorSpace = SC;
   const glowMat = new MB({ map: tex, transparent: true, blending: AB, depthWrite: false });
   glowMat.fog = false;
-  const glow = new ME(new PG(60, 60), glowMat);
-  const coreMat = new MB({ map: tex, transparent: true, blending: AB, depthWrite: false });
+  const glow = new ME(new PG(110, 110), glowMat);
+  const coreMat = new MB({ map: tex, transparent: true, blending: AB, depthWrite: false, opacity: 0.55 });
   coreMat.fog = false;
-  const core = new ME(new PG(26, 26), coreMat);
+  const core = new ME(new PG(11, 11), coreMat);
   // place toward the west-northwest horizon (sunset), 8 deg elevation.
   const az = Math.PI * 0.78, el = (8 * PI) / 180, r = 760;
   const px = Math.cos(az) * Math.cos(el) * r;
@@ -496,7 +461,7 @@ export function makeV31Palm() {
     frond.rotation.x = 0.7 + (i % 2) * 0.35;
     group.add(frond);
   }
-  addBlobShadow(group, 0, 0, 1.6, 1.6, 0.36);
+  addBlobShadow(group, 0, 0, 1.6, 1.6, 0.55);
   return group;
 }
 
@@ -508,12 +473,13 @@ export function makeRoadMarkingTexture() {
   canvas.height = 64;
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, 256, 64);
-  // double yellow centre line: 0.12m lines, 0.15m gap (scaled to texture)
-  ctx.fillStyle = '#E8C547';
+  // v32: muted paint colours (the old full-bright #E8C547/#F2F2F2 blew out
+  // to flat white under the 3.0 sun with no tone mapping).
+  ctx.fillStyle = '#B8932A';
   ctx.fillRect(0, 26, 256, 4);
   ctx.fillRect(0, 34, 256, 4);
   // white lane dashes: 2m on / 2m off (half the tile is dash)
-  ctx.fillStyle = '#F2F2F2';
+  ctx.fillStyle = '#C8C8C8';
   ctx.fillRect(0, 8, 128, 3);
   ctx.fillRect(0, 53, 128, 3);
   const tex = new CT(canvas);
@@ -544,9 +510,21 @@ export function makeTrafficLightV31(initialState = 'R', phase = 0) {
   const lamps = [];
   for (let i = 0; i < 3; i += 1) {
     const mat = new MS({ color: 0x111111, roughness: 0.4, emissive: 0x000000, emissiveIntensity: 0 });
-    const lamp = new ME(new SG(0.32, 10, 8), mat);
-    lamp.position.set(0, 5.7 - i * 0.8, 3.9);
-    g.add(lamp);
+    // v32: a lamp on the front AND back face sharing the one material, so
+    // exactly one lamp is lit from either side. (Four faces showed the
+    // same lamp as two orbs from a diagonal — it read as two lamps lit.)
+    // v32c: lamps are flat DISCS (cylinder, axis along z) standing proud
+    // of the housing face — a protruding sphere on each face showed as
+    // two orbs from a side angle, and a flush box z-fought invisible.
+    // A 0.1-thick disc is edge-on (invisible) from the side, so exactly
+    // one lamp reads as lit from any direction. The hero-zone lights
+    // are rotated to face south-east (see city.js) so one face is
+    // visible from both the north and the west cameras.
+    for (const lz of [3.92, 3.28]) {
+      const lamp = new ME(new CG(0.3, 0.3, 0.1, 12).rotateX(PI / 2), mat);
+      lamp.position.set(0, 5.7 - i * 0.8, lz);
+      g.add(lamp);
+    }
     lamps.push(mat);
   }
   function setState(s) {
@@ -570,7 +548,7 @@ export function makeTrafficLightV31(initialState = 'R', phase = 0) {
   g.userData.setState = setState;
   g.userData.phase = phase;
   setState(initialState);
-  addBlobShadow(g, 0, 0, 1.2, 1.2, 0.36);
+  addBlobShadow(g, 0, 0, 1.2, 1.2, 0.55);
   return g;
 }
 
@@ -584,53 +562,52 @@ export function updateTrafficLights(lights, time) {
 }
 
 // ---------------------------------------------------------------------------
-// Soft beam (replaces the hard-edged cone in shots.js): 32 radial segments
-// + a smooth ease gradient + a wide low-opacity halo cone, so the silhouette
-// has no triangle facets and no hard edge.
-// ---------------------------------------------------------------------------
-let _beamTex = null;
-export function beamTexture() {
-  if (_beamTex) return _beamTex;
+// Soft beam (replaces the hard-edged cone in shots.js): a camera-facing
+// Sprite with a soft radial glow. A Sprite has NO silhouette edge at all
+// (unlike a cone, whose geometric boundary always reads as a hard triangle),
+// so the shaft is pure falloff. One wide dim glow + one narrow brighter
+// core, both additive, both fading to transparent at every edge.
+let _beamGlowTex = null;
+export function beamGlowTexture() {
+  if (_beamGlowTex) return _beamGlowTex;
   const canvas = document.createElement('canvas');
-  canvas.width = 8;
-  canvas.height = 64;
+  canvas.width = 256;
+  canvas.height = 256;
   const ctx = canvas.getContext('2d');
-  const gr = ctx.createLinearGradient(0, 0, 0, 64);
-  gr.addColorStop(0, 'rgba(0,0,0,0)');
-  gr.addColorStop(0.25, 'rgba(255,255,255,0.25)');
-  gr.addColorStop(0.6, 'rgba(255,255,255,0.85)');
-  gr.addColorStop(0.9, 'rgba(255,255,255,1)');
-  gr.addColorStop(1, 'rgba(255,255,255,0.9)');
+  const gr = ctx.createRadialGradient(128, 128, 2, 128, 128, 126);
+  gr.addColorStop(0, 'rgba(255,250,230,0.9)');
+  gr.addColorStop(0.25, 'rgba(255,240,200,0.55)');
+  gr.addColorStop(0.55, 'rgba(255,220,160,0.22)');
+  gr.addColorStop(0.8, 'rgba(255,200,130,0.07)');
+  gr.addColorStop(1, 'rgba(255,200,130,0)');
   ctx.fillStyle = gr;
-  ctx.fillRect(0, 0, 8, 64);
-  _beamTex = new CT(canvas);
-  return _beamTex;
+  ctx.fillRect(0, 0, 256, 256);
+  _beamGlowTex = new CT(canvas);
+  return _beamGlowTex;
 }
 
 export function makeSoftBeam(scene, a, b, rt, rb, opacity) {
-  const tex = beamTexture();
+  const tex = beamGlowTexture();
   const g = new GP();
-  const d = new V3(a.x - b.x, a.y - b.y, a.z - b.z);
-  const L = d.length();
-  d.normalize();
   const mid = new V3((a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2);
-  const q = new THREE.Quaternion().setFromUnitVectors(new V3(0, 1, 0), d);
-  // core cone: 32 segments, smooth gradient, additive
-  const core = new ME(
-    new CG(rt, rb, L, 32, 1, true),
-    new MB({ map: tex, transparent: true, opacity, blending: AB, depthWrite: false, side: DS }),
-  );
+  // The beam is foreshortened (it runs mostly along the view direction),
+  // so the sprite is scaled to its vertical drop, not its 3D length:
+  // a tall soft shaft from the heli down to the target, no hard edges.
+  const drop = Math.max(2, Math.abs(a.y - b.y));
+  const wide = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: tex, transparent: true, opacity: opacity * 0.9,
+    blending: AB, depthWrite: false,
+  }));
+  wide.position.copy(mid);
+  wide.scale.set(rb * 3.2, drop * 1.15, 1);
+  g.add(wide);
+  const core = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: tex, transparent: true, opacity: Math.min(0.5, opacity * 1.6),
+    blending: AB, depthWrite: false,
+  }));
   core.position.copy(mid);
-  core.quaternion.copy(q);
+  core.scale.set(rb * 1.4, drop * 0.9, 1);
   g.add(core);
-  // halo cone: 2.2x wider, 0.3x opacity — softens the silhouette edge
-  const halo = new ME(
-    new CG(rt * 2.2, rb * 2.2, L, 32, 1, true),
-    new MB({ map: tex, transparent: true, opacity: opacity * 0.3, blending: AB, depthWrite: false, side: DS }),
-  );
-  halo.position.copy(mid);
-  halo.quaternion.copy(q);
-  g.add(halo);
   scene.add(g);
   return g;
 }

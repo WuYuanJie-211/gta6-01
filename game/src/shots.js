@@ -107,8 +107,10 @@ function stageChase(game) {
     heli.scale.setScalar(1.5);
     heli.rotation.y = 0.4;
     heli.children[0].material.color.set(0x2a2f36);
-    beam(game, new V3(vx + 8, 13.15, vz - 24), new V3(vx + 1.2, 2.4, vz + 14), .3, 2.4, .05);
-    beam(game, new V3(vx + 8, 13.15, vz - 24), new V3(vx + 1.2, 2.4, vz + 14), .15, .6, .3);
+    // v32: brighter soft shaft (the old 0.05/0.3 read as almost nothing
+    // once the cone became a sprite — a searchlight must be visible).
+    beam(game, new V3(vx + 8, 13.15, vz - 24), new V3(vx + 1.2, 2.4, vz + 14), .3, 2.4, .18);
+    beam(game, new V3(vx + 8, 13.15, vz - 24), new V3(vx + 1.2, 2.4, vz + 14), .15, .6, .45);
     const rp=pool(game,vx+1.2,vz+14,1,.6,2.45);if(rp)rp.scale.set(1,.6,1);
     const st = new ME(new BX(1.4, .02, .9), new MB({ color: 0xe8f0ff, emissive: 0xe8f0ff, emissiveIntensity: 1 }));
     st.position.set(vx + 1.2, 2.45, vz + 14); game.scene.add(st);
@@ -124,26 +126,31 @@ function stageGunfight(game) {
   player.ownedWeapons = ['pistol', 'rifle'];
   player.mag = 30;
   player.ammo = 60;
-  player.pos.set(-178.86, 0, 192.93);
-  player.heading = 0.286;
+  // v32: the player stands SOUTH of the duellist and the camera looks
+  // NORTH toward downtown — the old staging looked south, so the horizon
+  // showed open sea and beach umbrellas behind a downtown gunfight.
+  player.pos.set(-178.86, 0, 196.1);
+  player.heading = PI;
   player.mesh.position.copy(player.pos);
   player.mesh.rotation.y = player.heading;
   player.mesh.rotation.x = 0;
   player.mesh.scale.y = 0.85;
   const rifle = player.mesh.userData.rifle;
-  rifle.position.set(0.15, 1.62, 0.75);
-  rifle.rotation.set(0.16, 0.6, 0);
-  rifle.scale.setScalar(1.4);
+  // v32: shorter rifle (scale 1.4 -> 1.0), pulled back (z 0.75 -> 0.55),
+  // pointed straight ahead — the old long angled barrel reached through
+  // the duellist's torso.
+  rifle.position.set(0.15, 1.62, 0.55);
+  rifle.rotation.set(0.16, 0.15, 0);
+  rifle.scale.setScalar(1.0);
   // v31 defect (a): the old aim point (-169.53, 200.85) was ~9m east of the
   // duellist, so the tracer fired left onto the road away from him. Aim
-  // at the duellist (first gunman, -178.1, 196.1) so the tracer hits him.
-  game.aim=new V3(-178.1,1.2,196.1);
-  if (game.textures.shadow) { const s = new ME(new PG(.9,.5), SH(game.textures.shadow,.5)); s.rotation.x = -PI / 2; s.position.set(-178.86, .1, 192.93); game.scene.add(s); }
-  for(const wy of[4.45,11.45]){const w=new ME(new BX(13,1.4,.1),new MB({color:0x2c3e50}));w.position.set(-151.7,wy,201.6);game.scene.add(w);}
-  game.combat.spawnGunman(-178.1,196.1).mesh.scale.setScalar(1.15);
-  const g2 = game.combat.spawnGunman(-173.2, 194.7);
+  // at the duellist (first gunman, -178.1, 191.5) so the tracer hits him.
+  game.aim=new V3(-178.1,1.2,191.5);
+  if (game.textures.shadow) { const s = new ME(new PG(.9,.5), SH(game.textures.shadow,.5)); s.rotation.x = -PI / 2; s.position.set(-178.86, .1, 196.1); game.scene.add(s); }
+  game.combat.spawnGunman(-178.1,191.5).mesh.scale.setScalar(1.15);
+  const g2 = game.combat.spawnGunman(-173.2, 191.0);
   g2.mesh.rotation.y = .6;
-  const th = game.combat.spawnThug(-172.3, 194.9);
+  const th = game.combat.spawnThug(-172.3, 191.2);
   th.mesh.rotation.x = .3;
   th.mesh.scale.y = .85;
   for (const e of game.combat.enemies) e.mesh.children[8].visible = e.mesh.children[9].visible = false;
@@ -152,9 +159,15 @@ function stageGunfight(game) {
   game.camDist = 2.8;
   game.camPitch = 0.036;
   game.camX = 1.4;
-  skid(game, -179.3, 196);
+  skid(game, -179.3, 193.5);
   game.input.fireAction(ACTION_SHOOT);
   game.step(STEP);
+  // v32: the muzzle flash must light the road — a warm point light at the
+  // flash plus a light pool on the asphalt beneath it.
+  const fl = new THREE.PointLight(0xffa040, 2.5, 9);
+  fl.position.set(-178.4, 1.6, 194);
+  game.scene.add(fl);
+  pool(game, -178.4, 194, 2.2, 0.5);
   for (const c of game.police.state.cars) place(c, 0, 300, 0);
 }
 function stageDowntown(game) {
@@ -212,10 +225,12 @@ function stageDowntown(game) {
 function stageSunset(game) {
   game.missions.setProgress(5, 0);
   const comet = game.cars.comet;
-  // v31: sunset heist re-staged into the 40x40m hero zone (was at 17,-188,
-  // far from the other shots). All positions shifted +226,+16 so the
-  // relative layout — comet, gunman, police, explosions, heli — is kept.
-  place(comet, 248, -172, PI);
+  // v32: re-staged as a SIDE view across the street (camera east, looking
+  // west into the sunset) — the old shot was the same north view as the
+  // chase, one lighting change. The action sits on the north-south street
+  // at the z=-180 cross street: comet south, gunman centre, burning
+  // police car north, heli over the intersection in open sky.
+  place(comet, 243, -190, PI / 2);
   comet.stolen = true;
   comet.speed = 0;
   game.police.state.wanted = 5;
@@ -231,13 +246,13 @@ function stageSunset(game) {
   if (game.skyDome) game.skyDome.visible = false;
   if (game.sunBillboard) game.sunBillboard.visible = false;
   game.sun.color.set(0xff7733);
-  const r = game.combat.spawnGunman(243, -167.5);
+  const r = game.combat.spawnGunman(243, -180);
   r.mesh.children[8].visible = r.mesh.children[9].visible = false;
-  r.mesh.rotation.y = 2.6;
+  r.mesh.rotation.y = -PI / 2;
   const b = new ME(new BX(.45, .4, .2), new MB({ color: 0x1f2a1a }));
   b.position.set(-.42, .85, -.45); r.mesh.add(b);
   const p = game.player;
-  p.pos.set(243, 0, -167.5);
+  p.pos.set(243, 0, -180);
   p.heading = PI;
   // v31: arm the player so the weapon bar reads "Rifle" — the visible
   // gunman is an NPC, but the HUD follows the player, who defaults to
@@ -249,15 +264,19 @@ function stageSunset(game) {
   p.mesh.position.copy(p.pos);
   p.mesh.rotation.y = p.heading;
   p.mesh.visible = false;
-  const bc = pc(game, 243, -173, PI, 0);
+  const bc = pc(game, 243, -172, -PI / 2, 0);
   const bm = bc.mesh.children;
   bm[7].material.color.setHex(0x241a14);bm[8].material=new MS({color:0x141018,roughness:.9});bm[1].material=new MS({color:0x0a0a0c,roughness:.9});bc.mesh.position.y=-.15;
-  for (const [ex, ez] of [[243, -173], [242.2, -172.3], [243.8, -173.7]]) game.combat.spawnExplosion(new V3(ex, 0, ez), 0.22);
-  pc(game, 235, -173.5, PI, 0);
+  for (const [ex, ez] of [[243, -172], [242.2, -171.3], [243.8, -172.7]]) game.combat.spawnExplosion(new V3(ex, 0, ez), 0.22);
+  pc(game, 238, -186, PI, 0);
   const heli = game.police.heli;
   if (heli) {
     heli.visible = true;
-    heli.position.set(243, 12, -194);
+    // v32: over the cross-street intersection, far west (31m) and high
+    // (15m) so it reads as a distant helicopter in open sky, not a looming
+    // rotor across a building face (the old 243,12,-194) nor out of frame
+    // (243,18,-180) nor looming (228,13,-180).
+    heli.position.set(220, 15, -180);
     heli.scale.setScalar(1.4);
     heli.rotation.y = 0.5;
     heli.children[0].material.color.set(0x2a2f36);
@@ -265,11 +284,17 @@ function stageSunset(game) {
     const stripe = new ME(new BX(.06, .5, 2.2), new MB({ color: 0xffffff }));
     stripe.position.set(1.21, 0, 0);
     heli.add(stripe);
-    pool(game, 243, -167.5, 1.1, .12);
+    pool(game, 243, -180, 1.1, .12);
   }
-  game.cameraAngle = 0;
+  // v32: the burning car must light the road — a warm point light at the
+  // fire plus a light pool on the asphalt beneath it.
+  const fireLight = new THREE.PointLight(0xff8030, 3, 12);
+  fireLight.position.set(243, 2, -172);
+  game.scene.add(fireLight);
+  pool(game, 243, -172, 3, 0.55);
+  game.cameraAngle = PI / 2;
   game.lastDragAt = game.time;
-  game.camDist = 7.5;
+  game.camDist = 8;
   game.camPitch = 0.12;
 }
 export const SHOT_ORDER = ['chase', 'gunfight', 'downtown', 'sunset'];
@@ -282,6 +307,6 @@ export function stageShot(name, game) {
   else if (name === 'gunfight') stageGunfight(game);
   else if (name === 'sunset') stageSunset(game);
   else stageDowntown(game);
-  game.hud.setShotMode(true, name === 'sunset');
+  game.hud.setShotMode(true, true);
   game.hud.update();
 }

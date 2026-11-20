@@ -117,7 +117,7 @@ export function createCarMesh(color, kind = 'sedan') {
   group.userData.wheels = wheels;
   group.userData.bodyLen = len;
   if (carTextures && carTextures.shadow) {
-    const sh = new ME(new PG(len*1.15,2.5), SH(carTextures.shadow,.4));
+    const sh = new ME(new PG(len*1.3,2.8), SH(carTextures.shadow,.65));
     sh.rotation.x = -PI / 2;
     sh.position.set(0, 0.09, 0);
     group.add(sh);

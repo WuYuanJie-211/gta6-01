@@ -16,7 +16,7 @@ import { createHud } from './hud.js';
 import { saveGame, loadSave, hasSave } from './save.js';
 import { createAudio } from './audio.js';
 import { stageShot } from './shots.js';
-import { makeSkyDome, makeSunBillboard, updateTrafficLights, shadowAudit } from './v31.js';
+import { makeSkyDome, makeSunBillboard, updateTrafficLights } from './v31.js';
 const params = new URLSearchParams(window.location.search);
 const shot = params.get('shot');
 const seedParam = Number.parseInt(params.get('seed') ?? '', 10);
@@ -36,6 +36,10 @@ class Game {
     this.canvas = document.getElementById('game');
     this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, preserveDrawingBuffer: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    // v32 (Superbot Q3): ACES tone mapping + sRGB output recover the detail
+    // the old linear pipeline clamped to pure white (the "480p" washout).
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.textures = textures;
@@ -47,9 +51,9 @@ class Game {
     this.scene.add(this.skyDome);
     this.sunBillboard = makeSunBillboard();
     this.scene.add(this.sunBillboard);
-    // v31: warm haze, pushed out so the far skyline (450-550m) reads
-    // through it instead of being washed out. The dome is unfogged.
-    this.scene.fog = new THREE.Fog(0xD9A06B, 280, 900);
+    // v32: warm haze, pushed out (300/900) so the midground is not washed
+    // into sky colour. The dome is unfogged.
+    this.scene.fog = new THREE.Fog(0xD9A06B, 300, 900);
     this.camera = new THREE.PerspectiveCamera(60, 1, 0.1, 1500);
     const sun = new THREE.DirectionalLight(0xffd9a0, 3.0);
     sun.castShadow = true;
@@ -360,14 +364,12 @@ class Game {
 const textures = await loadCityTextures();
 const game = new Game(textures);
 window.__game = game;
-// v31 debug: ?audit=1 logs the shadow audit + hero-zone sign count.
-// (shadowAudit lists grounded meshes with no blob/AO shadow beneath.)
+// v32 debug: ?audit=1 logs the hero-zone sign count.
 if (params.get('audit') === '1') {
   setTimeout(() => {
     const signs = [];
     game.scene.traverse((o) => { if (o.userData && o.userData.v31sign) signs.push(o.userData.v31sign); });
     console.log('[v31-audit] signs=' + signs.length + ' ' + JSON.stringify(signs));
-    console.log('[v31-audit] unshadowed=' + JSON.stringify(shadowAudit(game.scene)));
   }, 2500);
 }
 function runShot(name) {

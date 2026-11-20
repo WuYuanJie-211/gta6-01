@@ -122,7 +122,7 @@ function makePalm(rng) {
   group.traverse((o) => {
     if (o.isMesh) o.castShadow = true;
   });
-  addBlobShadow(group, 0, 0, 1.6, 1.6, 0.36);
+  addBlobShadow(group, 0, 0, 1.6, 1.6, 0.55);
   return group;
 }
 function makeTree(rng) {
@@ -147,7 +147,7 @@ function makeTree(rng) {
     group.add(puff);
   }
   // v31: blob shadow so trees stop floating (the shadow pass flagged all 24).
-  addBlobShadow(group, 0, 0, 1.8, 1.8, 0.36);
+  addBlobShadow(group, 0, 0, 1.8, 1.8, 0.55);
   return group;
 }
 function makeTrafficLight(state, phase = 0) {
@@ -167,7 +167,7 @@ function makeHydrant() {
   nozzle.rotation.z = PI / 2;
   nozzle.position.set(0.25, 0.4, 0);
   group.add(nozzle);
-  addBlobShadow(group, 0, 0, 0.9, 0.9, 0.36);
+  addBlobShadow(group, 0, 0, 0.9, 0.9, 0.55);
   return group;
 }
 function makeLamp() {
@@ -189,7 +189,7 @@ function makeLamp() {
   );
   bulb.position.y = 5.3;
   group.add(pole, head, bulb);
-  addBlobShadow(group, 0, 0, 1.0, 1.0, 0.36);
+  addBlobShadow(group, 0, 0, 1.0, 1.0, 0.55);
   return group;
 }
 function makeBench() {
@@ -377,7 +377,11 @@ export function buildCity(scene, rng, tx = {}) {
     const hole=new ME(new CG(0.55,0.55,0.06,12),M(0x222222,0.9));
     hole.position.set(hx,0.09,hz);scene.add(hole);
   }
-  for(const [tx,tz,tr,ts] of [[8,-172,PI,'R'],[-8,-188,0,'R'],[248,-174,PI,'R'],[232,-188,PI/2,'R'],[8,8,PI,'G'],[-8,-8,0,'R'],[248,8,PI,'R'],[232,-8,0,'G']]){
+  // v32: the two hero-zone lights face south-east (PI/4) so one lamp face
+  // is visible from both the north cameras (shots 1, 3) and the west
+  // camera (shot 3 looks west from the east) — the old PI/PI/2 left the
+  // [248,-174] light showing its blank side to the shot-3 camera.
+  for(const [tx,tz,tr,ts] of [[8,-172,PI,'R'],[-8,-188,0,'R'],[248,-174,PI/4,'R'],[232,-188,PI/4,'R'],[8,8,PI,'G'],[-8,-8,0,'R'],[248,8,PI,'R'],[232,-8,0,'G']]){
     const tl=makeTrafficLight(ts, trafficLights.length * 5.3);tl.position.set(tx,0,tz);tl.rotation.y=tr;scene.add(tl);trafficLights.push(tl);
   }
   for(const [hx,hz] of [[30,10],[-60,-40],[150,60],[210,-30],[120,-174],[180,-186],[240,-150],[0,-174]]){
@@ -387,7 +391,7 @@ export function buildCity(scene, rng, tx = {}) {
     const sg=makeSign(st,'#ffffff','#1a3a5f',2.4,1.2);sg.position.set(sx,2.6,sz);scene.add(sg);
     cyl(scene,0.05,0.05,2.6,6,M(0x888888),sx,1.3,sz);
     // v31: blob shadow under the road-sign post so it stops floating.
-    addBlobShadow(scene, sx, sz, 0.7, 0.7, 0.36);
+    addBlobShadow(scene, sx, sz, 0.7, 0.7, 0.55);
   }
   for(let tx2=-300;tx2<=300;tx2+=120){
     const tr2=makeTree(rng);tr2.position.set(tx2,0,-180+(tx2%240===0?-8.5:8.5));scene.add(tr2);
@@ -490,11 +494,19 @@ export function buildCity(scene, rng, tx = {}) {
       for (const [fx, fz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) box(scene, 0.7, h, 0.7, M(0x14202c, 0.4, { metalness: 0.5 }), x + fx * (w / 2 - 0.2), h / 2, z + fz * (d / 2 - 0.2));
       box(scene, w + 0.6, 0.5, d + 0.6, M(0x3a3f45), x, h - 0.25, z);
       for (const [pw, pd, px, pz] of [[w + 0.4, 0.5, 0, d / 2], [w + 0.4, 0.5, 0, -d / 2], [0.5, d + 0.4, w / 2, 0], [0.5, d + 0.4, -w / 2, 0]]) box(scene, pw, 0.8, pd, M(0x3a3f45), x + px, h + 0.4, z + pz);
-      box(scene, w + 1.5, 4.5, d + 1.5, TM(tx.concrete, 2, 1, 0.8), x, 2.25, z, true);
-      box(scene, w * 0.8, 3.2, 0.2, M(0x0e1a24, 0.25, { metalness: 0.5 }), x, 1.6, z + d / 2 + 0.85);
-      const awn = box(scene, w * 0.85, 0.18, 2.4, TM(tx.awning, 3, 1, 0.9), x, 3.7, z + d / 2 + 1.9);
-      awn.rotation.x = 0.22;
-      if (stex.length) { const sg = new ME(new PG(9, 2.2), new MB({ map: rng.pick(stex) })); sg.position.set(x, 5.6, z + d / 2 + 0.95); scene.add(sg); }
+      // v32: the podium wears a storefront cell of the facade atlas (the
+      // full 20m cell compressed onto the 4.5m base, so its sign band +
+      // glass + awning read as a shop front) instead of flat grey
+      // concrete. The separate dark band + awning are gone — the texture
+      // already carries them. The neon sign is gone too: it sat at the
+      // same height as the v31 signs and read as a fragment beside them.
+      const podGeo = new BX(w + 1.5, 4.5, d + 1.5);
+      applyFacadeUVs(podGeo, rng.int(12, 15), w + 1.5, 20, d + 1.5);
+      const pod = new ME(podGeo, facadeMat);
+      pod.position.set(x, 2.25, z);
+      pod.castShadow = true;
+      pod.receiveShadow = true;
+      scene.add(pod);
       let tw = w, td = d, ty = h;
       const tiers = h >= 60 ? 3 : h >= 35 ? 2 : 1;
       for (let t = 0; t < tiers; t += 1) {
@@ -657,15 +669,17 @@ export function buildCity(scene, rng, tx = {}) {
   heroTowers.forEach((t, i) => {
     const name = SIGN_NAMES[i % SIGN_NAMES.length];
     const bg = SIGN_COLORS[i % SIGN_COLORS.length];
-    const ang = Math.atan2(HERO_ZONE.cx - t.x, HERO_ZONE.cz - t.z);
-    const fx = Math.sin(ang), fz = Math.cos(ang);
-    const faceW = Math.abs(fx) > Math.abs(fz) ? t.w : t.d;
-    const signW = Math.min(12, faceW * 0.65);
+    // v32: ALL 12 on the SOUTH face (the face the north-looking shot
+    // cameras see head-on), at y=7.0 — above the 5m palms, so no frond
+    // occludes the word. The old "face toward the centre" put most
+    // signs on side faces (edge-on, foreshortened to fragments), and
+    // y=5.0 sat at palm height.
+    const signW = Math.min(14, t.w * 0.8);
     const sign = makeV31Sign(name, bg, '#FFFFFF', signW, signW * 0.25);
-    // podium face toward the centre: (face + 1.5) / 2 + 0.15 out
-    const faceDist = (faceW + 1.5) / 2 + 0.15;
-    sign.position.set(t.x + fx * faceDist, 5.6, t.z + fz * faceDist);
-    sign.rotation.y = ang;
+    // podium south face: (d + 1.5) / 2 + 0.15 out
+    const faceDist = (t.d + 1.5) / 2 + 0.15;
+    sign.position.set(t.x, 7.0, t.z + faceDist);
+    sign.rotation.y = 0;
     scene.add(sign);
   });
   // Far skyline: 24 boxes at 450-550m sharing 4 baked facade cells.
