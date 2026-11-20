@@ -160,7 +160,7 @@ export function spawnCars(game) {
     { x: 150, z: 66, heading: PI / 2, color: 0x2e86c1, kind: 'sedan' },
     { x: -60, z: -66, heading: 0, color: 0xecf0f1, kind: 'compact' },
     { x: -120, z: 130, heading: PI, color: 0xe67e22, kind: 'pickup' },
-    { x: 300, z: -120, heading: 0, color: 0xc0392b, kind: 'muscle' }, 
+    { x: 300, z: -120, heading: 0, color: 0xc0392b, kind: 'muscle' },
     { x: 120, z: -240, heading: PI / 2, color: 0x16a085, kind: 'van' },
     { x: 300, z: 66, heading: PI, color: 0x7d3c98, kind: 'sedan' },
     { x: -300, z: -180, heading: 0, color: 0x2c3e50, kind: 'truck' },
@@ -310,7 +310,7 @@ export function updatePlayerCar(game, dt) {
         car.pos.x += (dx / d) * (minD - d);
         car.pos.z += (dz / d) * (minD - d);
       } else {
-        car.pos.x += minD; 
+        car.pos.x += minD;
       }
       carHit = true;
     }

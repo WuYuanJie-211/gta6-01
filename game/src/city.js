@@ -345,20 +345,20 @@ export function buildCity(scene, rng, tx = {}) {
     scene.add(dashLine);
   }
   const cv=(w,h,f)=>{const c=document.createElement('canvas');c.width=w;c.height=h;f(c.getContext('2d'));const t=new CT(c);t.colorSpace=SC;t.wrapS=t.wrapT=RW;return t;};
-  const zebra=cv(128,64,(x)=>{x.fillStyle='#8a8a80';for(let i=0;i<6;i++)x.fillRect(8+i*20,4,10,42);x.fillRect(0,54,128,8);});
+  const zebra=cv(128,64,(x)=>{x.fillStyle='#5a5a52';for(let i=0;i<6;i++)x.fillRect(8+i*20,4,10,42);x.fillRect(0,54,128,8);});
   const arrow=cv(64,64,(x)=>{x.fillStyle='#b0b0a6';x.fillRect(26,34,12,26);x.beginPath();x.moveTo(32,4);x.lineTo(52,30);x.lineTo(12,30);x.closePath();x.fill();});
   const railT=cv(64,32,(x)=>{x.fillStyle='#565b60';x.fillRect(0,0,64,32);x.fillStyle='#3a3e44';for(let i=0;i<8;i++)x.fillRect(1+i*8,0,6,32);x.fillStyle='#2c2f34';x.fillRect(0,0,64,5);x.fillRect(0,27,64,5);});
   const flat=(w,d,m,x,z,rz=0,y=0.08)=>{const p=new ME(new PG(w,d),m);p.rotation.x=-PI/2;p.rotation.z=rz;p.position.set(x,y,z);scene.add(p);};
   const zebraM=new MB({map:zebra,transparent:true});
   const arrowM=new MB({map:arrow,transparent:true});
-  const lineM=new MB({color:0x8a8a80});
+  const lineM=new MB({color:0x5a5a52});
   for(const [ix,iz] of [[0,-180],[120,-180],[180,-180],[240,-180],[240,-120],[240,0],[0,0],[60,-180]]){flat(4.5,12,zebraM,ix+9,iz,0,0.09);flat(4.5,12,zebraM,ix,iz-9,PI/2,0.09);flat(1.2,6,lineM,ix+15,iz-3,0,.09);}
   for(const [ax,az,ar] of [[60,-180,-PI/2],[180,-180,-PI/2],[-120,-180,PI/2],[0,120,0]])flat(2.2,4,arrowM,ax,az,ar);
   for(const [cx,cz,az] of [[240,-60,1],[0,-180,0],[0,-60,1]]){
     const L=az?660:780;
     for(const s of [-1,1]){
       flat(az?0.18:L,az?L:0.18,lineM,cx+(az?s*5.7:0),cz+(az?0:s*5.7));
-      box(scene,az?0.4:L,0.18,az?L:0.4,M(0xb9b3a4),cx+(az?s*6.3:0),0.09,cz+(az?0:s*6.3));
+      box(scene,az?0.4:L,0.18,az?L:0.4,M(0x8a8478),cx+(az?s*6.3:0),0.09,cz+(az?0:s*6.3));
     }
   }
   const rail=(x1,z1,x2,z2)=>{
@@ -380,7 +380,7 @@ export function buildCity(scene, rng, tx = {}) {
   for(const [hx,hz] of [[30,10],[-60,-40],[150,60],[210,-30],[120,-174],[180,-186],[240,-150],[0,-174]]){
     const hyd=makeHydrant();hyd.position.set(hx,0,hz);scene.add(hyd);
   }
-  for(const [sx,sz,st] of [[-14,-172,'限速 40'],[14,-188,'直行'],[226,-172,'单行']]){
+  for(const [sx,sz,st] of [[-14,-172,'限速 40'],[-2,-188,'直行'],[226,-172,'单行']]){
     const sg=makeSign(st,'#ffffff','#1a3a5f',2.4,1.2);sg.position.set(sx,2.6,sz);scene.add(sg);
     cyl(scene,0.05,0.05,2.6,6,M(0x888888),sx,1.3,sz);
   }

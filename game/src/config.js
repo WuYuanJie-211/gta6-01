@@ -28,9 +28,7 @@ export const PLAYER = {
   punchDamage: 25,
   punchCooldown: 0.4,
   shootRange: 42,
-  pistolDamage: 20,
   pistolCooldown: 0.28,
-  rifleDamage: 34,
   rifleCooldown: 0.12,
 };
 export const CAR_MODELS = {
@@ -46,7 +44,6 @@ export const CAR_MODELS = {
   armored: { name: 'Armored Van', topSpeed: 25, accel: 15, price: 0, len: 5.2, height: 1.9 },
 };
 export const CAR = {
-  normalTopSpeed: 26,
   sportTopSpeed: 38,
   policeTopSpeed: 34,
   trafficSpeed: 10,
@@ -56,15 +53,14 @@ export const CAR = {
   steerRate: 1.9,
   radius: 1.7,
   maxHealth: 100,
-  wreckSmokeAt: 40,
 };
 export const POLICE = {
   maxActiveCars: 4,
-  maxActiveCarsHigh: 6, 
+  maxActiveCarsHigh: 6,
   ramDamage: 2,
   ramCooldown: 1.0,
-  heliAtStars: 4, 
-  roadblockAtStars: 3, 
+  heliAtStars: 4,
+  roadblockAtStars: 3,
   decayAfterSeconds: 12,
   decayIntervalSeconds: 8,
   escapeDecayAfterSeconds: 6,
@@ -76,14 +72,14 @@ export const WEAPONS = {
   rifle: { name: 'Rifle', price: 400, damage: 34, mag: 30, ammoPrice: 60, ammoPerBuy: 60 },
 };
 export const ECONOMY = {
-  garageRepair: 60, 
-  dinerHeal: 25, 
+  garageRepair: 60,
+  dinerHeal: 25,
   dinerHealAmount: 50,
-  chopSellMin: 200, 
+  chopSellMin: 200,
   chopSellMax: 450,
-  taxiFareMin: 40, 
+  taxiFareMin: 40,
   taxiFareMax: 90,
-  collectiblePay: 50, 
+  collectiblePay: 50,
   thugDrop: 20,
   gunmanDrop: 35,
 };

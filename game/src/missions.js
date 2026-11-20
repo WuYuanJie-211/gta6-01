@@ -108,7 +108,7 @@ export function createMissions(game) {
     stage: 0,
     done: false,
     objectiveText: '',
-    marker: null, 
+    marker: null,
     escaping: false,
     timerText: '',
     fareDone: 0,
@@ -165,7 +165,7 @@ export function createMissions(game) {
     }
     if (key === 'collect') return nearestPackage();
     if (key === 'race') return L.race[state.raceCp];
-    return null; 
+    return null;
   }
   function refreshObjective() {
     if (state.done) {
@@ -309,7 +309,7 @@ export function createMissions(game) {
     if (key === 'deliver' && target) {
       const d = Math.hypot(target.x - pos.x, target.z - pos.z);
       if (d < 12) {
-        if (state.index === 0 && !game.player.car) return; 
+        if (state.index === 0 && !game.player.car) return;
         completeStage();
       }
     }

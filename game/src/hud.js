@@ -25,13 +25,6 @@ export function createHud(game) {
     missionCard.classList.add('show');
     setTimeout(() => missionCard.classList.remove('show'), 6000);
   }
-  function hideMissionCard() {
-    missionCard.classList.remove('show');
-  }
-  function hideToast() {
-    toast.classList.remove('show');
-    if (toastTimer) clearTimeout(toastTimer);
-  }
   function shake() {
     shakeTime = 0.35;
   }
@@ -226,5 +219,5 @@ export function createHud(game) {
     overMenu.classList.toggle('hidden', !show);
   }
   function setShotMode(on, showCash = false) { game.shotMode = on; document.body.classList.toggle('shot-mode', on); document.body.classList.toggle('shot-cash', on && showCash); }
-  return { flash, hideToast, showMissionCard, hideMissionCard, shake, takeShake, hitmark, update, setPrompt, showMenu, showPause, showOver, setShotMode };
+  return { flash, showMissionCard, shake, takeShake, hitmark, update, setPrompt, showMenu, showPause, showOver, setShotMode };
 }

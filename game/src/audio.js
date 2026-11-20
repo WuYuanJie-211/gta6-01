@@ -16,9 +16,9 @@ export function createAudio() {
   let musicTimerId = null;
   const BASS = [110, 87, 131];
   const LEAD = [
-    [220, 262, 330, 440], 
-    [175, 220, 262, 349], 
-    [262, 330, 392, 523], 
+    [220, 262, 330, 440],
+    [175, 220, 262, 349],
+    [262, 330, 392, 523],
   ];
   function mkOsc(type, freq) {
     const o = ctx.createOscillator();
@@ -117,7 +117,7 @@ export function createAudio() {
     nextNoteTime = ctx.currentTime + 0.1;
     musicTimerId = setInterval(() => {
       if (!musicOn || !ctx) return;
-      const stepDur = 60 / 112 / 2; 
+      const stepDur = 60 / 112 / 2;
       while (nextNoteTime < ctx.currentTime + 0.4) {
         scheduleStep(musicStep, nextNoteTime);
         musicStep = (musicStep + 1) % 32;
@@ -133,7 +133,6 @@ export function createAudio() {
       musicOn = !musicOn;
       return musicOn;
     },
-    get musicOn() { return musicOn; },
     setEngine(speed01) {
       if (!started) return;
       engineOsc.frequency.value = 45 + speed01 * 110;
@@ -201,11 +200,6 @@ export function createAudio() {
     },
     click() {
       blip(700, 0.04, 0.06);
-    },
-    fail() {
-      blip(330, 0.18, 0.09);
-      blip(220, 0.18, 0.09, 0.15);
-      blip(165, 0.3, 0.09, 0.3);
     },
   };
 }

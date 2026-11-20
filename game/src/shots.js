@@ -88,7 +88,7 @@ function stageChase(game) {
   const vz = game.player.car.pos.z;
   place(van, vx + 1.2, vz + 14, -PI / 2);
   const c1 = pc(game, vx - 4.5, vz + 6, -PI / 2, 24);
-  const c2 = pc(game, vx + 5.5, vz + 3, -PI / 2, 24);
+  const c2 = pc(game, vx + 8, vz - 2, -PI / 2, 24);
   for (const c of [c1, c2]) {
     if (c.mesh.userData.lightR) {
       c.mesh.userData.lightR.material.emissive.setHex(0xff0000);
@@ -108,8 +108,8 @@ function stageChase(game) {
     heli.scale.setScalar(1.5);
     heli.rotation.y = 0.4;
     heli.children[0].material.color.set(0x2a2f36);
-    beam(game, new V3(vx + 8, 13.15, vz - 24), new V3(vx + 1.2, 2.4, vz + 14), .3, 2.4, .12);
-    beam(game, new V3(vx + 8, 13.15, vz - 24), new V3(vx + 1.2, 2.4, vz + 14), .15, .6, .45);
+    beam(game, new V3(vx + 8, 13.15, vz - 24), new V3(vx + 1.2, 2.4, vz + 14), .3, 2.4, .05);
+    beam(game, new V3(vx + 8, 13.15, vz - 24), new V3(vx + 1.2, 2.4, vz + 14), .15, .6, .3);
     const rp=pool(game,vx+1.2,vz+14,1,.6,2.45);if(rp)rp.scale.set(1,.6,1);
     const st = new ME(new BX(1.4, .02, .9), new MB({ color: 0xe8f0ff, emissive: 0xe8f0ff, emissiveIntensity: 1 }));
     st.position.set(vx + 1.2, 2.45, vz + 14); game.scene.add(st);
@@ -135,12 +135,8 @@ function stageGunfight(game) {
   rifle.position.set(0.15, 1.62, 0.75);
   rifle.rotation.set(-0.12, 0.6, 0);
   rifle.scale.setScalar(1.4);
-  game.aim=new V3(-166.2,1.5,204);
+  game.aim=new V3(-179.1,0.1,198);
   if (game.textures.shadow) { const s = new ME(new PG(.9,.5), SH(game.textures.shadow,.5)); s.rotation.x = -PI / 2; s.position.set(-178.86, .1, 192.93); game.scene.add(s); }
-  const barrier = new ME(new BX(3, 0.65, 0.7), new MS({ map: game.textures.concrete, roughness: 0.9 }));
-  barrier.position.set(-179.3, 0.325, 194.1);
-  barrier.castShadow = true;
-  game.scene.add(barrier);
   for(const wy of[4.45,11.45]){const w=new ME(new BX(13,1.4,.1),new MB({color:0x2c3e50}));w.position.set(-151.7,wy,201.6);game.scene.add(w);}
   game.combat.spawnGunman(-178.1,196.1).mesh.scale.setScalar(1.15);
   const g2 = game.combat.spawnGunman(-173.2, 194.7);
@@ -168,7 +164,7 @@ function stageDowntown(game) {
   taxi.speed = 0;
   enterCar(game, taxi);
   for (const gz of [-183.8, -182.2]) {
-    const g = new ME(new BX(0.15, 0.25, 0.5), new MB({ color: 0xff2222, transparent: true, opacity: 0.85 }));
+    const g = new ME(new BX(0.15, 0.25, 0.5), new MB({ color: 0xff2222, transparent: true, opacity: 0.5 }));
     g.position.set(268, 0.75, gz);
     game.scene.add(g);
   }
@@ -219,7 +215,7 @@ function stageSunset(game) {
   r.mesh.children[8].visible = r.mesh.children[9].visible = false;
   r.mesh.rotation.y = 2.6;
   const b = new ME(new BX(.45, .4, .2), new MB({ color: 0x1f2a1a }));
-  b.position.set(-.1, 1.15, -.45); r.mesh.add(b);
+  b.position.set(-.42, .85, -.45); r.mesh.add(b);
   const p = game.player;
   p.pos.set(17, 0, -183.5);
   p.heading = PI;

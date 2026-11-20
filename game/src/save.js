@@ -17,7 +17,6 @@ export function saveGame(game) {
       playerX: game.player.pos.x,
       playerZ: game.player.pos.z,
       playerHeading: game.player.heading,
-      savedAt: new Date().toISOString(),
     };
     window.localStorage.setItem(SAVE_KEY, JSON.stringify(data));
     return true;
