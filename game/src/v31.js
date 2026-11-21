@@ -64,24 +64,6 @@ export function poolTexture() {
   return _poolTex;
 }
 
-let _ringTex = null;
-export function ringTexture() {
-  if (_ringTex) return _ringTex;
-  const [c, x] = canvas(256, 256);
-  x.strokeStyle = 'rgba(255,255,255,0.95)';
-  x.lineWidth = 10;
-  x.beginPath();
-  x.arc(128, 128, 100, 0, PI * 2);
-  x.stroke();
-  x.strokeStyle = 'rgba(255,255,255,0.25)';
-  x.lineWidth = 18;
-  x.beginPath();
-  x.arc(128, 128, 100, 0, PI * 2);
-  x.stroke();
-  _ringTex = new CT(c);
-  return _ringTex;
-}
-
 // A soft ground blob. y=0.07 clears the road planes (0.04/0.045) and
 // the zebra (0.055); renderOrder=2 draws it after the transparent
 // pools and skids, so a blob is never repainted over by road paint.
@@ -458,14 +440,8 @@ export function makeTrafficLight(state, offset) {
     g.add(orb);
     lamps[key] = { mesh: orb, mat: m, color };
   }
-  const halo = new SP(new THREE.SpriteMaterial({
-    map: ringTexture(), transparent: true, opacity: 0.7,
-    blending: AB, depthWrite: false,
-  }));
-  halo.scale.set(0.9, 0.9, 1);
-  halo.position.set(1.35, 4.55, 0.4);
-  g.add(halo);
-  g.userData.trafficLight = { lamps, halo, offset, state };
+  // No halo ring (v46): it read as a pink halo around the signal.
+  g.userData.trafficLight = { lamps, offset, state };
   return g;
 }
 
@@ -479,9 +455,6 @@ export function updateTrafficLights(lights, time) {
       u.lamps[key].mat.emissiveIntensity = on ? 2.6 : 0.06;
     }
     const lamp = u.lamps[lit];
-    u.halo.position.set(1.35, lamp.mesh.position.y, 0.4);
-    u.halo.material.color.setHex(lamp.color);
-    u.halo.material.opacity = lit === 'r' ? 0.7 : 0.45;
     u.state = lit;
   }
 }
@@ -574,7 +547,7 @@ export function makeBillboard(text, fg, bg) {
 export function makeLamp() {
   const g = new GP();
   const dark = new MS({ color: 0x2e3338, roughness: 0.6, metalness: 0.5 });
-  const pole = new ME(new CG(0.09, 0.12, 5.6, 8), dark);
+  const pole = new ME(new CG(0.06, 0.08, 5.6, 8), dark);
   pole.position.y = 2.8;
   g.add(pole);
   const arm = new ME(new BX(1.7, 0.09, 0.09), dark);

@@ -28,9 +28,9 @@ export const CT = T.CanvasTexture;
 export const DS = T.DoubleSide;
 export const AB = T.AdditiveBlending;
 
-// A soft ground blob: radial-gradient texture, no depth write, pulled
-// one step toward the camera so it never z-fights the road paint.
+// Soft ground blob: radial texture, no depth write, polygonOffset
+// -1/-4 so it never z-fights the baked road dashes (v46).
 export const SH = (tex, opacity) => new MB({
   map: tex, transparent: true, opacity,
-  depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1,
+  depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -4,
 });

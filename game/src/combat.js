@@ -127,38 +127,33 @@ export function createCombat(game) {
     return m;
   }
 
-  // Muzzle flash (v45): a SHORT cone along the BARREL + a small glow,
-  // both AT the muzzle anchor, lasting 2 frames. The cone is 22 px
-  // (0.107 m at rifle scale), base radius 9 px — the old 0.6 m cone
-  // + 2.2 m glow washed the whole muzzle into one white blob and the
-  // cone never read. The glow is 0.9 m now, a halo not a blob.
+  // Muzzle flash (v46): real tapered cone along the barrel, 28 px
+  // long, 8 px base radius, 2 frames. The 0.9 m glow sprite is gone —
+  // it read as a 22 px halo and its disc painted the bright band on
+  // the target's chest. Inner cone is the 7 px bright core.
   function addFlash(pos, dir, scale = 1) {
     const d = dir.clone().normalize();
     const up = new V3(0, 1, 0);
-    const q = new THREE.Quaternion().setFromUnitVectors(up, d);
-    const outer = new ME(new CN(0.044 * scale, 0.107 * scale, 8), new MB({ color: 0xff9a2e, transparent: true, opacity: 0.95, blending: AB, depthWrite: false }));
+    // Cone apex (+y) must point BACK at the muzzle, base forward —
+    // a flame cone is narrow at the gun and wide at the front. The
+    // old code pointed the apex forward, so the cone read as a spike
+    // (and the glow sprite hid the error).
+    const q = new THREE.Quaternion().setFromUnitVectors(up, d.clone().negate());
+    const outer = new ME(new CN(0.038 * scale, 0.136 * scale, 8), new MB({ color: 0xff9a2e }));
     outer.quaternion.copy(q);
     outer.position.copy(pos).addScaledVector(d, 0.05 * scale);
     game.scene.add(outer);
-    const inner = new ME(new CN(0.03 * scale, 0.08 * scale, 8), new MB({ color: 0xfff6d8, transparent: true, opacity: 1, blending: AB, depthWrite: false }));
+    const inner = new ME(new CN(0.03 * scale, 0.08 * scale, 8), new MB({ color: 0xfff6d8 }));
     inner.quaternion.copy(q);
     inner.position.copy(pos).addScaledVector(d, 0.04 * scale);
     game.scene.add(inner);
-    const glow = new SP(new THREE.SpriteMaterial({
-      map: poolTexture(), color: 0xfff2c0, transparent: true, opacity: 1,
-      blending: AB, depthWrite: false,
-    }));
-    glow.position.copy(pos).addScaledVector(d, 0.15 * scale);
-    glow.scale.set(0.9 * scale, 0.9 * scale, 1);
-    game.scene.add(glow);
-    flashes.push({ sprite: glow, life: 0.033 });
     flashes.push({ mesh: outer, life: 0.033 });
     flashes.push({ mesh: inner, life: 0.033 });
     const light = new THREE.PointLight(0xffa040, 3, 2.5);
     light.position.copy(pos);
     game.scene.add(light);
     flashes.push({ sprite: null, light, life: 0.033 });
-    return glow;
+    return inner;
   }
 
   function spawnCasing(pos) {
@@ -300,11 +295,14 @@ export function createCombat(game) {
     const to = aimPoint();
     addTracer(from, to);
     const dir = new V3().subVectors(to, from);
-    // v45: the flash cone follows the BARREL (rifle +z), not the aim
-    // line — the barrel points up-right, the aim drops to the chest;
-    // a cone on the aim line reads as detached from the gun.
+    // v46: the cone follows the BARREL, not the aim line — the aim
+    // drops to the chest (down-right on screen) while the barrel
+    // points up-right, and a cone on the aim line is foreshortened
+    // end-on from this camera. The rifle's +z is flipped by the PI
+    // parenting (player heading PI), so getWorldDirection points
+    // BACKWARD; the barrel direction is its negation.
     const rifle = p.mesh.userData.rifle;
-    if (rifle) rifle.getWorldDirection(dir);
+    if (rifle) { rifle.getWorldDirection(dir); dir.negate(); }
     addFlash(from, dir, p.weapon === 'rifle' ? 1.2 : 0.8);
     spawnCasing(from);
     game.audio.gunshot();

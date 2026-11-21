@@ -23,7 +23,7 @@ import {
 
 export const HERO_ZONE = { minX: 220, maxX: 260, minZ: -200, maxZ: -160, cx: 240, cz: -180 };
 const SIGN_NAMES = ['BODEGA', 'SUITES', 'HOTEL', 'CASINO', 'MALL', 'BANK', 'PIZZA', 'TACOS', 'GYM', 'CINEMA', 'BAR', '24H'];
-const SIGN_COLORS = ['#e67e22', '#1a3a5f', '#8a1a1a', '#2a1a4a', '#2a6a3a', '#c0392b', '#d35400', '#16a085', '#6e5a6e', '#b03a2e', '#1a5f8a', '#333333'];
+const SIGN_COLORS = ['#e67e22', '#1a3a5f', '#8a1a1a', '#2a1a4a', '#2a6a3a', '#c0392b', '#d35400', '#16a085', '#6e5a6e', '#8e4840', '#1a5f8a', '#333333'];
 
 const M = (c, r = 0.9, extra = {}) => new MS({ color: c, roughness: r, ...extra });
 const SM = (o) => new MS(o);
@@ -220,7 +220,7 @@ export function buildCity(scene, rng, textures) {
   // Median barrier down the hero street (z=-180): light Jersey
   // barriers, not the dark striped band the old rail read as. Gaps at
   // every intersection so cars can turn and the zebra crosses clean.
-  const medianMat = new MS({ color: 0xb8b8b0, roughness: 0.9 });
+  const medianMat = new MS({ color: 0x5e564b, roughness: 0.9 });
   // Dark grey top, not yellow: the yellow top read as a giant yellow
   // guardrail crossing the whole lower half of the sunset shot (v43),
   // where the camera looks straight down the barrier's length.
@@ -549,10 +549,17 @@ export function buildCity(scene, rng, textures) {
         // Storefront cell, not a flat dark box — the face shot 2 sees.
         const sw = box(scene, w * 0.7, 3, 0.2, facadeMat, x, 1.5, z + d / 2 + 0.1);
         applyFacadeUVs(sw.geometry, 12, w * 0.7, 20, 0.2);
+        // Awning flush to the wall (v46): old 0.22 tilt left its back
+        // edge off the facade and it read as floating. Back edge now
+        // inside the wall; two diagonal struts tie it to the facade.
         const awnCol = rng.pick([0xc0392b, 0x1e8449, 0xe67e22, 0x7d3c98, 0x2c3e50, 0x0066aa]);
         const awnMat = rng.chance(0.5) ? TM(tx.awning, 2, 1, 0.9) : M(awnCol, 0.85);
-        const awn2 = box(scene, w * 0.75, 0.15, 2, awnMat, x, 3.4, z + d / 2 + 1);
-        awn2.rotation.x = 0.22;
+        const awn2 = box(scene, w * 0.75, 0.15, 2, awnMat, x, 3.4, z + d / 2 + 0.7);
+        awn2.rotation.x = 0.05;
+        for (const s of [-1, 1]) {
+          const strut = box(scene, 0.12, 2.1, 0.12, M(0x8a8a8a, 0.9), x + s * w * 0.25, 2.78, z + d / 2 + 0.85);
+          strut.rotation.x = -2.16;
+        }
         if (stex.length) {
           const sg2 = new ME(new PG(7, 1.8), new MB({ map: rng.pick(stex) }));
           sg2.position.set(x, 4.8, z + d / 2 + 0.2);
@@ -572,10 +579,10 @@ export function buildCity(scene, rng, textures) {
   // west palms nearest the sunset heli (z=-175, -185) are short (7 m)
   // so their crowns stay well below the heli's 8.5 m flight band.
   const heroPalmSpots = [
-    [232.5, -195, 10, 1.5, 2.1], [247.5, -195, 9, 1.1, 0.9],
-    [232.5, -185, 7, 1.0, 0.4], [247.5, -210, 11, 1.6, 3.3],
+    [232.5, -195, 9, 1.5, 2.1], [247.5, -195, 9, 1.1, 0.9],
+    [232.5, -185, 7, 1.0, 0.4], [247.5, -210, 10, 1.6, 3.3],
     [232.5, -168, 7, 0.8, 4.0], [247.5, -158, 8, 1.2, 5.5],
-    [232.5, -155, 10, 1.8, 1.2], [247.5, -165, 9, 0.9, 2.8],
+    [232.5, -155, 9, 1.8, 1.2], [247.5, -165, 9, 0.9, 2.8],
   ];
   for (const [px, pz, ph, pl, pd] of heroPalmSpots) {
     const palm = makeV31Palm(ph, pl, pd);
@@ -763,11 +770,18 @@ export function buildCity(scene, rng, textures) {
     sign.position.set(bx, h + 1.25, bz - d / 2 - 0.1);
     sign.rotation.y = PI;
     scene.add(sign);
+    // Awning flush + struts (v46) — same floating fix as the towers.
     const awning = new ME(new BX(w * 0.6, 0.15, 2), M(0x2c3e50, 0.9));
-    awning.position.set(bx, 3.2, bz - d / 2 - 0.9);
-    awning.rotation.x = 0.25;
+    awning.position.set(bx, 3.2, bz - d / 2 - 0.6);
+    awning.rotation.x = 0.08;
     awning.castShadow = true;
     scene.add(awning);
+    for (const sx of [-1, 1]) {
+      const strut = new ME(new BX(0.12, 2.1, 0.12), M(0x8a8a8a, 0.9));
+      strut.position.set(bx + sx * w * 0.2, 2.6, bz - d / 2 - 0.8);
+      strut.rotation.x = 2.13;
+      scene.add(strut);
+    }
     const door = new ME(new BX(2, 3, 0.2), M(0x222222, 0.7));
     door.position.set(bx, 1.5, bz - d / 2 - 0.05);
     scene.add(door);
@@ -827,12 +841,12 @@ export function buildCity(scene, rng, textures) {
     const sign = makeSign('BUS', '#ffffff', '#2a6a3a', 3.0, 1.5);
     sign.position.set(stop.x, 2.2, stop.z);
     scene.add(sign);
-    const signPost = new ME(new CG(0.06, 0.06, 1.5, 6), M(0x2e3338, 0.7));
+    const signPost = new ME(new CG(0.12, 0.12, 1.5, 6), M(0x2e3338, 0.7));
     signPost.position.set(stop.x, 0.75, stop.z);
     scene.add(signPost);
     const shelterMat = M(0x2a6a3a, 0.8);
     for (const dx of [-1.2, 1.2]) {
-      const post = new ME(new CG(0.07, 0.07, 2.6, 6), shelterMat);
+      const post = new ME(new CG(0.12, 0.12, 2.6, 6), shelterMat);
       post.position.set(stop.x + dx, 1.3, stop.z - 0.5);
       scene.add(post);
     }
