@@ -1,4 +1,4 @@
-// Solara Bay v4 — the gta6-01 entry (Node 22, standard library only).
+// Solara Bay v5 — the gta6-01 entry (Node 22, standard library only).
 //
 // The game is plain static files in game/: index.html plus ES modules,
 // three.js vendored under game/vendor/, Kaggle-generated textures under
@@ -8,12 +8,15 @@
 // directory and writes dossier.json there, the summary the judge reads,
 // using the vendored make.fun library.
 //
-// v4 is a fresh rewrite of the whole game, written in one recorded session
+// v5 is a fresh rewrite of the whole game, written in one recorded session
 // so the submission's authorship is real: four districts, ten car models,
 // 36 pedestrians, seven missions, guns and gunmen, a helicopter and
 // roadblocks, five shops, a dithered sunset sky and a 1024-cell facade
 // atlas. The hand-in is unchanged: the same folders, the same caps, the
-// same byte-identical output on every run.
+// same byte-identical output on every run. The v5 changes are the road:
+// baked-in lane markings with hard edges, real curbs, the road sunk in
+// a channel below the sidewalk, full anisotropy — the road sits flat on
+// the ground and the markings stay sharp.
 //
 // The grader runs this program twice and demands byte-identical output,
 // so it does nothing time- or randomness-dependent: it copies files and

@@ -1,439 +1,284 @@
-// The city: ground, roads, sidewalks and markings, four districts
-// (downtown towers, container port, suburbs, old town), beach, sea,
-// marina, lighthouse, shops, parks, cranes, billboards, bus stops.
-// Built once from the seeded RNG, so the same seed builds the same city.
+// The city: ground, roads, curbs, buildings, districts, the hero
+// zone. One build, seeded, so the same seed always makes the same
+// city.
 //
-// NOTE on determinism: the order of rng calls below is load-bearing.
-// Traffic, pedestrians and the screenshot staging all sit on top of the
-// city the RNG produces, so a reordered call reshuffles the buildings.
-// Keep the call sequence when editing this file.
+// v41 ground stack — the fix for the floating road. From the bottom:
+// a base slab at y=0; a sidewalk plane with real tile seams at y=0.01;
+// the road planes at y=0.04 (avenues) / 0.045 (streets) wearing the
+// baked-marking asphalt texture; real curb boxes 0.15 m high along
+// every road edge (top y=0.15); opaque zebra planes at y=0.055. The
+// road sits IN a channel between curbs, below the sidewalk, with a
+// visible 3D edge — it cannot read as a carpet laid on top. Nothing
+// transparent sits between the camera and the road except the blobs,
+// which draw last (renderOrder 2).
 import * as THREE from 'three';
-import { BX, CG, CN, PG, SG, MS, MB, ME, GP, PI, RW, SC, CT, OG, DS } from './geo.js';
-import { CITY, COLOURS, DETAIL, TEXTURES, districtAt } from './config.js';
+import { BX, CG, CN, CI, PG, SG, OG, MS, MB, ME, GP, V3, PI, RW, SC, CT, DS } from './geo.js';
+import { CITY, districtAt, COLOURS, TEXTURES } from './config.js';
 import {
-  makeFacadeAtlas, applyFacadeUVs, makeV31Sign, SIGN_NAMES, SIGN_COLORS,
-  makeV31Palm, makeRoadMarkingTexture, makeTrafficLightV31, makeFarSkyline,
-  makeRidge, makeSeaGradient, addBlobShadow, addAOSkirt, inHeroZone, HERO_ZONE,
+  makeRoadTexture, makeSidewalkTexture, makeZebraTexture, makeFacadeAtlas,
+  applyFacadeUVs, makeTrafficLight, makeHydrant, makeSign, makeLamp,
+  makeBench, makeTree, makePalm, makeV31Palm, makeV31Sign, makeFarSkyline,
+  addBlobShadow, addAOSkirt, makeBillboard,
 } from './v31.js';
 
-const SM = (o) => new MS(o);
+export const HERO_ZONE = { minX: 220, maxX: 260, minZ: -200, maxZ: -160, cx: 240, cz: -180 };
+const SIGN_NAMES = ['BODEGA', 'SUITES', 'HOTEL', 'CASINO', 'MALL', 'BANK', 'PIZZA', 'TACOS', 'GYM', 'CINEMA', 'BAR', '24H'];
+const SIGN_COLORS = ['#e67e22', '#1a3a5f', '#8a1a1a', '#2a1a4a', '#2a6a3a', '#c0392b', '#d35400', '#16a085', '#7d3c98', '#b03a2e', '#1a5f8a', '#333333'];
 
-// Clone a texture with a repeat — each clone tiles independently.
-function tile(tex, rx, ry) {
+const M = (c, r = 0.9, extra = {}) => new MS({ color: c, roughness: r, ...extra });
+const SM = (o) => new MS(o);
+const TM = (tex, rx, ry, rough = 0.9) => {
   const t = tex.clone();
   t.needsUpdate = true;
+  t.wrapS = RW;
+  t.wrapT = RW;
   t.repeat.set(rx, ry);
+  return new MS({ map: t, roughness: rough });
+};
+const tile = (tex, rx, ry) => {
+  const t = tex.clone();
+  t.needsUpdate = true;
+  t.wrapS = RW;
+  t.wrapT = RW;
+  t.repeat.set(rx, ry);
+  return t;
+};
+const box = (scene, w, h, d, mat, x, y, z, cast = false) => {
+  const m = new ME(new BX(w, h, d), mat);
+  m.position.set(x, y, z);
+  m.castShadow = cast;
+  scene.add(m);
+  return m;
+};
+const cyl = (scene, rTop, rBot, h, seg, mat, x, y, z, cast = false) => {
+  const m = new ME(new CG(rTop, rBot, h, seg), mat);
+  m.position.set(x, y, z);
+  m.castShadow = cast;
+  scene.add(m);
+  return m;
+};
+
+// Flat-colour fallbacks for the texture files. Two files were never
+// shipped (red-paint, taxi-paint) — the fallback is how the Comet stays
+// red and the taxi stays yellow. Do not "fix" the paths without
+// shipping the files.
+const FALLBACK = {
+  glass: 0x3a5a7a, brick: 0xa85a4a, stucco: 0xd8c49a, asphalt: 0x4b4e53,
+  sidewalk: 0xb3a98f, grass: 0x4a7a3a, sand: 0xd9c48a, container: 0x7a7a7a,
+  concrete: 0x9aa0a3, wood: 0x8a6b4f, cobble: 0x8a8a8a, redPaint: 0xd21f2b,
+  taxiPaint: 0xffe14d, fireball: 0xff8030, smoke: 0x888888, pool: 0xffffff,
+  skid: 0x222222, shadow: 0x000000, marble: 0xd8d8d8, glassDark: 0x1c2836,
+  brickBrown: 0x7a4a3a, plaster: 0xe0d8c0, metal: 0x8a8f94, awning: 0xe74c3c,
+  signTaxi: 0xffe14d, sign24h: 0x2a6a3a, signHotel: 0x8a1a1a, signBar: 0x7d3c98,
+  signPizza: 0xd35400, signAuto: 0x1a3a5f, sunsetSky: 0xff8c5a, neonSign: 0xff2a7a,
+};
+
+function flatTexture(color) {
+  const c = document.createElement('canvas');
+  c.width = 4;
+  c.height = 4;
+  const x = c.getContext('2d');
+  x.fillStyle = `#${color.toString(16).padStart(6, '0')}`;
+  x.fillRect(0, 0, 4, 4);
+  const t = new CT(c);
+  t.colorSpace = SC;
   return t;
 }
 
-// Shared-material cache: same colour/roughness reuses one material.
-const _mats = new Map();
-function M(color, rough = 1, extra = {}) {
-  const k = `${color}|${rough}|${extra.metalness ?? 0}|${extra.emissive ?? 0}`;
-  let m = _mats.get(k);
-  if (!m) { m = SM({ color, roughness: rough, ...extra }); _mats.set(k, m); }
-  return m;
-}
-
-const TM = (t, rx, ry, r = 1) => SM({ map: tile(t, rx, ry), roughness: r });
-
-function box(parent, w, h, d, material, x, y, z, shadow = false) {
-  const m = new ME(new BX(w, h, d), material);
-  m.position.set(x, y, z);
-  if (shadow) m.castShadow = true;
-  parent.add(m);
-  return m;
-}
-
-function cyl(parent, rt, rb, h, seg, material, x, y, z, shadow = false) {
-  const m = new ME(new CG(rt, rb, h, seg), material);
-  m.position.set(x, y, z);
-  if (shadow) m.castShadow = true;
-  parent.add(m);
-  return m;
-}
-
-// A flat-colour canvas texture, used when a real texture file is missing.
-function fallbackTexture(hex, size = 128) {
-  const canvas = document.createElement('canvas');
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext('2d');
-  ctx.fillStyle = hex;
-  ctx.fillRect(0, 0, size, size);
-  const tex = new CT(canvas);
-  tex.colorSpace = SC;
-  return tex;
-}
-
-// Load every texture file (local, under game/textures/). A missing file
-// falls back to a flat colour instead of failing the load — the two
-// never-shipped paint textures (red, taxi) hit this path on every boot.
 export async function loadCityTextures() {
   const loader = new THREE.TextureLoader();
   const out = {};
-  const jobs = [
-    ['glass', '#7fa8c9'], ['brick', '#9a5a44'], ['stucco', '#e8dcc8'], ['asphalt', '#3a3f45'],
-    ['sidewalk', '#b9b3a4'], ['grass', '#6fae5e'], ['sand', '#e8d49a'], ['container', '#2e86c1'],
-    ['concrete', '#9a9a9a'], ['wood', '#8a6a44'], ['cobble', '#7a7a7a'], ['redPaint', '#d21f2b'],
-    ['taxiPaint', '#f1c40f'], ['fireball', '#ff8800'], ['smoke', '#888888'], ['marble', '#e8e8e8'],
-    ['glassDark', '#3a5a7a'], ['brickBrown', '#7a4a34'], ['plaster', '#e8dcc8'], ['metal', '#8a6a58'],
-    ['awning', '#c0392b'], ['signTaxi', '#111111'], ['sign24h', '#111111'],
-    ['signHotel', '#111111'], ['signBar', '#111111'], ['signPizza', '#111111'], ['signAuto', '#111111'],
-    ['sunsetSky', '#ff8844'], ['neonSign', '#ff2d95'], ['pool', '#ffffff'], ['skid', '#222222'], ['shadow', '#000000'],
-  ];
-  await Promise.all(jobs.map(async ([key, hex]) => {
+  for (const [key, path] of Object.entries(TEXTURES)) {
     try {
-      const tex = await loader.loadAsync(TEXTURES[key]);
-      tex.wrapS = RW;
-      tex.wrapT = RW;
-      tex.colorSpace = SC;
-      tex.anisotropy = 8;
-      out[key] = tex;
+      const t = await loader.loadAsync(path);
+      t.colorSpace = SC;
+      t.anisotropy = 8;
+      out[key] = t;
     } catch {
-      const tex = fallbackTexture(hex);
-      tex.wrapS = RW;
-      tex.wrapT = RW;
-      out[key] = tex;
+      out[key] = flatTexture(FALLBACK[key] ?? 0x888888);
     }
-  }));
+  }
   return out;
 }
 
-// Blocks with a special use, keyed "x,z" of the block's south-west corner.
-const PARK_BLOCKS = new Set(['-150,-150', '150,-150', '-150,150', '270,150']);
-const MARINA_BLOCK = '210,210';
-const CHOP_BLOCK = '-210,210';
-const LIGHTHOUSE_BLOCK = '-210,-210';
-const DEALER_BLOCK = '210,-150';
-const GUN_BLOCK = '150,-210';
-const GARAGE_BLOCK = '270,30';
-const DINER_BLOCK = '30,150';
-const BANK_BLOCK = '330,-270';
-
-// A text sign: canvas texture on a thin dark backing box.
-function makeSign(text, fg, bg, w = 10, h = 2.5) {
-  const canvas = document.createElement('canvas');
-  canvas.width = 256;
-  canvas.height = 64;
-  const ctx = canvas.getContext('2d');
-  ctx.fillStyle = bg;
-  ctx.fillRect(0, 0, 256, 64);
-  ctx.fillStyle = fg;
-  ctx.font = 'bold 34px system-ui, sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(text, 128, 34);
-  const tex = new CT(canvas);
-  tex.colorSpace = SC;
-  const g = new GP(), f = new ME(new PG(w, h), SM({ map: tex }));
-  f.position.z = 0.09;
-  g.add(new ME(new BX(w, h, 0.16), M(0x1a1a1a)), f);
-  return g;
-}
-
-// Beach / roadside palm: trunk + six squashed-sphere leaf puffs.
-function makePalm(rng) {
-  const group = new GP();
-  const trunkMat = M(0x8a6b4f);
-  const leafMat = M(0x2e8b57);
-  const trunk = new ME(new CG(0.18, 0.3, 5, 6), trunkMat);
-  trunk.position.y = 2.5;
-  trunk.rotation.z = rng.range(-0.08, 0.08);
-  group.add(trunk);
-  for (let i = 0; i < 6; i += 1) {
-    const leaf = new ME(new SG(0.9, 8, 6), leafMat);
-    const angle = (i / 6) * PI * 2;
-    leaf.position.set(Math.cos(angle) * 1.1, 5.3, Math.sin(angle) * 1.1);
-    leaf.scale.set(1.3, 0.55, 1.3);
-    group.add(leaf);
-  }
-  group.traverse((o) => {
-    if (o.isMesh) o.castShadow = true;
-  });
-  addBlobShadow(group, 0, 0, 1.6, 1.6, 0.55);
-  return group;
-}
-
-// Round-canopy street tree: trunk + three staggered puffs.
-function makeTree(rng) {
-  const group = new GP();
-  const trunk = new ME(
-    new CG(0.2, 0.32, 2.4, 8),
-    M(0x6b4a2f),
-  );
-  trunk.position.y = 1.2;
-  trunk.rotation.z = rng.range(-0.07, 0.07);
-  group.add(trunk);
-  const greens = [0x2f7a44, 0x3e8f4f, 0x55a566];
-  const sizes = [rng.range(1.6, 2.1), rng.range(1.1, 1.5), rng.range(0.7, 1.0)];
-  const heights = [3.1, 4.4, 5.4];
-  const offsets = [[0, 0], [0.55, 0.35], [-0.45, -0.3]];
-  for (let i = 0; i < 3; i += 1) {
-    const puff = new ME(
-      new THREE.IcosahedronGeometry(sizes[i], 1),
-      SM({ color: greens[i], roughness: 1 }),
-    );
-    puff.position.set(offsets[i][0] * DETAIL.ts * 2, heights[i], offsets[i][1] * DETAIL.ts * 2);
-    group.add(puff);
-  }
-  addBlobShadow(group, 0, 0, 1.8, 1.8, 0.55);
-  return group;
-}
-
-function makeTrafficLight(state, phase = 0) {
-  // Proper state machine — exactly ONE lamp lit, always.
-  return makeTrafficLightV31(state, phase);
-}
-
-function makeHydrant() {
-  const group = new GP();
-  const red = M(0xc0392b, 0.6);
-  const body = new ME(new CG(0.22, 0.26, 0.7, 10), red);
-  body.position.y = 0.35;
-  group.add(body);
-  const cap = new ME(new SG(0.22, 10, 8), red);
-  cap.position.y = 0.75;
-  group.add(cap);
-  const nozzle = new ME(new CG(0.09, 0.09, 0.3, 8), red);
-  nozzle.rotation.z = PI / 2;
-  nozzle.position.set(0.25, 0.4, 0);
-  group.add(nozzle);
-  addBlobShadow(group, 0, 0, 0.9, 0.9, 0.55);
-  return group;
-}
-
-function makeLamp() {
-  const group = new GP();
-  const pole = new ME(
-    new CG(0.09, 0.12, 5.5, 6),
-    M(0x2c3e50, 0.7),
-  );
-  pole.position.y = 2.75;
-  pole.castShadow = true;
-  const head = new ME(
-    new BX(0.9, 0.25, 0.35),
-    M(0xffe9a8, 0.4, { emissive: 0xaa8800 }),
-  );
-  head.position.y = 5.5;
-  const bulb = new ME(
-    new SG(0.18, 10, 8),
-    M(0xfff6c0, 0.3, { emissive: 0xcc9900 }),
-  );
-  bulb.position.y = 5.3;
-  group.add(pole, head, bulb);
-  addBlobShadow(group, 0, 0, 1.0, 1.0, 0.55);
-  return group;
-}
-
-function makeBench() {
-  const group = new GP();
-  const wood = M(0x8a6b4f);
-  const seat = new ME(new BX(2.2, 0.12, 0.6), wood);
-  seat.position.y = 0.5;
-  const back = new ME(new BX(2.2, 0.7, 0.1), wood);
-  back.position.set(0, 0.9, -0.28);
-  group.add(seat, back);
-  addBlobShadow(group, 0, 0, 2.4, 1.0, 0.32);
-  return group;
-}
-
-function makeBillboard(text, fg, bg) {
-  const group = new GP();
-  const poleMat = M(0x555a60, 0.8);
-  for (const dx of [-4, 4]) {
-    const pole = new ME(new CG(0.25, 0.25, 7, 6), poleMat);
-    pole.position.set(dx, 3.5, 0);
-    group.add(pole);
-  }
-  const frame = new ME(
-    new BX(12.6, 3.6, 0.3),
-    M(0x222222, 0.8),
-  );
-  frame.position.y = 8.5;
-  group.add(frame);
-  const face = makeSign(text, fg, bg, 12, 3);
-  face.position.set(0, 8.5, 0.2);
-  group.add(face);
-  addBlobShadow(group, 0, 0, 13, 3, 0.32);
-  return group;
-}
-
-export function buildCity(scene, rng, tx = {}) {
+export function buildCity(scene, rng, textures) {
   const col = [];
-  const towers = [];
   const trafficLights = [];
-  // One facade atlas + one shared material for every tower.
+  const towers = [];
+  const tx = textures;
+  const aniso = textures.anisotropy || 8;
   const facadeAtlas = makeFacadeAtlas();
-  const facadeMat = SM({ map: facadeAtlas, roughness: 0.9 });
+  const facadeMat = new MS({ map: facadeAtlas, roughness: 0.9 });
+
   const landmarks = {
-    plaza: { x: 0, z: 12 },
-    clientSpot: { x: 6, z: 12 },
-    marina: { x: 210, z: 258 },
-    chopShop: { x: -210, z: 194 },
-    lighthouse: { x: -216, z: -200 },
-    cometSpot: { x: -180, z: 66 },
-    packageSpot: { x: -204, z: 194 },
-    dealer: { x: 210, z: -126 },
-    gunShop: { x: 150, z: -186 },
-    garage: { x: 270, z: 54 },
-    diner: { x: 30, z: 174 },
-    bank: { x: 330, z: -246 },
-    armoredSpot: { x: 318, z: -240 },
-    portDeliver: { x: -300, z: -288 },
-    taxiStand: { x: 12, z: 18 },
-    collectibles: [
-      { x: 120, z: -300 },
-      { x: -330, z: -270 },
-      { x: 300, z: 120 },
-      { x: 180, z: 258 },
-      { x: -150, z: -150 },
-    ],
-    race: [
-      { x: 0, z: -360 },
-      { x: 360, z: -60 },
-      { x: 300, z: 240 },
-      { x: -360, z: 180 },
-    ],
-    busStops: [
-      { x: 7.5, z: 60 },
-      { x: -127.5, z: -120 },
-      { x: 247.5, z: 120 },
-      { x: 7.5, z: -172 },
-    ],
+    plaza: { x: 0, z: 0 },
+    clientSpot: { x: 6, z: 4 },
+    marina: { x: 210, z: 250 },
+    cometSpot: { x: 246, z: -150 },
+    chopShop: { x: -210, z: 210 },
+    packageSpot: { x: 120, z: 120 },
+    lighthouse: { x: -216, z: -216 },
+    armoredSpot: { x: 330, z: -252 },
+    bank: { x: 330, z: -270 },
+    dealer: { x: 210, z: -150 },
+    gunShop: { x: 150, z: -210 },
+    garage: { x: 270, z: 30 },
+    diner: { x: 30, z: 150 },
+    race: [{ x: 180, z: -180 }, { x: 180, z: 60 }, { x: -60, z: 60 }, { x: -60, z: -180 }],
+    busStops: [{ x: 14, z: -174 }, { x: -14, z: -186 }, { x: 246, z: -174 }, { x: 234, z: -186 }, { x: 14, z: 6 }, { x: -14, z: -6 }],
+    collectibles: [{ x: 120, z: -183 }, { x: 0, z: 30 }, { x: -120, z: 120 }, { x: 300, z: -60 }, { x: -240, z: -300 }],
   };
 
-  // Ground slab, beach band, plaza cobbles, sea plane.
-  const ground = new ME(
-    new PG(CITY.halfSize * 2 + 400, CITY.halfSize * 2 + 400),
-    SM({ color: COLOURS.ground, roughness: 1 }),
-  );
-  ground.rotation.x = -PI / 2;
-  ground.receiveShadow = true;
-  scene.add(ground);
-  const beachMat = TM(tx.sand, 20, 2);
-  const beach = new ME(new PG(560, 60), beachMat);
-  beach.rotation.x = -PI / 2;
-  beach.position.set(0, 0.03, 276);
-  beach.receiveShadow = true;
-  scene.add(beach);
+  // ---- Ground stack ----
+  // Base slab: the dirt under everything.
+  const base = new ME(new PG(820, 700), M(COLOURS.ground, 1));
+  base.rotation.x = -PI / 2;
+  base.position.set(0, 0, -60);
+  scene.add(base);
+  // Sidewalk: one big plane with tile seams, 1 cm up.
+  const walkTex = makeSidewalkTexture(aniso);
+  walkTex.repeat.set(50, 42.5);
+  const walk = new ME(new PG(800, 680), new MS({ map: walkTex, roughness: 0.95 }));
+  walk.rotation.x = -PI / 2;
+  walk.position.set(0, 0.01, -60);
+  walk.receiveShadow = true;
+  scene.add(walk);
+  // Roads: baked-marking asphalt. Avenues (N-S) 600 m = 75 tiles at
+  // y=0.04; streets (E-W) 720 m = 90 tiles at y=0.045, so the two
+  // never z-fight where they cross.
+  const roadTex = makeRoadTexture(aniso);
+  roadTex.wrapT = RW;
+  const roadTexA = roadTex.clone();
+  roadTexA.needsUpdate = true;
+  roadTexA.wrapT = RW;
+  roadTexA.repeat.set(1, 75);
+  const roadTexS = roadTex.clone();
+  roadTexS.needsUpdate = true;
+  roadTexS.wrapT = RW;
+  roadTexS.repeat.set(1, 90);
+  const roadMatA = new MS({ map: roadTexA, roughness: 0.95 });
+  const roadMatS = new MS({ map: roadTexS, roughness: 0.95 });
+  for (const x of CITY.roadLinesX) {
+    const geo = new PG(12, 600);
+    geo.rotateX(-PI / 2);
+    const road = new ME(geo, roadMatA);
+    road.position.set(x, 0.04, -60);
+    road.receiveShadow = true;
+    scene.add(road);
+  }
+  for (const z of CITY.roadLinesZ) {
+    const geo = new PG(12, 720);
+    geo.rotateX(-PI / 2);
+    geo.rotateY(PI / 2);
+    const road = new ME(geo, roadMatS);
+    road.position.set(0, 0.045, z);
+    road.receiveShadow = true;
+    scene.add(road);
+  }
+  // Curbs: real 0.15 m boxes along every road edge, in segments that
+  // stop at each intersection (the gaps are the crosswalks). Two
+  // InstancedMeshes, one per direction — one draw call each.
+  const curbMat = new MS({ color: 0xc9c2b2, roughness: 0.95 });
+  const aveSegs = [];
+  for (const x of CITY.roadLinesX) {
+    for (let i = 0; i < CITY.roadLinesZ.length - 1; i += 1) {
+      const z0 = CITY.roadLinesZ[i] + 6;
+      const z1 = CITY.roadLinesZ[i + 1] - 6;
+      aveSegs.push([x - 6.18, (z0 + z1) / 2]);
+      aveSegs.push([x + 6.18, (z0 + z1) / 2]);
+    }
+  }
+  const aveCurbs = new THREE.InstancedMesh(new BX(0.35, 0.15, 48), curbMat, aveSegs.length);
   {
-    const plaza = new ME(new PG(24, 24), TM(tx.cobble, 3, 3));
-    plaza.rotation.x = -PI / 2;
-    plaza.position.set(0, 0.04, 12);
-    plaza.receiveShadow = true;
-    scene.add(plaza);
+    const m4 = new THREE.Matrix4();
+    aveSegs.forEach(([x, z], i) => {
+      m4.makeTranslation(x, 0.075, z);
+      aveCurbs.setMatrixAt(i, m4);
+    });
   }
-  const sea = new ME(
-    new PG(1200, 600),
-    SM({ map: makeSeaGradient(), roughness: 0.3, metalness: 0.1 }),
-  );
-  sea.rotation.x = -PI / 2;
-  sea.position.set(0, 0.02, 600);
-  scene.add(sea);
-
-  // Roads: asphalt strip + sidewalks + one painted-marking plane per road.
-  const roadMat = TM(tx.asphalt, 20, 1);
-  const walkMat = TM(tx.sidewalk, 60, 1);
-  const markTex = makeRoadMarkingTexture();
-  const roadLenX = 780;
-  const roadLenZ = 660;
-  for (const line of CITY.roadLinesX) {
-    const strip = new ME(new PG(roadLenZ, CITY.roadWidth), roadMat);
-    strip.rotation.x = -PI / 2;
-    strip.rotation.z = PI / 2;
-    strip.position.set(line, 0.05, -60);
-    strip.receiveShadow = true;
-    scene.add(strip);
-    for (const side of [-1, 1]) {
-      const walk = new ME(new PG(roadLenZ, 3), walkMat);
-      walk.rotation.x = -PI / 2;
-      walk.rotation.z = PI / 2;
-      walk.position.set(line + side * (CITY.roadWidth / 2 + 1.5), 0.06, -60);
-      scene.add(walk);
-    }
-    // Double yellow centre + white lane dashes, ONE texture on the road
-    // plane (2 m on / 2 m off), not separate geometry.
-    const marking = new ME(
-      new PG(roadLenZ, CITY.roadWidth),
-      new MB({ map: tile(markTex, roadLenZ / 4, 1), transparent: true, depthWrite: false }),
-    );
-    marking.rotation.x = -PI / 2;
-    marking.rotation.z = PI / 2;
-    marking.position.set(line, 0.055, -60);
-    scene.add(marking);
-  }
-  for (const line of CITY.roadLinesZ) {
-    const strip = new ME(new PG(roadLenX, CITY.roadWidth), roadMat);
-    strip.rotation.x = -PI / 2;
-    strip.position.set(0, 0.05, line);
-    strip.receiveShadow = true;
-    scene.add(strip);
-    for (const side of [-1, 1]) {
-      const walk = new ME(new PG(roadLenX, 3), walkMat);
-      walk.rotation.x = -PI / 2;
-      walk.position.set(0, 0.06, line + side * (CITY.roadWidth / 2 + 1.5));
-      scene.add(walk);
-    }
-    const marking = new ME(
-      new PG(roadLenX, CITY.roadWidth),
-      new MB({ map: tile(markTex, roadLenX / 4, 1), transparent: true, depthWrite: false }),
-    );
-    marking.rotation.x = -PI / 2;
-    marking.position.set(0, 0.055, line);
-    scene.add(marking);
-  }
-
-  // Small painted ground textures, drawn on canvas: zebra bars, a turn
-  // arrow, and the low rail that runs along the avenues.
-  const cv = (w, h, f) => { const c = document.createElement('canvas'); c.width = w; c.height = h; f(c.getContext('2d')); const t = new CT(c); t.colorSpace = SC; t.wrapS = t.wrapT = RW; return t; };
-  const zebra = cv(128, 64, (x) => { x.fillStyle = '#5a5a52'; for (let i = 0; i < 6; i++) x.fillRect(8 + i * 20, 4, 10, 42); x.fillRect(0, 54, 128, 8); });
-  const arrow = cv(64, 64, (x) => { x.fillStyle = '#b0b0a6'; x.fillRect(26, 34, 12, 26); x.beginPath(); x.moveTo(32, 4); x.lineTo(52, 30); x.lineTo(12, 30); x.closePath(); x.fill(); });
-  const railT = cv(64, 32, (x) => { x.fillStyle = '#565b60'; x.fillRect(0, 0, 64, 32); x.fillStyle = '#3a3e44'; for (let i = 0; i < 8; i++) x.fillRect(1 + i * 8, 0, 6, 32); x.fillStyle = '#2c2f34'; x.fillRect(0, 0, 64, 5); x.fillRect(0, 27, 64, 5); });
-  const flat = (w, d, m, x, z, rz = 0, y = 0.08) => { const p = new ME(new PG(w, d), m); p.rotation.x = -PI / 2; p.rotation.z = rz; p.position.set(x, y, z); scene.add(p); };
-  const zebraM = new MB({ map: zebra, transparent: true });
-  const arrowM = new MB({ map: arrow, transparent: true });
-  const lineM = new MB({ color: 0x3a3a34 });
-  for (const [ix, iz] of [[0, -180], [120, -180], [180, -180], [240, -180], [240, -120], [240, 0], [0, 0], [60, -180]]) { flat(4.5, 12, zebraM, ix + 9, iz, 0, 0.09); flat(4.5, 12, zebraM, ix, iz - 9, PI / 2, 0.09); flat(1.2, 6, lineM, ix + 15, iz - 3, 0, 0.09); }
-  for (const [ax, az, ar] of [[60, -180, -PI / 2], [180, -180, -PI / 2], [-120, -180, PI / 2], [0, 120, 0]]) flat(2.2, 4, arrowM, ax, az, ar);
-  for (const [cx, cz, az] of [[240, -60, 1], [0, -180, 0], [0, -60, 1]]) {
-    const L = az ? 660 : 780;
-    for (const s of [-1, 1]) {
-      flat(az ? 0.18 : L, az ? L : 0.18, lineM, cx + (az ? s * 5.7 : 0), cz + (az ? 0 : s * 5.7));
-      box(scene, az ? 0.4 : L, 0.18, az ? L : 0.4, M(0x8a8478), cx + (az ? s * 6.3 : 0), 0.09, cz + (az ? 0 : s * 6.3));
+  scene.add(aveCurbs);
+  const stSegs = [];
+  for (const z of CITY.roadLinesZ) {
+    for (let i = 0; i < CITY.roadLinesX.length - 1; i += 1) {
+      const x0 = CITY.roadLinesX[i] + 6;
+      const x1 = CITY.roadLinesX[i + 1] - 6;
+      stSegs.push([(x0 + x1) / 2, z - 6.18]);
+      stSegs.push([(x0 + x1) / 2, z + 6.18]);
     }
   }
-  const rail = (x1, z1, x2, z2) => {
-    const L = Math.hypot(x2 - x1, z2 - z1);
-    const p = new ME(new PG(L, 0.5), new MB({ map: tile(railT, L / 2, 1), transparent: true, side: DS }));
-    p.position.set((x1 + x2) / 2, 0.45, (z1 + z2) / 2); p.rotation.y = x1 === x2 ? PI / 2 : 0; scene.add(p);
-  };
-  for (let x = -330; x < 330; x += 60) if (x !== 240 && x !== 180) rail(x + 14, -180, x + 30, -180);
-  // The rail runs down the WEST curb (x=233.5), not the middle of the road
-  // the chase van drives, and not in front of the sunset camera.
-  for (let z = -330; z < 240; z += 60) rail(233.5, z + 14, 233.5, z + 30);
-  for (let x = -330; x < 330; x += 60) if (x !== 240 && x !== 180) { col.push({ minX: x + 14, maxX: x + 23, minZ: -180.3, maxZ: -179.7 }); col.push({ minX: x + 23, maxX: x + 30, minZ: -180.3, maxZ: -179.7 }); }
-  for (let z = -330; z < 240; z += 60) { col.push({ minX: 233.2, maxX: 233.8, minZ: z + 14, maxZ: z + 23 }); col.push({ minX: 233.2, maxX: 233.8, minZ: z + 23, maxZ: z + 30 }); }
+  const stCurbs = new THREE.InstancedMesh(new BX(48, 0.15, 0.35), curbMat, stSegs.length);
+  {
+    const m4 = new THREE.Matrix4();
+    stSegs.forEach(([x, z], i) => {
+      m4.makeTranslation(x, 0.075, z);
+      stCurbs.setMatrixAt(i, m4);
+    });
+  }
+  scene.add(stCurbs);
+  // Median barrier down the hero street (z=-180): light Jersey
+  // barriers, not the dark striped band the old rail read as. Gaps at
+  // every intersection so cars can turn and the zebra crosses clean.
+  const medianMat = new MS({ color: 0xb8b8b0, roughness: 0.9 });
+  const medianTop = new MS({ color: 0xe6c832, roughness: 0.7 });
+  for (let i = 0; i < CITY.roadLinesX.length - 1; i += 1) {
+    const x0 = CITY.roadLinesX[i] + 6;
+    const x1 = CITY.roadLinesX[i + 1] - 6;
+    const cx = (x0 + x1) / 2;
+    box(scene, 48, 0.7, 0.5, medianMat, cx, 0.35, -180);
+    box(scene, 48, 0.1, 0.3, medianTop, cx, 0.75, -180);
+    col.push({ minX: x0, maxX: x1, minZ: -180.25, maxZ: -179.75 });
+  }
+  // Zebra crossings: opaque planes on the hero-zone intersections, so
+  // the bars are crisp white on asphalt and never sort against blobs.
+  const zebraTex = makeZebraTexture(aniso);
+  const zebraMat = new MS({ map: zebraTex, roughness: 0.95 });
+  for (const zx of [180, 240, 300]) {
+    for (const zz of [-240, -180, -120]) {
+      const g1 = new PG(12, 3);
+      g1.rotateX(-PI / 2);
+      const z1 = new ME(g1, zebraMat);
+      z1.position.set(zx, 0.055, zz - 7.5);
+      scene.add(z1);
+      const g2 = new PG(12, 3);
+      g2.rotateX(-PI / 2);
+      g2.rotateY(PI / 2);
+      const z2 = new ME(g2, zebraMat);
+      z2.position.set(zx - 7.5, 0.055, zz);
+      scene.add(z2);
+    }
+  }
   // Manholes.
   for (const [hx, hz] of [[120, -183], [180, -177], [237, -90], [0, -30], [60, -183], [243, 30], [-60, -177], [300, -183]]) {
     const hole = new ME(new CG(0.55, 0.55, 0.06, 12), M(0x222222, 0.9));
-    hole.position.set(hx, 0.09, hz); scene.add(hole);
+    hole.position.set(hx, 0.05, hz);
+    scene.add(hole);
   }
-  // Traffic lights. The two hero-zone lights face south-east (PI/4) so one
-  // lamp face is visible from the north cameras and the west camera alike.
-  for (const [tx, tz, tr, ts] of [[8, -172, PI, 'R'], [-8, -188, 0, 'R'], [248, -174, PI / 4, 'R'], [226, -188, PI / 4, 'R'], [8, 8, PI, 'G'], [-8, -8, 0, 'R'], [248, 8, PI, 'R'], [232, -8, 0, 'G']]) {
-    const tl = makeTrafficLight(ts, trafficLights.length * 5.3); tl.position.set(tx, 0, tz); tl.rotation.y = tr; scene.add(tl); trafficLights.push(tl);
+  // Traffic lights. The two hero-zone lights face south-east (PI/4)
+  // so one lamp face is visible from the north cameras and the west
+  // camera alike.
+  for (const [tx2, tz, tr, ts] of [[8, -172, PI, 'R'], [-8, -188, 0, 'R'], [248, -174, PI / 4, 'R'], [226, -188, PI / 4, 'R'], [8, 8, PI, 'G'], [-8, -8, 0, 'R'], [248, 8, PI, 'R'], [232, -8, 0, 'G']]) {
+    const tl = makeTrafficLight(ts, trafficLights.length * 5.3);
+    tl.position.set(tx2, 0, tz);
+    tl.rotation.y = tr;
+    scene.add(tl);
+    trafficLights.push(tl);
   }
   for (const [hx, hz] of [[30, 10], [-60, -40], [150, 60], [210, -30], [120, -174], [180, -186], [240, -150], [0, -174]]) {
-    const hyd = makeHydrant(); hyd.position.set(hx, 0, hz); scene.add(hyd);
+    const hyd = makeHydrant();
+    hyd.position.set(hx, 0, hz);
+    scene.add(hyd);
   }
   for (const [sx, sz, st] of [[-14, -172, '限速 40'], [-2, -188, '直行'], [226, -172, '单行']]) {
-    const sg = makeSign(st, '#ffffff', '#1a3a5f', 2.4, 1.2); sg.position.set(sx, 2.6, sz); scene.add(sg);
+    const sg = makeSign(st, '#ffffff', '#1a3a5f', 2.4, 1.2);
+    sg.position.set(sx, 2.6, sz);
+    scene.add(sg);
     cyl(scene, 0.05, 0.05, 2.6, 6, M(0x888888), sx, 1.3, sz);
     addBlobShadow(scene, sx, sz, 0.7, 0.7, 0.55);
   }
   for (let tx2 = -300; tx2 <= 300; tx2 += 120) {
-    const tr2 = makeTree(rng); tr2.position.set(tx2, 0, -180 + (tx2 % 240 === 0 ? -8.5 : 8.5)); scene.add(tr2);
+    const tr2 = makeTree(rng);
+    tr2.position.set(tx2, 0, -180 + (tx2 % 240 === 0 ? -8.5 : 8.5));
+    scene.add(tr2);
   }
   for (const lx of [-360, -240, -120, 0, 120, 240, 360]) {
     for (const lz of [-360, -240, -120, 0, 120, 240]) {
@@ -444,12 +289,25 @@ export function buildCity(scene, rng, tx = {}) {
     }
   }
   const stex = ['signTaxi', 'sign24h', 'signHotel', 'signBar', 'signPizza', 'signAuto'].map((k) => tx[k]).filter(Boolean);
-  if (tx.neonSign) for (const [nx, nz] of [[180, -168], [120, -192], [300, -168]]) {
-    const n = new ME(new PG(5, 3.5), new MB({ map: tx.neonSign }));
-    n.position.set(nx, 5, nz); n.rotation.y = PI / 2; scene.add(n);
+  if (tx.neonSign) {
+    for (const [nx, nz] of [[180, -168], [120, -192], [300, -168]]) {
+      const n = new ME(new PG(5, 3.5), new MB({ map: tx.neonSign }));
+      n.position.set(nx, 5, nz);
+      n.rotation.y = PI / 2;
+      scene.add(n);
+    }
   }
 
-  // One building block per 60 m grid cell. The district decides the fill.
+  // ---- One building block per 60 m grid cell. The district decides the fill.
+  const PARK_BLOCKS = new Set(['0,0', '-60,60', '120,120', '-180,-60']);
+  const MARINA_BLOCK = '180,240';
+  const CHOP_BLOCK = '-240,180';
+  const LIGHTHOUSE_BLOCK = '-240,-240';
+  const DEALER_BLOCK = '180,-180';
+  const GUN_BLOCK = '120,-240';
+  const GARAGE_BLOCK = '240,0';
+  const DINER_BLOCK = '0,120';
+  const BANK_BLOCK = '300,-300';
   const blocks = [];
   for (let bx = -330; bx <= 330; bx += 60) {
     for (let bz = -330; bz <= 210; bz += 60) blocks.push([bx, bz]);
@@ -463,7 +321,7 @@ export function buildCity(scene, rng, tx = {}) {
       const parkMat = TM(tx.grass, 4, 4);
       const park = new ME(new PG(46, 46), parkMat);
       park.rotation.x = -PI / 2;
-      park.position.set(bx, 0.07, bz);
+      park.position.set(bx, 0.02, bz);
       park.receiveShadow = true;
       scene.add(park);
       for (let i = 0; i < 5; i += 1) {
@@ -520,8 +378,8 @@ export function buildCity(scene, rng, tx = {}) {
       const h = landmark ? rng.range(105, 120) : dc < 90 ? rng.range(70, 110) : dc < 170 ? rng.range(45, 75) : rng.range(25, 50);
       const x = bx + rng.range(-6, 6);
       const z = bz + rng.range(-6, 6);
-      // Facade atlas (one material, UVs baked per building) instead of a
-      // flat glass texture. Cell = palette x window style.
+      // Facade atlas (one material, UVs baked per building) instead of
+      // a flat glass texture. Cell = palette x window style.
       const cell = Math.floor(rng.range(0, 12));
       const towerGeo = new BX(w, h, d);
       applyFacadeUVs(towerGeo, cell, w, h, d);
@@ -535,9 +393,9 @@ export function buildCity(scene, rng, tx = {}) {
       for (const [fx, fz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) box(scene, 0.7, h, 0.7, M(0x14202c, 0.4, { metalness: 0.5 }), x + fx * (w / 2 - 0.2), h / 2, z + fz * (d / 2 - 0.2));
       box(scene, w + 0.6, 0.5, d + 0.6, M(0x3a3f45), x, h - 0.25, z);
       for (const [pw, pd, px, pz] of [[w + 0.4, 0.5, 0, d / 2], [w + 0.4, 0.5, 0, -d / 2], [0.5, d + 0.4, w / 2, 0], [0.5, d + 0.4, -w / 2, 0]]) box(scene, pw, 0.8, pd, M(0x3a3f45), x + px, h + 0.4, z + pz);
-      // The podium wears a storefront cell of the facade atlas (the full
-      // 20 m cell compressed onto the 4.5 m base, so its sign band +
-      // glass + awning read as a shop front) instead of flat concrete.
+      // The podium wears a storefront cell of the facade atlas (the
+      // full 20 m cell compressed onto the 4.5 m base, so its sign band
+      // + glass + awning read as a shop front) instead of flat concrete.
       const podGeo = new BX(w + 1.5, 4.5, d + 1.5);
       applyFacadeUVs(podGeo, rng.int(12, 15), w + 1.5, 20, d + 1.5);
       const pod = new ME(podGeo, facadeMat);
@@ -545,10 +403,13 @@ export function buildCity(scene, rng, tx = {}) {
       pod.castShadow = true;
       pod.receiveShadow = true;
       scene.add(pod);
-      let tw = w, td = d, ty = h;
+      let tw = w;
+      let td = d;
+      let ty = h;
       const tiers = h >= 60 ? 3 : h >= 35 ? 2 : 1;
       for (let t = 0; t < tiers; t += 1) {
-        tw *= 0.72; td *= 0.72;
+        tw *= 0.72;
+        td *= 0.72;
         const th = t === tiers - 1 ? 3 : 5;
         const tierGeo = new BX(tw, th, td);
         applyFacadeUVs(tierGeo, cell, tw, th, td);
@@ -617,23 +478,17 @@ export function buildCity(scene, rng, tx = {}) {
         roof.position.set(x, h + 1.5, z);
         roof.rotation.y = PI / 4;
         scene.add(roof);
-        const chimney = new ME(
-          new BX(1, 1.4, 1),
-          M(0x8a4a3a),
-        );
+        const chimney = new ME(new BX(1, 1.4, 1), M(0x8a4a3a));
         chimney.position.set(x, h + 2.9, z);
         chimney.castShadow = true;
         scene.add(chimney);
-        const porch = new ME(
-          new BX(w * 0.5, 0.15, 1.2),
-          M(0x8a6b4f),
-        );
+        const porch = new ME(new BX(w * 0.5, 0.15, 1.2), M(0x8a6b4f));
         porch.position.set(x, 0.08, z + d / 2 + 0.6);
         scene.add(porch);
         const gardenMat = TM(tx.grass, 2, 2);
         const garden = new ME(new PG(w + 6, d + 6), gardenMat);
         garden.rotation.x = -PI / 2;
-        garden.position.set(x, 0.04, z);
+        garden.position.set(x, 0.02, z);
         scene.add(garden);
         const tree = makeTree(rng);
         tree.position.set(x + w / 2 + 3, 0, z + d / 2 + 2);
@@ -676,7 +531,11 @@ export function buildCity(scene, rng, tx = {}) {
         applyFacadeUVs(sw.geometry, 12, w * 0.7, 20, 0.2);
         const awn2 = box(scene, w * 0.75, 0.15, 2, TM(tx.awning, 2, 1, 0.9), x, 3.4, z + d / 2 + 1);
         awn2.rotation.x = 0.22;
-        if (stex.length) { const sg2 = new ME(new PG(7, 1.8), new MB({ map: rng.pick(stex) })); sg2.position.set(x, 4.8, z + d / 2 + 0.2); scene.add(sg2); }
+        if (stex.length) {
+          const sg2 = new ME(new PG(7, 1.8), new MB({ map: rng.pick(stex) }));
+          sg2.position.set(x, 4.8, z + d / 2 + 0.2);
+          scene.add(sg2);
+        }
       }
       if (rng.chance(0.4)) cyl(scene, 1, 1, 2, 10, M(0x7a6a58, 0.9), x - w / 4, h + 1.4, z - d / 4, true);
       col.push({ minX: x - w / 2, maxX: x + w / 2, minZ: z - d / 2, maxZ: z + d / 2 });
@@ -730,6 +589,18 @@ export function buildCity(scene, rng, tx = {}) {
   // Far skyline: 24 boxes at 450-550 m sharing 4 baked facade cells.
   scene.add(makeFarSkyline(facadeAtlas));
 
+  // The sea: a plane south of the beach, animated by the game loop.
+  const sea = new ME(new PG(900, 320), new MS({ color: COLOURS.sea, roughness: 0.25, metalness: 0.15 }));
+  sea.rotation.x = -PI / 2;
+  sea.position.set(0, 0.02, 460);
+  scene.add(sea);
+  // Beach sand between the sidewalk and the water.
+  const sandMat = TM(tx.sand, 24, 2, 1);
+  const sand = new ME(new PG(780, 56), sandMat);
+  sand.rotation.x = -PI / 2;
+  sand.position.set(0, 0.012, 274);
+  scene.add(sand);
+
   // Marina: three docks, three boats, a sign.
   const boats = [];
   {
@@ -747,10 +618,7 @@ export function buildCity(scene, rng, tx = {}) {
       hull.castShadow = true;
       scene.add(hull);
       boats.push(hull);
-      const mast = new ME(
-        new CG(0.12, 0.12, 7, 6),
-        M(0xdddddd, 0.6),
-      );
+      const mast = new ME(new CG(0.12, 0.12, 7, 6), M(0xdddddd, 0.6));
       mast.position.set(186 + i * 18, 5, 274);
       scene.add(mast);
     }
@@ -760,10 +628,7 @@ export function buildCity(scene, rng, tx = {}) {
   }
   // Chop shop.
   {
-    const shop = new ME(
-      new BX(30, 8, 20),
-      M(0x7a6a58),
-    );
+    const shop = new ME(new BX(30, 8, 20), M(0x7a6a58));
     shop.position.set(-210, 4, 210);
     shop.castShadow = true;
     shop.receiveShadow = true;
@@ -775,10 +640,7 @@ export function buildCity(scene, rng, tx = {}) {
   }
   // Striped lighthouse: base + 4 alternating segments + lamp + cap.
   {
-    const base = new ME(
-      new CG(9, 11, 1.5, 16),
-      M(0x9aa0a3),
-    );
+    const base = new ME(new CG(9, 11, 1.5, 16), M(0x9aa0a3));
     base.position.set(-216, 0.75, -216);
     base.castShadow = true;
     scene.add(base);
@@ -793,16 +655,10 @@ export function buildCity(scene, rng, tx = {}) {
       seg.castShadow = true;
       scene.add(seg);
     }
-    const lamp = new ME(
-      new BX(4, 3, 4),
-      M(0xffe14d, 0.4, { emissive: 0xaa8800 }),
-    );
+    const lamp = new ME(new BX(4, 3, 4), M(0xffe14d, 0.4, { emissive: 0xaa8800 }));
     lamp.position.set(-216, 29.5, -216);
     scene.add(lamp);
-    const cap = new ME(
-      new CN(3.4, 2.5, 12),
-      M(0x222222, 0.8),
-    );
+    const cap = new ME(new CN(3.4, 2.5, 12), M(0x222222, 0.8));
     cap.position.set(-216, 32.2, -216);
     scene.add(cap);
     col.push({ minX: -227, maxX: -205, minZ: -227, maxZ: -205 });
@@ -824,18 +680,12 @@ export function buildCity(scene, rng, tx = {}) {
     sign.position.set(bx, h + 1.25, bz - d / 2 - 0.1);
     sign.rotation.y = PI;
     scene.add(sign);
-    const awning = new ME(
-      new BX(w * 0.6, 0.15, 2),
-      M(0x2c3e50, 0.9),
-    );
+    const awning = new ME(new BX(w * 0.6, 0.15, 2), M(0x2c3e50, 0.9));
     awning.position.set(bx, 3.2, bz - d / 2 - 0.9);
     awning.rotation.x = 0.25;
     awning.castShadow = true;
     scene.add(awning);
-    const door = new ME(
-      new BX(2, 3, 0.2),
-      M(0x222222, 0.7),
-    );
+    const door = new ME(new BX(2, 3, 0.2), M(0x222222, 0.7));
     door.position.set(bx, 1.5, bz - d / 2 - 0.05);
     scene.add(door);
     col.push({ minX: bx - w / 2, maxX: bx + w / 2, minZ: bz - d / 2, maxZ: bz + d / 2 });
@@ -847,23 +697,14 @@ export function buildCity(scene, rng, tx = {}) {
   shopFront(330, -270, 22, 14, 16, 0x8a8a9a, 'BANK', '#ffffff', '#2a4a6a');
   // Port cranes.
   for (const cx of [-330, -270]) {
-    const mast = new ME(
-      new BX(3, 42, 3),
-      M(0xd8a020, 0.7),
-    );
+    const mast = new ME(new BX(3, 42, 3), M(0xd8a020, 0.7));
     mast.position.set(cx, 21, -350);
     mast.castShadow = true;
     scene.add(mast);
-    const arm = new ME(
-      new BX(34, 2, 2),
-      M(0xd8a020, 0.7),
-    );
+    const arm = new ME(new BX(34, 2, 2), M(0xd8a020, 0.7));
     arm.position.set(cx + 12, 40, -350);
     scene.add(arm);
-    const hook = new ME(
-      new BX(2, 2, 2),
-      M(0x333333, 0.8),
-    );
+    const hook = new ME(new BX(2, 2, 2), M(0x333333, 0.8));
     hook.position.set(cx + 24, 34, -350);
     scene.add(hook);
   }
@@ -941,10 +782,7 @@ export function buildCity(scene, rng, tx = {}) {
   // Beach umbrellas.
   for (let i = 0; i < 8; i += 1) {
     const x = -220 + i * 62;
-    const pole = new ME(
-      new CG(0.08, 0.08, 2.6, 6),
-      M(0xdddddd, 0.8),
-    );
+    const pole = new ME(new CG(0.08, 0.08, 2.6, 6), M(0xdddddd, 0.8));
     pole.position.set(x, 1.3, 262);
     const top = new ME(
       new CN(2.4, 1.2, 8),
@@ -957,10 +795,7 @@ export function buildCity(scene, rng, tx = {}) {
   }
   // Distant hills north of the city.
   for (const [rx, rr, rh] of [[-520, 85, 14], [480, 70, 11]]) {
-    const ridge = new ME(
-      new CN(rr, rh, 7),
-      M(0x8a9aa8),
-    );
+    const ridge = new ME(new CN(rr, rh, 7), M(0x8a9aa8));
     ridge.position.set(rx, 0, -640);
     scene.add(ridge);
   }

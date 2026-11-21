@@ -1,3 +1,6 @@
+# Build/runtime noise — never committed. The screenshots/ JPEGs are
+# tracked (they are the submission), but render logs and temp outputs
+# are not.
 *.log
 /tmp/
 out/

@@ -46,6 +46,11 @@ helicopter, and watch the wanted stars cool off when you lay low.
   stucco, asphalt, sidewalk, grass, sand, container steel), generated on a
   GPU with SDXL and shipped as local files under `game/textures/` — no
   network, and a flat-colour fallback if a file is ever missing.
+- **Grounded roads** — the road sits in a channel below the sidewalk, edged
+  by real 0.15 m curbs, with the lane markings baked into the asphalt
+  texture at full resolution: double yellow lines, lane dashes and edge
+  lines stay hard-edged and sharp instead of blurring to mush, and every
+  grounded object sits on a soft blob shadow.
 - **On foot and by car** — walk, run, drive, and steal parked cars (E). Ten
   car models with their own shapes, speeds and prices — sedan, compact, taxi,
   van, pickup, truck, bus, muscle, the Comet GT sports car, and the armored
@@ -69,9 +74,9 @@ helicopter, and watch the wanted stars cool off when you lay low.
 - **Economy** — money has uses: buy cars and guns and ammo, repair at the
   garage, eat at the diner; money has sources: missions, taxi fares, hidden
   packages, selling hot cars, and dropping thugs.
-- **HUD and minimap** — health, cash, wanted stars, speed, weapon and ammo,
-  car bodywork, the district you are in, the race clock, the mission list and
-  objective, and a live top-down map with district names, shops,
+- **HUD and minimap** — health bar, cash, wanted stars, speed, weapon and
+  ammo, car bodywork, the district you are in, the race clock, the mission
+  list and objective, and a live top-down map with district names, shops,
   collectibles, checkpoints, the helicopter, the police and the mission
   marker.
 - **Start and save** — title menu, pause menu, and save / load through
@@ -138,12 +143,14 @@ mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts
 
 three.js r160 is vendored as `game/vendor/three.module.min.js` (MIT).
 
-## v4 — fresh rewrite
+## v5 — fresh rewrite
 
 The whole game rewritten from scratch in one session: same city, same seven
-missions, same four screenshot scenes, rebuilt line by line. The modeling
-lessons from the earlier versions are in from the start — the facade atlas,
-the twelve-sign system, the dithered sunset sky, blob shadows with a
-render-order fix so the gunman shadow survives the road markings, the
-traffic-light halo ring, framed van glass, the TAXI roof sign, and the
-helicopter kept fully in frame.
+missions, same four screenshot scenes, rebuilt line by line. The v5 fixes
+are the road and the framing: lane markings baked into the asphalt with
+hard edges, real curbs, the road sunk in a channel below the sidewalk,
+full anisotropy so the markings stay sharp; the sunset helicopter fully in
+frame; flames in frame on the burning car; a visible shadow under every
+grounded vehicle; the gunman shadow darkening the yellow stripe so it
+cannot be missed; the HUD back to dark rounded panels with a health bar;
+and a static, subtle wanted border instead of a pulsing one.

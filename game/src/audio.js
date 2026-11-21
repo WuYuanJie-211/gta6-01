@@ -1,7 +1,8 @@
-// All sound is synthesized with WebAudio — no audio files. An engine hum
-// that follows speed, a two-tone siren (a second voice joins at 4 stars),
-// a looping bass-and-lead music track, and one-shot effects. The context
-// only starts after a user gesture (unlock), so the title screen is silent.
+// All sound is synthesized with WebAudio — no audio files. An engine
+// hum that follows speed, a two-tone siren (a second voice joins at 4
+// stars), a looping bass-and-lead music track, and one-shot effects.
+// The context only starts after a user gesture (unlock), so the title
+// screen is silent.
 export function createAudio() {
   let ctx = null;
   let engineOsc = null;

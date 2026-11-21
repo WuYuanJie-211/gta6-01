@@ -1,54 +1,72 @@
-// The HUD: stats, mission list, objective, prompt, street/district,
-// circular minimap, speed, weapon bar, toasts, the mission card, and the
-// title / pause / wasted overlays. All DOM — the 3D scene never draws UI.
-// Element IDs match game/index.html exactly.
+// The HUD: dark rounded panels (v39 style) for the stats, mission
+// list, objective, weapon and district; a circular minimap; toasts and
+// mission cards; the wanted flash.
+//
+// The wanted border is STATIC and subtle (opacity 0.22 while wanted) —
+// the old border pulsed with sin(time) and read as a flashing alarm in
+// every chase frame.
 import { districtAt } from './config.js';
-import { MISSIONS } from './missions.js';
+
+const MISSION_TITLES = [
+  'First Fare', 'Hot Wheels', 'The Lighthouse Run', 'Downtown Taxi',
+  'Package Hunt', 'Bay Street Grand Prix', 'The Bank Job',
+];
 
 export function createHud(game) {
-  const el = (id) => document.getElementById(id);
-  const hud = el('hud');
-  const healthEl = el('hud-health');
-  const cashEl = el('hud-cash');
-  const clockEl = el('hud-clock');
-  const starsEl = el('hud-stars');
-  const objectiveEl = el('hud-objective');
-  const missionListEl = el('hud-mission-list');
-  const weaponEl = el('hud-weapon');
-  const districtEl = el('hud-district');
-  const promptEl = el('hud-prompt');
-  const toastEl = el('hud-toast');
-  const missionCardEl = el('hud-mission-card');
-  const speedEl = el('hud-speed');
-  const speedNumEl = el('hud-speed-number');
-  const wantedFlashEl = el('hud-wanted-flash');
-  const damageFlashEl = el('damage-flash');
-  const menuEl = el('menu');
-  const pauseEl = el('pause');
-  const overEl = el('over');
-  const minimap = el('minimap');
-  const ctx = minimap.getContext('2d');
-  let toastTimer = null;
-  let cardTimer = null;
-  let shakeTime = 0;
-  let hitAt = -10;
+  const $ = (id) => document.getElementById(id);
+  const hud = $('hud');
+  const healthEl = $('hud-health');
+  const healthBarEl = $('hud-health-bar');
+  const cashEl = $('hud-cash');
+  const clockEl = $('hud-clock');
+  const starsEl = $('hud-stars');
+  const objectiveEl = $('hud-objective');
+  const missionListEl = $('hud-mission-list');
+  const weaponEl = $('hud-weapon');
+  const districtEl = $('hud-district');
+  const promptEl = $('hud-prompt');
+  const toastEl = $('hud-toast');
+  const missionCardEl = $('hud-mission-card');
+  const speedEl = $('hud-speed');
+  const speedNumEl = $('hud-speed-number');
+  const minimapEl = $('minimap');
+  const ctx = minimapEl.getContext('2d');
+  const wantedFlashEl = $('hud-wanted-flash');
+  const damageFlashEl = $('damage-flash');
+  const menuEl = $('menu');
+  const pauseEl = $('pause');
+  const overEl = $('over');
   let lastDistrict = '';
+  let shakeTime = 0;
+  let shotMode = false;
+  let hitAt = -100;
+  let cardTimer = null;
+  let toastTimer = null;
 
-  const missionRows = MISSIONS.map((m, i) => {
+  const missionRows = [];
+  for (const t of MISSION_TITLES) {
     const row = document.createElement('div');
-    row.textContent = `${i + 1}. ${m.title}`;
+    row.textContent = t;
     missionListEl.appendChild(row);
-    return row;
-  });
+    missionRows.push(row);
+  }
 
-  function flash(message) {
-    toastEl.textContent = message;
+  function flash(text) {
+    toastEl.textContent = text;
+    toastEl.classList.remove('hidden');
     if (toastTimer) clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => { toastEl.textContent = ''; }, 3500);
+    toastTimer = setTimeout(() => toastEl.classList.add('hidden'), 2500);
   }
 
   function showMissionCard(title, story) {
-    missionCardEl.textContent = `${title} — ${story}`;
+    missionCardEl.innerHTML = '';
+    const t = document.createElement('div');
+    t.className = 'mc-title';
+    t.textContent = title;
+    const s = document.createElement('div');
+    s.className = 'mc-story';
+    s.textContent = story;
+    missionCardEl.append(t, s);
     missionCardEl.classList.remove('hidden');
     if (cardTimer) clearTimeout(cardTimer);
     cardTimer = setTimeout(() => missionCardEl.classList.add('hidden'), 6000);
@@ -77,8 +95,12 @@ export function createHud(game) {
     pauseEl.classList.toggle('hidden', !show);
   }
 
-  function showOver(show) {
+  function showOver(show, text) {
     overEl.classList.toggle('hidden', !show);
+    if (text) {
+      const p = overEl.querySelector('p');
+      if (p) p.textContent = text;
+    }
   }
 
   function setPrompt(text) {
@@ -86,6 +108,7 @@ export function createHud(game) {
   }
 
   function setShotMode(shot, showCash) {
+    shotMode = shot;
     document.body.classList.toggle('shot-mode', shot);
     document.body.classList.toggle('shot-cash', showCash);
   }
@@ -156,14 +179,18 @@ export function createHud(game) {
 
   function update() {
     const player = game.player;
-    healthEl.textContent = `♥ ${Math.max(0, Math.ceil(player.health))}`;
+    const hp = Math.max(0, Math.ceil(player.health));
+    healthEl.textContent = `♥ ${hp}`;
+    healthBarEl.style.width = `${hp}%`;
+    healthBarEl.style.background = hp > 50 ? '#37c978' : hp > 25 ? '#f5a623' : '#e74c3c';
     cashEl.textContent = `$${game.cash.toLocaleString('en-US')}`;
     const baseMin = game.shotClockMin ?? (17 * 60 + 31);
     const mins = (baseMin + Math.floor(game.time / 60)) % (24 * 60);
     clockEl.textContent = `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
     const wanted = game.police.state.wanted;
     starsEl.textContent = wanted > 0 ? '★'.repeat(wanted) + '☆'.repeat(5 - wanted) : '';
-    wantedFlashEl.style.opacity = wanted > 0 ? String(0.35 + 0.25 * Math.sin(game.time * 6)) : '0';
+    // Static, subtle — no pulse.
+    wantedFlashEl.style.opacity = wanted > 0 ? '0.22' : '0';
     const sinceHit = game.time - player.lastHitAt;
     damageFlashEl.style.opacity = sinceHit < 0.4 ? String(Math.max(0, 0.9 - sinceHit)) : '0';
     const state = game.missions.state;
@@ -178,7 +205,7 @@ export function createHud(game) {
     if (w === 'pistol') weaponText = `Pistol ${player.mag}/${player.ammo}`;
     else if (w === 'rifle') weaponText = `Rifle ${player.mag}/${player.ammo}`;
     if (player.car) weaponText += `  ·  Car ${Math.max(0, Math.ceil(player.car.health))}%`;
-    if (game.time - hitAt < 0.2) weaponText += '  ✕';
+    if (!shotMode && game.time - hitAt < 0.2) weaponText += '  ✕';
     weaponEl.textContent = weaponText;
     const pos = player.car ? player.car.pos : player.pos;
     const district = districtAt(pos.x, pos.z);

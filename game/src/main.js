@@ -6,7 +6,9 @@
 // pipeline clamped everything over 1.0 to pure white and washed the
 // detail out. Fog pushed out to 300/900 so the midground is not washed
 // into sky colour. No shadow map — it cast hard shadow triangles on
-// facades; blob shadows are the contact shadows now.
+// facades; blob shadows are the contact shadows now. Textures run at
+// the GPU's maximum anisotropy, so the baked road markings stay crisp
+// at grazing angles instead of blurring to mush.
 import * as THREE from 'three';
 import { V3, PI } from './geo.js';
 import { STEP, WORLD, PLAYER, WEAPONS } from './config.js';
@@ -44,12 +46,15 @@ class Game {
     this.camLookOff = 0;
     this.lastDragAt = -10;
     this.ownedCars = [];
+    this.aim = null;
     this.canvas = document.getElementById('game');
     this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, preserveDrawingBuffer: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.textures = textures;
+    // Full anisotropy for the procedural road/sidewalk textures.
+    this.textures.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
     this.scene = new THREE.Scene();
     // Dithered sunset-gradient sky dome (no banding) replaces the flat
     // blue background. Fallback background is the warm horizon colour.
@@ -164,7 +169,7 @@ class Game {
       this.player.mesh.position.copy(this.player.pos);
     }
     this.setScreen('playing');
-    console.log('Solara Bay v4');
+    console.log('Solara Bay v5');
     this.hud.flash('Welcome to Solara Bay. Mara waits.');
   }
 
@@ -380,7 +385,12 @@ if (params.get('audit') === '1') {
   setTimeout(() => {
     const signs = [];
     game.scene.traverse((o) => { if (o.userData && o.userData.v31sign) signs.push(o.userData.v31sign); });
+    const h = game.police.heli;
     console.log('[audit] signs=' + signs.length + ' ' + JSON.stringify(signs));
+    if (h) {
+      const v = h.position.clone().project(game.camera);
+      console.log('[audit] heli visible=' + h.visible + ' pos=' + h.position.toArray().join(',') + ' screen=' + Math.round((v.x + 1) / 2 * 2560) + ',' + Math.round((1 - v.y) / 2 * 1440));
+    }
   }, 2500);
 }
 

@@ -1,7 +1,7 @@
-// Keyboard + mouse input. Keys are held in a set (drive/steer/run read it
-// every step); one-shot actions are latched into a bitmask that the game
-// drains once per step with takeActions(). Dragging orbits the camera,
-// a click (a press with almost no movement) fires the weapon.
+// Keyboard + mouse input. Keys are held in a set (drive/steer/run read
+// it every step); one-shot actions are latched into a bitmask that the
+// game drains once per step with takeActions(). Dragging orbits the
+// camera; a click (a press with almost no movement) fires the weapon.
 export const ACTION_INTERACT = 1;
 export const ACTION_PUNCH = 2;
 export const ACTION_PAUSE = 4;

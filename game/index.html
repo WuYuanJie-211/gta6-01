@@ -9,22 +9,29 @@
   #game { display: block; width: 100vw; height: 100vh; }
   .hidden { display: none !important; }
   #hud { position: fixed; inset: 0; pointer-events: none; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.8); z-index: 5; }
-  #hud-health { position: absolute; top: 14px; left: 14px; font-size: 15px; font-weight: 700; }
-  #hud-cash { position: absolute; top: 14px; right: 14px; font-size: 20px; font-weight: 800; color: #7ed957; }
-  #hud-clock { position: absolute; top: 40px; right: 14px; font-size: 15px; font-weight: 700; }
-  #hud-stars { position: absolute; top: 40px; left: 14px; font-size: 18px; letter-spacing: 2px; color: #ffd75e; }
-  #hud-objective { position: absolute; top: 66px; left: 14px; font-size: 15px; font-weight: 600; max-width: 420px; }
-  #hud-mission-list { position: absolute; top: 92px; left: 14px; font-size: 13px; line-height: 1.5; opacity: .9; }
-  #hud-weapon { position: absolute; bottom: 16px; right: 16px; font-size: 15px; font-weight: 700; background: rgba(0,0,0,.45); padding: 6px 10px; border-radius: 6px; }
+  .panel { background: rgba(10,14,20,0.72); border: 1px solid rgba(255,255,255,0.14); border-radius: 10px; padding: 10px 14px; backdrop-filter: blur(2px); }
+  #hud-stats { position: absolute; top: 14px; right: 14px; text-align: right; min-width: 170px; }
+  #hud-cash { font-size: 20px; font-weight: 800; color: #7ed957; }
+  #hud-clock { font-size: 15px; font-weight: 700; margin-top: 2px; }
+  #hud-stars { font-size: 18px; letter-spacing: 2px; color: #ffd75e; margin-top: 2px; }
+  #hud-health-row { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+  #hud-health { font-size: 15px; font-weight: 700; }
+  #hud-health-track { width: 110px; height: 8px; background: rgba(255,255,255,0.18); border-radius: 4px; overflow: hidden; }
+  #hud-health-bar { height: 100%; width: 100%; background: #37c978; border-radius: 4px; }
+  #hud-objective { position: absolute; top: 14px; left: 14px; font-size: 15px; font-weight: 600; max-width: 420px; }
+  #hud-mission-list { position: absolute; top: 66px; left: 14px; font-size: 13px; line-height: 1.5; opacity: .95; }
+  #hud-weapon { position: absolute; bottom: 16px; right: 16px; font-size: 15px; font-weight: 700; }
   #hud-district { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); font-size: 15px; font-weight: 700; }
-  #hud-prompt { position: absolute; bottom: 64px; left: 50%; transform: translateX(-50%); font-size: 14px; background: rgba(0,0,0,.55); padding: 6px 12px; border-radius: 6px; }
+  #hud-prompt { position: absolute; bottom: 64px; left: 50%; transform: translateX(-50%); font-size: 14px; }
   #hud-toast { position: absolute; top: 46%; left: 50%; transform: translate(-50%,-50%); font-size: 22px; font-weight: 800; text-align: center; }
-  #hud-mission-card { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); font-size: 26px; font-weight: 800; text-align: center; background: rgba(0,0,0,.6); padding: 18px 28px; border-radius: 10px; }
+  #hud-mission-card { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); text-align: center; }
+  #hud-mission-card .mc-title { font-size: 26px; font-weight: 800; }
+  #hud-mission-card .mc-story { font-size: 16px; font-weight: 400; opacity: .9; margin-top: 6px; }
   #hud-speed { position: absolute; bottom: 64px; right: 16px; font-size: 13px; font-weight: 700; text-align: right; }
   #hud-speed-number { font-size: 26px; }
   #minimap { position: absolute; bottom: 16px; left: 16px; border-radius: 50%; border: 2px solid rgba(255,255,255,.7); background: rgba(0,0,0,.35); }
   #hud-north { position: absolute; bottom: 162px; left: 76px; font-size: 13px; font-weight: 800; color: #ffd75e; }
-  #hud-wanted-flash { position: absolute; inset: 0; border: 4px solid rgba(255,40,40,.55); box-sizing: border-box; opacity: 0; }
+  #hud-wanted-flash { position: absolute; inset: 0; border: 3px solid rgba(255,40,40,0.45); box-sizing: border-box; opacity: 0; }
   #damage-flash { position: fixed; inset: 0; pointer-events: none; background: radial-gradient(ellipse at center, transparent 55%, rgba(255,0,0,.45)); opacity: 0; z-index: 6; }
   .overlay { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(10,10,20,.72); color: #fff; z-index: 10; text-align: center; }
   .overlay h1 { font-size: 54px; margin: 0 0 8px; letter-spacing: 4px; }
@@ -46,17 +53,19 @@
 <body>
 <canvas id="game"></canvas>
 <div id="hud" class="hidden">
-  <div id="hud-health"></div>
-  <div id="hud-cash"></div>
-  <div id="hud-clock"></div>
-  <div id="hud-stars"></div>
-  <div id="hud-objective"></div>
-  <div id="hud-mission-list"></div>
-  <div id="hud-weapon"></div>
-  <div id="hud-district"></div>
-  <div id="hud-prompt"></div>
+  <div id="hud-stats" class="panel">
+    <div id="hud-cash"></div>
+    <div id="hud-clock"></div>
+    <div id="hud-stars"></div>
+    <div id="hud-health-row"><span id="hud-health"></span><div id="hud-health-track"><div id="hud-health-bar"></div></div></div>
+  </div>
+  <div id="hud-objective" class="panel"></div>
+  <div id="hud-mission-list" class="panel"></div>
+  <div id="hud-weapon" class="panel"></div>
+  <div id="hud-district" class="panel"></div>
+  <div id="hud-prompt" class="panel"></div>
   <div id="hud-toast"></div>
-  <div id="hud-mission-card" class="hidden"></div>
+  <div id="hud-mission-card" class="panel hidden"></div>
   <div id="hud-speed"><span id="hud-speed-number">0</span> km/h</div>
   <canvas id="minimap" width="140" height="140"></canvas>
   <div id="hud-north">N</div>

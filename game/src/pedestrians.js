@@ -7,7 +7,12 @@ import { CITY } from './config.js';
 import { isOnRoad } from './roads.js';
 import { addBlobShadow } from './v31.js';
 
-const B = (g, w, h, d, m, x = 0, y = 0, z = 0) => { const q = new ME(new BX(w, h, d), m); q.position.set(x, y, z); g.add(q); return q; };
+const B = (g, w, h, d, m, x = 0, y = 0, z = 0) => {
+  const q = new ME(new BX(w, h, d), m);
+  q.position.set(x, y, z);
+  g.add(q);
+  return q;
+};
 const mt = (c, r = 0.9) => new MS({ color: c, roughness: r });
 const SHIRTS = [0xe74c3c, 0x3498db, 0x2ecc71, 0xf39c12, 0x9b59b6, 0xecf0f1, 0x1abc9c, 0xe67e22];
 const PANTS = [0x333333, 0x2c3e50, 0x5a4a3a, 0x7f8c8d, 0x2e4053];
@@ -125,7 +130,7 @@ export function updatePedestrians(game, dt) {
     const dz = ped.target.z - ped.pos.z;
     if (!fleeing && ped.mode === 'stroll') {
       if (ped.phonePause === undefined) ped.phonePause = 0;
-      if (ped.phonePause <= 0 && ped.phoneTimer === undefined) ped.phoneTimer = game.rng.range(10, 25);
+      if (ped.phoneTimer === undefined) ped.phoneTimer = game.rng.range(10, 25);
       if (ped.phoneTimer !== undefined) {
         ped.phoneTimer -= dt;
         if (ped.phoneTimer <= 0) { ped.phonePause = game.rng.range(2, 4); ped.phoneTimer = undefined; }

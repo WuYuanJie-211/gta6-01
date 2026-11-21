@@ -1,10 +1,11 @@
-// Every tunable number in the game lives here: the city grid, the player,
-// the cars, the police, the weapons, the economy, the textures. The
-// gameplay modules read these; nothing else hard-codes a balance number.
+// Every tunable number in the game lives here: the city grid, the
+// player, the cars, the police, the weapons, the economy, the textures.
+// The gameplay modules read these; nothing else hard-codes a balance
+// number.
 
-// The road grid: 13 north-south avenues (x) and 11 east-west streets (z),
-// 60 m apart, 12 m wide. The city runs from -390 to +390; the beach
-// starts at z=246 and the sea at z=300.
+// The road grid: 13 north-south avenues (x) and 11 east-west streets
+// (z), 60 m apart, 12 m wide. The city runs from -390 to +390; the
+// beach starts at z=246 and the sea at z=300.
 export const CITY = {
   roadLinesX: [-360, -300, -240, -180, -120, -60, 0, 60, 120, 180, 240, 300, 360],
   roadLinesZ: [-360, -300, -240, -180, -120, -60, 0, 60, 120, 180, 240],
@@ -15,7 +16,7 @@ export const CITY = {
 };
 
 // Districts, checked in order — the first box that contains the point
-// wins, so the small districts must come before the OLD TOWN catch-all.
+// wins, so the small districts come before the OLD TOWN catch-all.
 export const DISTRICTS = [
   { name: 'DOWNTOWN', minX: 60, maxX: 390, minZ: -390, maxZ: -60 },
   { name: 'PORT', minX: -390, maxX: -240, minZ: -390, maxZ: -240 },
@@ -58,7 +59,7 @@ export const CAR_MODELS = {
   armored: { name: 'Armored Van', topSpeed: 25, accel: 15, price: 0, len: 5.2, height: 1.9 },
 };
 
-// Driving feel + police chase numbers shared by vehicles.js / police.js.
+// Driving feel + police chase numbers, shared by vehicles / police.
 export const CAR = {
   sportTopSpeed: 38,
   policeTopSpeed: 34,
@@ -112,17 +113,17 @@ export const WORLD = {
 };
 
 export const COLOURS = {
-  ground: 0x9aa0a3,
+  ground: 0x8f959a,
   sea: 0x2e7fb8,
   container: [0xc0392b, 0x2e86c1, 0xf1c40f, 0x16a085, 0xe67e22, 0x7d3c98],
   car: [0xc0392b, 0x2e86c1, 0xf1c40f, 0x7d3c98, 0x16a085, 0xecf0f1, 0x2c3e50, 0xe67e22],
   cometRed: 0xd21f2b,
 };
 
-// Texture paths. Two of them (red-paint, taxi-paint) were never shipped in
-// the repo — the loader falls back to a flat colour for them, which is how
-// the Comet stays red and the taxi stays yellow. That fallback is load
-// bearing; do not "fix" the paths without shipping the files.
+// Texture paths. Two of them (red-paint, taxi-paint) were never shipped
+// in the repo — the loader falls back to a flat colour for them, which
+// is how the Comet stays red and the taxi stays yellow. That fallback
+// is load bearing; do not "fix" the paths without shipping the files.
 const T = (n) => `textures/${n}.jpg`;
 export const TEXTURES = {
   glass: T('glass-1024'),

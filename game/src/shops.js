@@ -6,6 +6,7 @@ import { WEAPONS, ECONOMY, CAR_MODELS } from './config.js';
 import { enterCar } from './vehicles.js';
 
 export function createShops(game) {
+  const SHOP_RADIUS = 6;
   const SHOPS = [
     { key: 'dealer', name: 'Auto Dealer' },
     { key: 'gunShop', name: 'Gun Shop' },
@@ -18,7 +19,7 @@ export function createShops(game) {
     const p = game.player.car ? game.player.car.pos : game.player.pos;
     for (const shop of SHOPS) {
       const spot = game.city.landmarks[shop.key];
-      if (Math.hypot(spot.x - p.x, spot.z - p.z) < 6) return shop;
+      if (Math.hypot(spot.x - p.x, spot.z - p.z) < SHOP_RADIUS) return shop;
     }
     return null;
   }

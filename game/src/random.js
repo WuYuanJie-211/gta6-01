@@ -1,7 +1,7 @@
-// Deterministic seeded random numbers (mulberry32). One stream per game,
-// seeded from the URL (?seed=7 by default), so the city, the traffic and
-// the pedestrians are identical on every load with the same seed — the
-// screenshots are reproducible, and so is a playtest.
+// Deterministic seeded random numbers (mulberry32). One stream per
+// game, seeded from the URL (?seed=7 by default), so the city, the
+// traffic and the pedestrians are identical on every load with the same
+// seed — the screenshots are reproducible, and so is a playtest.
 export function createRandom(seed) {
   let state = seed >>> 0;
 
@@ -19,7 +19,7 @@ export function createRandom(seed) {
     range(min, max) {
       return min + next() * (max - min);
     },
-    // Integer in [min, max] (both ends inclusive).
+    // Integer in [min, max], both ends inclusive.
     int(min, max) {
       return Math.floor(this.range(min, max + 1));
     },

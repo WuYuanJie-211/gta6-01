@@ -1,5 +1,6 @@
-// The road graph: one node per avenue/street crossing, edges to the four
-// neighbours. Traffic, police spawns, fares and the race all drive on it.
+// The road graph: one node per avenue/street crossing, edges to the
+// four neighbours. Traffic, police spawns, fares and the race all drive
+// on it.
 import { CITY } from './config.js';
 
 export function buildRoads() {

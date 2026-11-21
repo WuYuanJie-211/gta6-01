@@ -7,7 +7,12 @@ import { WORLD, ECONOMY } from './config.js';
 import { enterCar } from './vehicles.js';
 import { randomNode } from './roads.js';
 
-const B = (g, w, h, d, m, x = 0, y = 0, z = 0) => { const q = new ME(new BX(w, h, d), m); q.position.set(x, y, z); g.add(q); return q; };
+const B = (g, w, h, d, m, x = 0, y = 0, z = 0) => {
+  const q = new ME(new BX(w, h, d), m);
+  q.position.set(x, y, z);
+  g.add(q);
+  return q;
+};
 const mt = (c, r = 0.9) => new MS({ color: c, roughness: r });
 
 export const MISSIONS = [

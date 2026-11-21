@@ -1,607 +1,706 @@
-// Visual upgrade: facades, signs, ground dressing, sky, shadows and
-// traffic lights. Geometry and missions live elsewhere; this module only
-// makes the city LOOK like a place — one 1024px facade atlas shared by
-// every tower, big unlit signs, blob shadows, a dithered sunset dome.
+// Shared look: the facade atlas, the sky, the signs, the soft shadows
+// and the street furniture. Everything here is procedural canvas or
+// geometry — no network, no files.
+//
+// The v41 road fix lives in this file: the asphalt texture has the lane
+// markings BAKED IN with hard edges (no separate transparent marking
+// plane to blur or z-fight), the sidewalk has real tile seams, and the
+// zebra is an opaque plane. The road reads as ground, not as a dark
+// carpet laid on top of it.
 import * as THREE from 'three';
-import { BX, CG, CN, PG, SG, MS, MB, ME, GP, V3, PI, CT, SC, RW, DS, AB } from './geo.js';
+import { BX, CG, CN, PG, SG, MS, MB, ME, GP, SP, V3, PI, RW, SC, CT, DS, AB, SH } from './geo.js';
+import { CITY, COLOURS } from './config.js';
 
-// The 40x40 m hero zone all four screenshots are staged in.
-export const HERO_ZONE = { minX: 220, maxX: 260, minZ: -200, maxZ: -160, cx: 240, cz: -180 };
-export function inHeroZone(x, z, pad = 0) {
-  return x >= HERO_ZONE.minX - pad && x <= HERO_ZONE.maxX + pad
-    && z >= HERO_ZONE.minZ - pad && z <= HERO_ZONE.maxZ + pad;
+// A tiny seeded PRNG so the painted textures are identical on every
+// load (the city uses its own seeded stream; canvas paint must not use
+// Math.random, or the screenshots would differ run to run).
+function mulberry(seed) {
+  let s = seed >>> 0;
+  return () => {
+    s = (s + 0x6d2b79f5) >>> 0;
+    let t = s;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
 }
 
-// ---------------------------------------------------------------------------
-// Facade atlas: one 1024 canvas, 16 cells of 256px.
-// Cells 0-11 are tower facades (6 pastel palettes x 2 window styles);
-// cells 12-15 are ground-floor storefronts (glass + sign band + awning).
-// ---------------------------------------------------------------------------
-export const FACADE_PALETTES = ['#F2E3B3', '#F0C9C0', '#C9E6D8', '#CFE3F0', '#EDE4D3', '#E8A87C'];
-export const CELL_WORLD_W = 12;
-export const CELL_WORLD_H = 20;
-
-function shade(hex, f) {
-  const n = parseInt(hex.slice(1), 16);
-  const r = Math.min(255, Math.max(0, Math.round(((n >> 16) & 255) * f)));
-  const g = Math.min(255, Math.max(0, Math.round(((n >> 8) & 255) * f)));
-  const b = Math.min(255, Math.max(0, Math.round((n & 255) * f)));
-  return `rgb(${r},${g},${b})`;
+function canvas(w, h) {
+  const c = document.createElement('canvas');
+  c.width = w;
+  c.height = h;
+  return [c, c.getContext('2d')];
 }
 
-// Deterministic hash from an integer, so the atlas is identical on every
-// load — no Math.random in texture generation.
-function hash01(i) {
-  const s = Math.sin(i * 127.1 + 311.7) * 43758.5453;
-  return s - Math.floor(s);
-}
+// ---------------------------------------------------------------- blobs
 
-function drawFacadeCell(ctx, ox, oy, palette, style, seedBase) {
-  ctx.fillStyle = palette;
-  ctx.fillRect(ox, oy, 256, 256);
-  // A subtle darker lower half so the facade is not one flat slab.
-  ctx.fillStyle = 'rgba(0,0,0,0.05)';
-  ctx.fillRect(ox, oy + 128, 256, 128);
-  // Window grid: 5 columns x 8 rows, 36x22 panes.
-  const cols = 5, rows = 8;
-  const pw = 36, ph = 22, gx = 4, gy = 8;
-  const x0 = ox + 30, y0 = oy + 12;
-  for (let r = 0; r < rows; r += 1) {
-    for (let c = 0; c < cols; c += 1) {
-      const x = x0 + c * (pw + gx);
-      const y = y0 + r * (ph + gy);
-      const lit = hash01(seedBase + r * cols + c) < 0.12;
-      ctx.fillStyle = lit ? '#FFE9A8' : '#2B3A46';
-      ctx.fillRect(x, y, pw, ph);
-      // A 2px light edge on top of each pane — the reflection line.
-      ctx.fillStyle = 'rgba(255,255,255,0.35)';
-      ctx.fillRect(x, y, pw, 2);
-      if (style === 0) {
-        // Lighter sill below the pane, inside the 8px row gap.
-        ctx.fillStyle = shade(palette, 1.18);
-        ctx.fillRect(x - 2, y + ph, pw + 4, 6);
-      } else {
-        // Style B: horizontal mid-bar, no sill.
-        ctx.fillStyle = shade(palette, 0.82);
-        ctx.fillRect(x, y + ph / 2 - 1, pw, 2);
-        ctx.fillStyle = shade(palette, 0.9);
-        ctx.fillRect(x, y + ph, pw, 2);
-      }
-    }
-  }
-}
-
-function drawStorefrontCell(ctx, ox, oy, palette, accent) {
-  ctx.fillStyle = palette;
-  ctx.fillRect(ox, oy, 256, 256);
-  // Sign band across the top.
-  ctx.fillStyle = accent;
-  ctx.fillRect(ox, oy, 256, 44);
-  // Four floor-to-ceiling glass panels.
-  const panels = 4;
-  const pw = 52, gap = 8;
-  const x0 = ox + 12, y0 = oy + 60;
-  for (let i = 0; i < panels; i += 1) {
-    const x = x0 + i * (pw + gap);
-    ctx.fillStyle = '#2B3A46';
-    ctx.fillRect(x, y0, pw, 150);
-    ctx.fillStyle = 'rgba(255,255,255,0.30)';
-    ctx.fillRect(x, y0, pw, 3);
-    ctx.fillRect(x, y0, 3, 150);
-    // Warm interior glow on one panel in three.
-    if (i % 3 === 0) {
-      ctx.fillStyle = 'rgba(255,233,168,0.55)';
-      ctx.fillRect(x + 4, y0 + 100, pw - 8, 46);
-    }
-  }
-  // Striped awning.
-  ctx.fillStyle = accent;
-  ctx.fillRect(ox, y0 + 158, 256, 18);
-  ctx.fillStyle = 'rgba(255,255,255,0.35)';
-  for (let x = ox; x < ox + 256; x += 16) ctx.fillRect(x, y0 + 158, 8, 18);
-  // Bulkhead below.
-  ctx.fillStyle = shade(palette, 0.85);
-  ctx.fillRect(ox, oy + 232, 256, 24);
-}
-
-export function makeFacadeAtlas() {
-  const canvas = document.createElement('canvas');
-  canvas.width = 1024;
-  canvas.height = 1024;
-  const ctx = canvas.getContext('2d');
-  const storeAccents = ['#C0392B', '#1F6F8B', '#E67E22', '#2C3E50'];
-  for (let i = 0; i < 16; i += 1) {
-    const col = i % 4, row = Math.floor(i / 4);
-    const ox = col * 256, oy = row * 256;
-    if (i < 12) {
-      const palette = FACADE_PALETTES[i % 6];
-      const style = i < 6 ? 0 : 1;
-      drawFacadeCell(ctx, ox, oy, palette, style, i * 40 + 7);
-    } else {
-      drawStorefrontCell(ctx, ox, oy, FACADE_PALETTES[(i - 12) % 6], storeAccents[i - 12]);
-    }
-  }
-  const tex = new CT(canvas);
-  tex.colorSpace = SC;
-  tex.wrapS = RW;
-  tex.wrapT = RW;
-  tex.anisotropy = 8;
-  return tex;
-}
-
-// Bake one atlas cell + tiling into a BoxGeometry's UVs, so every building
-// can share ONE atlas texture and ONE material (no per-building clones).
-// cell: 0..15. w,h,d: building size in metres.
-export function applyFacadeUVs(geometry, cell, w, h, d) {
-  const col = cell % 4, row = Math.floor(cell / 4);
-  const ou = col * 0.25, ov = 1 - (row + 1) * 0.25;
-  // Per-face repeat: +x/-x faces are (d x h), +z/-z are (w x h),
-  // +y/-y (roof) are (w x d). A cell covers 12x20 m of wall.
-  const reps = [
-    [(d / CELL_WORLD_W) * 0.25, (h / CELL_WORLD_H) * 0.25], // +x
-    [(d / CELL_WORLD_W) * 0.25, (h / CELL_WORLD_H) * 0.25], // -x
-    [(w / CELL_WORLD_W) * 0.25, (d / CELL_WORLD_H) * 0.25], // +y
-    [(w / CELL_WORLD_W) * 0.25, (d / CELL_WORLD_H) * 0.25], // -y
-    [(w / CELL_WORLD_W) * 0.25, (h / CELL_WORLD_H) * 0.25], // +z
-    [(w / CELL_WORLD_W) * 0.25, (h / CELL_WORLD_H) * 0.25], // -z
-  ];
-  const uv = geometry.attributes.uv;
-  for (let f = 0; f < 6; f += 1) {
-    for (let v = 0; v < 4; v += 1) {
-      const idx = f * 4 + v;
-      uv.setXY(idx, ou + uv.getX(idx) * reps[f][0], ov + uv.getY(idx) * reps[f][1]);
-    }
-  }
-  uv.needsUpdate = true;
-  return geometry;
-}
-
-// ---------------------------------------------------------------------------
-// Signs: 12 names, unlit materials so they read at dusk.
-// ---------------------------------------------------------------------------
-export const SIGN_NAMES = [
-  'HOTEL', 'CAFE', 'BODEGA', 'MARINE',
-  'GARAGE', 'SUITES', 'PALACE', 'CANTINA',
-  'FARMACIA', 'PENSION', 'MERCADO', 'TALLER',
-];
-export const SIGN_COLORS = ['#C0392B', '#1F6F8B', '#E67E22', '#2C3E50'];
-
-const _signCache = new Map();
-export function makeV31Sign(text, bg, fg = '#FFFFFF', w = 10, h = 2.5) {
-  const key = `${text}|${bg}|${fg}`;
-  let tex = _signCache.get(key);
-  if (!tex) {
-    const canvas = document.createElement('canvas');
-    canvas.width = 512;
-    canvas.height = 128;
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = bg;
-    ctx.fillRect(0, 0, 512, 128);
-    ctx.fillStyle = fg;
-    // Bold condensed sans, all caps. Auto-fit: shrink the font until the
-    // whole word fits the 512px panel.
-    const chars = [...text];
-    let size = 58;
-    let widths = [];
-    let total = 0;
-    while (size >= 26) {
-      ctx.font = `800 ${size}px "Arial Narrow", "Helvetica Neue Condensed", system-ui, sans-serif`;
-      const spacing = size * 0.05;
-      widths = chars.map((ch) => ctx.measureText(ch).width);
-      total = widths.reduce((a, b) => a + b, 0) + spacing * (chars.length - 1);
-      if (total <= 496) break;
-      size -= 2;
-    }
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    // Manual letter-spacing (canvas has no letterSpacing in all browsers).
-    const spacing = size * 0.05;
-    let x = 256 - total / 2;
-    chars.forEach((ch, i) => {
-      ctx.fillText(ch, x + widths[i] / 2, 66);
-      x += widths[i] + spacing;
-    });
-    tex = new CT(canvas);
-    tex.colorSpace = SC;
-    _signCache.set(key, tex);
-  }
-  const g = new GP();
-  const face = new ME(new PG(w, h), new MB({ map: tex }));
-  face.position.z = 0.09;
-  g.add(new ME(new BX(w, h, 0.16), new MS({ color: 0x1a1a1a, roughness: 0.9 })), face);
-  g.userData.v31sign = text;
-  return g;
-}
-
-// ---------------------------------------------------------------------------
-// Ground shadows. One 128px radial-gradient alpha texture, reused for
-// every blob shadow and AO skirt in the game.
-// ---------------------------------------------------------------------------
 let _blobTex = null;
 export function blobShadowTexture() {
   if (_blobTex) return _blobTex;
-  const canvas = document.createElement('canvas');
-  canvas.width = 128;
-  canvas.height = 128;
-  const ctx = canvas.getContext('2d');
-  // Dark, wide core so the blob reads even on dark asphalt; soft falloff
-  // so it never reads as a hard black disc.
-  const gr = ctx.createRadialGradient(64, 64, 4, 64, 64, 62);
-  gr.addColorStop(0, 'rgba(0,0,0,0.95)');
-  gr.addColorStop(0.5, 'rgba(0,0,0,0.7)');
-  gr.addColorStop(0.75, 'rgba(0,0,0,0.35)');
-  gr.addColorStop(1, 'rgba(0,0,0,0)');
-  ctx.fillStyle = gr;
-  ctx.fillRect(0, 0, 128, 128);
-  _blobTex = new CT(canvas);
+  const [c, x] = canvas(256, 256);
+  const g = x.createRadialGradient(128, 128, 8, 128, 128, 128);
+  g.addColorStop(0, 'rgba(0,0,0,0.95)');
+  g.addColorStop(0.55, 'rgba(0,0,0,0.55)');
+  g.addColorStop(1, 'rgba(0,0,0,0)');
+  x.fillStyle = g;
+  x.fillRect(0, 0, 256, 256);
+  _blobTex = new CT(c);
   return _blobTex;
 }
 
-// Soft contact shadow under a grounded object: 1.3x its footprint.
-export function addBlobShadow(parent, x, z, w, d, opacity = 0.55, y = 0.08) {
-  const tex = blobShadowTexture();
-  const m = new ME(
-    new PG(w * 1.3, d * 1.3),
-    new MB({ map: tex, transparent: true, opacity, depthWrite: false }),
-  );
-  m.rotation.x = -PI / 2;
-  m.position.set(x, y, z);
-  parent.add(m);
-  return m;
-}
-
-// Ambient-occlusion skirt where a building meets the ground.
-export function addAOSkirt(parent, x, z, w, d, opacity = 0.25) {
-  const tex = blobShadowTexture();
-  const m = new ME(
-    new PG(w + 1.2, d + 1.2),
-    new MB({ map: tex, transparent: true, opacity, depthWrite: false }),
-  );
-  m.rotation.x = -PI / 2;
-  m.position.set(x, 0.012, z);
-  parent.add(m);
-  return m;
-}
-
-// ---------------------------------------------------------------------------
-// Skyline + sky. Dithered gradient dome, sun glow, sea, far skyline.
-// ---------------------------------------------------------------------------
-export function makeSkyDome() {
-  const canvas = document.createElement('canvas');
-  canvas.width = 1024;
-  canvas.height = 1024;
-  const ctx = canvas.getContext('2d');
-  const stops = [
-    [0.0, '#2B2A5E'], [0.38, '#7A4E8C'], [0.68, '#FF8C5A'], [1.0, '#FFB86B'],
-  ];
-  const gr = ctx.createLinearGradient(0, 0, 0, 1024);
-  for (const [p, c] of stops) gr.addColorStop(p, c);
-  ctx.fillStyle = gr;
-  ctx.fillRect(0, 0, 1024, 1024);
-  // 0.6% dither noise — without it the gradient bands visibly at this size.
-  const img = ctx.getImageData(0, 0, 1024, 1024);
-  const data = img.data;
-  for (let y = 0; y < 1024; y += 1) {
-    for (let x = 0; x < 1024; x += 1) {
-      const i = (y * 1024 + x) * 4;
-      const n = (hash01((x & 63) * 64 + (y & 63)) - 0.5) * 0.012 * 255;
-      data[i] = Math.max(0, Math.min(255, data[i] + n));
-      data[i + 1] = Math.max(0, Math.min(255, data[i + 1] + n));
-      data[i + 2] = Math.max(0, Math.min(255, data[i + 2] + n));
-    }
-  }
-  ctx.putImageData(img, 0, 0);
-  const tex = new CT(canvas);
-  tex.colorSpace = SC;
-  const mat = new MB({ map: tex, side: THREE.BackSide });
-  mat.fog = false;
-  return new ME(new THREE.SphereGeometry(800, 32, 16), mat);
-}
-
-export function makeSunBillboard() {
-  const g = new GP();
-  // One wide soft glow with a long gradual falloff, plus a small dim core.
-  // No hard disc: a hard sun reads as a flat circle pasted on the sky.
-  const canvas = document.createElement('canvas');
-  canvas.width = 256;
-  canvas.height = 256;
-  const ctx = canvas.getContext('2d');
-  const gr = ctx.createRadialGradient(128, 128, 2, 128, 128, 126);
-  gr.addColorStop(0, 'rgba(255,244,200,0.95)');
-  gr.addColorStop(0.12, 'rgba(255,220,150,0.75)');
-  gr.addColorStop(0.3, 'rgba(255,190,110,0.45)');
-  gr.addColorStop(0.55, 'rgba(255,150,90,0.2)');
-  gr.addColorStop(0.8, 'rgba(255,130,80,0.06)');
-  gr.addColorStop(1, 'rgba(255,130,80,0)');
-  ctx.fillStyle = gr;
-  ctx.fillRect(0, 0, 256, 256);
-  const tex = new CT(canvas);
-  tex.colorSpace = SC;
-  const glowMat = new MB({ map: tex, transparent: true, blending: AB, depthWrite: false });
-  glowMat.fog = false;
-  const glow = new ME(new PG(110, 110), glowMat);
-  const coreMat = new MB({ map: tex, transparent: true, blending: AB, depthWrite: false, opacity: 0.55 });
-  coreMat.fog = false;
-  const core = new ME(new PG(11, 11), coreMat);
-  // West-northwest horizon, 8 degrees up — the sunset direction.
-  const az = Math.PI * 0.78, el = (8 * PI) / 180, r = 760;
-  const px = Math.cos(az) * Math.cos(el) * r;
-  const py = Math.sin(el) * r;
-  const pz = Math.sin(az) * Math.cos(el) * r;
-  glow.position.set(px, py, pz);
-  core.position.set(px, py, pz);
-  glow.lookAt(0, 0, 0);
-  core.lookAt(0, 0, 0);
-  g.add(glow, core);
-  return g;
-}
-
-export function makeSeaGradient() {
-  const canvas = document.createElement('canvas');
-  canvas.width = 4;
-  canvas.height = 256;
-  const ctx = canvas.getContext('2d');
-  const gr = ctx.createLinearGradient(0, 0, 0, 256);
-  gr.addColorStop(0, '#2E8FA8');
-  gr.addColorStop(1, '#1F6F8B');
-  ctx.fillStyle = gr;
-  ctx.fillRect(0, 0, 4, 256);
-  const tex = new CT(canvas);
-  tex.colorSpace = SC;
-  return tex;
-}
-
-export function makeFarSkyline(atlas) {
-  // 24 boxes at 450-550 m, north/east/west (never over the sea), sharing
-  // 4 baked facade cells. No window geometry — the texture does the work.
-  const g = new GP();
-  const mat = new MS({ map: atlas, roughness: 0.9 });
-  for (let i = 0; i < 24; i += 1) {
-    const ang = (i / 24) * PI * 2 + hash01(i * 3.1) * 0.2;
-    if (Math.sin(ang) > 0.55) continue; // skip the southern sea sector
-    const r = 450 + hash01(i * 7.7) * 100;
-    const x = Math.cos(ang) * r;
-    const z = Math.sin(ang) * r;
-    const w = 18 + hash01(i * 1.3) * 22;
-    const d = 14 + hash01(i * 2.9) * 16;
-    const h = 22 + hash01(i * 5.3) * 46;
-    const cell = [0, 3, 6, 9][i % 4];
-    const geo = new BX(w, h, d);
-    applyFacadeUVs(geo, cell, w, h, d);
-    const m = new ME(geo, mat);
-    m.position.set(x, h / 2, z);
-    g.add(m);
-  }
-  return g;
-}
-
-export function makeRidge(color, x, z, radius, height) {
-  const m = new ME(
-    new CN(radius, height, 7),
-    new MS({ color, roughness: 1 }),
-  );
-  m.position.set(x, 0, z);
-  return m;
-}
-
-// ---------------------------------------------------------------------------
-// Ground dressing: palms (8 frond planes on one alpha texture) and the
-// road-marking texture (double yellow + white dashes, one tile per road).
-// ---------------------------------------------------------------------------
-let _frondTex = null;
-export function frondTexture() {
-  if (_frondTex) return _frondTex;
-  const canvas = document.createElement('canvas');
-  canvas.width = 128;
-  canvas.height = 128;
-  const ctx = canvas.getContext('2d');
-  ctx.clearRect(0, 0, 128, 128);
-  // One frond: two tapered leaf blades with a centre rib.
-  ctx.strokeStyle = '#2E8B57';
-  ctx.fillStyle = '#2E8B57';
-  ctx.beginPath();
-  ctx.moveTo(64, 126);
-  ctx.quadraticCurveTo(30, 70, 14, 14);
-  ctx.quadraticCurveTo(58, 60, 64, 126);
-  ctx.closePath();
-  ctx.fill();
-  ctx.beginPath();
-  ctx.moveTo(64, 126);
-  ctx.quadraticCurveTo(98, 70, 114, 14);
-  ctx.quadraticCurveTo(70, 60, 64, 126);
-  ctx.closePath();
-  ctx.fill();
-  ctx.strokeStyle = '#1E6B3E';
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.moveTo(64, 126);
-  ctx.lineTo(64, 10);
-  ctx.stroke();
-  _frondTex = new CT(canvas);
-  // sRGB so the fronds render green, not the teal the linear
-  // interpretation produced under the sunset light.
-  _frondTex.colorSpace = SC;
-  return _frondTex;
-}
-
-export function makeV31Palm() {
-  const group = new GP();
-  const trunkMat = new MS({ color: 0x8a6b4f, roughness: 1 });
-  const trunk = new ME(new CG(0.16, 0.28, 5, 6), trunkMat);
-  trunk.position.y = 2.5;
-  trunk.castShadow = true;
-  group.add(trunk);
-  const tex = frondTexture();
-  for (let i = 0; i < 8; i += 1) {
-    const frond = new ME(
-      new PG(2.6, 2.6),
-      new MB({ map: tex, transparent: true, side: DS, depthWrite: false }),
-    );
-    const a = (i / 8) * PI * 2;
-    frond.position.set(Math.cos(a) * 0.9, 5.2, Math.sin(a) * 0.9);
-    frond.rotation.y = -a + PI / 2;
-    // Tilt OUTWARD so the fronds arc out and droop like a palm crown;
-    // alternate the angle so the crown is layered, not a flat ring.
-    frond.rotation.x = 0.7 + (i % 2) * 0.35;
-    group.add(frond);
-  }
-  addBlobShadow(group, 0, 0, 1.6, 1.6, 0.55);
-  return group;
-}
-
-// Double yellow centre line + white lane dashes, baked into one tile.
-// Deep olive + mid-grey: survives the sunset grade and reads as paint,
-// not as light shafts or curb bleed.
-export function makeRoadMarkingTexture() {
-  const canvas = document.createElement('canvas');
-  canvas.width = 256;
-  canvas.height = 64;
-  const ctx = canvas.getContext('2d');
-  ctx.clearRect(0, 0, 256, 64);
-  ctx.fillStyle = '#4a3510';
-  ctx.fillRect(0, 26, 256, 4);
-  ctx.fillRect(0, 34, 256, 4);
-  // White lane dashes: 2 m on / 2 m off (half the tile is dash).
-  ctx.fillStyle = '#707070';
-  ctx.fillRect(0, 14, 128, 3);
-  ctx.fillRect(0, 47, 128, 3);
-  const tex = new CT(canvas);
-  tex.wrapS = RW;
-  tex.wrapT = RW;
-  return tex;
-}
-
-// ---------------------------------------------------------------------------
-// Traffic lights: exactly ONE lamp lit. R 8s -> G 6s -> Y 2s, phase offset.
-// The red lamp carries a halo RING (transparent centre so the orb shows
-// through, bright ring band fading outside) — a soft blob hid behind the
-// lamp sphere and read as nothing, the ring reads from any angle.
-// ---------------------------------------------------------------------------
-const LIGHT_COLORS = [0xff2a1e, 0xffcc00, 0x33cc33]; // R, Y, G
-
-let _ringTex = null;
-function haloRingTexture() {
-  if (_ringTex) return _ringTex;
-  const c = document.createElement('canvas');
-  c.width = 256;
-  c.height = 256;
-  const x = c.getContext('2d');
-  const g = x.createRadialGradient(128, 128, 0, 128, 128, 128);
-  g.addColorStop(0, 'rgba(255,255,255,0)');
-  g.addColorStop(0.42, 'rgba(255,255,255,0)');
-  g.addColorStop(0.52, 'rgba(255,255,255,0.95)');
-  g.addColorStop(0.68, 'rgba(255,255,255,0.85)');
-  g.addColorStop(0.85, 'rgba(255,255,255,0.25)');
+let _poolTex = null;
+export function poolTexture() {
+  if (_poolTex) return _poolTex;
+  const [c, x] = canvas(256, 256);
+  const g = x.createRadialGradient(128, 128, 4, 128, 128, 128);
+  g.addColorStop(0, 'rgba(255,255,255,1)');
+  g.addColorStop(0.5, 'rgba(255,255,255,0.35)');
   g.addColorStop(1, 'rgba(255,255,255,0)');
   x.fillStyle = g;
   x.fillRect(0, 0, 256, 256);
+  _poolTex = new CT(c);
+  return _poolTex;
+}
+
+let _ringTex = null;
+export function ringTexture() {
+  if (_ringTex) return _ringTex;
+  const [c, x] = canvas(256, 256);
+  x.strokeStyle = 'rgba(255,255,255,0.95)';
+  x.lineWidth = 14;
+  x.beginPath();
+  x.arc(128, 128, 100, 0, PI * 2);
+  x.stroke();
+  x.strokeStyle = 'rgba(255,255,255,0.35)';
+  x.lineWidth = 30;
+  x.beginPath();
+  x.arc(128, 128, 100, 0, PI * 2);
+  x.stroke();
   _ringTex = new CT(c);
   return _ringTex;
 }
 
-export function makeTrafficLightV31(initialState = 'R', phase = 0) {
-  const g = new GP();
-  const poleMat = new MS({ color: 0x2c3e50, roughness: 0.7 });
-  const pole = new ME(new CG(0.1, 0.13, 5.5, 6), poleMat);
-  pole.position.y = 2.75;
-  pole.castShadow = true;
-  g.add(pole);
-  const arm = new ME(new CG(0.08, 0.08, 3.6, 6), poleMat);
-  arm.rotation.x = PI / 2;
-  arm.position.set(0, 5.4, 1.8);
-  g.add(arm);
-  // Near-black housing so the red orb pops by contrast.
-  const housing = new ME(new BX(0.9, 2.3, 0.3), new MS({ color: 0x140404, roughness: 0.6 }));
-  housing.position.set(0, 4.9, 3.6);
-  g.add(housing);
-  const lamps = [];
-  for (let i = 0; i < 3; i += 1) {
-    // Unlit basic material — a lit lamp reads saturated red on any bg.
-    const mat = new MB({ color: 0x330a06 });
-    const lamp = new ME(new SG(0.45, 12, 10), mat);
-    lamp.position.set(0, 5.7 - i * 0.8, 3.6);
-    g.add(lamp);
-    lamps.push(mat);
-  }
-  // Ring halo, 2.2 m across — the band sits just outside the 0.45 orb.
-  const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloRingTexture(), transparent: true, opacity: 0.85, depthWrite: false }));
-  glow.scale.set(2.2, 2.2, 1);
-  g.add(glow);
+// A soft ground blob. y=0.07 clears the road planes (0.04/0.045) and
+// the zebra (0.055); renderOrder=2 draws it after the transparent
+// pools and skids, so a blob is never repainted over by road paint.
+export function addBlobShadow(parent, x, z, w, d, opacity, y = 0.07) {
+  const s = new ME(new PG(w, d), SH(blobShadowTexture(), opacity));
+  s.rotation.x = -PI / 2;
+  s.position.set(x, y, z);
+  s.renderOrder = 2;
+  parent.add(s);
+  return s;
+}
 
-  function setState(s) {
-    // s: 'R' (lamp 0), 'Y' (lamp 1), 'G' (lamp 2). Exactly one on.
-    const on = s === 'G' ? 2 : s === 'Y' ? 1 : 0;
-    for (let i = 0; i < 3; i += 1) {
-      lamps[i].color.setHex(i === on ? LIGHT_COLORS[i] : 0x330a06);
+// A dark skirt under a building base so it sits on the ground instead
+// of floating a hair above it.
+export function addAOSkirt(scene, x, z, w, d) {
+  const s = new ME(new PG(w + 2.5, d + 2.5), SH(blobShadowTexture(), 0.45));
+  s.rotation.x = -PI / 2;
+  s.position.set(x, 0.03, z);
+  s.renderOrder = 1;
+  scene.add(s);
+  return s;
+}
+
+// ------------------------------------------------------- road textures
+//
+// The road tile is 1024x1024 px = 12 m across x 8 m along. One tile
+// covers the full road width, so the centre lines, lane dashes and edge
+// lines are painted once, with hard edges, and repeat cleanly every
+// 8 m (avenues are 600 m = 75 tiles, streets 720 m = 90 tiles — both
+// whole numbers, so the dash phase never jumps). Speckle, patches and
+// cracks are drawn with wrap-around so the tile is seamless.
+
+export function makeRoadTexture(aniso) {
+  const [c, x] = canvas(1024, 1024);
+  const rnd = mulberry(4101);
+  const wrap = (fn) => {
+    for (const [dx, dy] of [[0, 0], [-1024, 0], [1024, 0], [0, -1024], [0, 1024]]) {
+      x.save();
+      x.translate(dx, dy);
+      fn();
+      x.restore();
     }
-    glow.position.set(0, 5.7 - on * 0.8, 3.9);
-    glow.material.color.setHex(LIGHT_COLORS[on]);
-    g.userData.state = s;
+  };
+  // Base asphalt: mid-dark grey, light enough that the grain reads.
+  x.fillStyle = '#4b4e53';
+  x.fillRect(0, 0, 1024, 1024);
+  // Large soft tonal patches (repairs, wear).
+  for (let i = 0; i < 14; i += 1) {
+    const px = rnd() * 1024;
+    const py = rnd() * 1024;
+    const pw = 90 + rnd() * 220;
+    const ph = 70 + rnd() * 180;
+    const shade = rnd() < 0.5 ? 'rgba(0,0,0,0.10)' : 'rgba(255,255,255,0.05)';
+    wrap(() => {
+      x.fillStyle = shade;
+      x.beginPath();
+      x.ellipse(px, py, pw, ph, rnd() * PI, 0, PI * 2);
+      x.fill();
+    });
   }
+  // Aggregate speckle.
+  for (let i = 0; i < 9000; i += 1) {
+    const px = rnd() * 1024;
+    const py = rnd() * 1024;
+    const r = 0.6 + rnd() * 1.8;
+    const v = 52 + Math.floor(rnd() * 84);
+    wrap(() => {
+      x.fillStyle = `rgb(${v},${v + 2},${v + 6})`;
+      x.beginPath();
+      x.arc(px, py, r, 0, PI * 2);
+      x.fill();
+    });
+  }
+  // Cracks.
+  x.strokeStyle = 'rgba(20,20,24,0.55)';
+  for (let i = 0; i < 9; i += 1) {
+    const px = rnd() * 1024;
+    const py = rnd() * 1024;
+    wrap(() => {
+      x.beginPath();
+      x.moveTo(px, py);
+      let qx = px;
+      let qy = py;
+      for (let s = 0; s < 6; s += 1) {
+        qx += (rnd() - 0.5) * 130;
+        qy += (rnd() - 0.5) * 130;
+        x.lineTo(qx, qy);
+      }
+      x.lineWidth = 1.5 + rnd() * 1.5;
+      x.stroke();
+    });
+  }
+  // --- Markings, hard edges, no blur. Across: 1024 px = 12 m (85.3
+  // px/m). Along: 1024 px = 8 m (128 px/m).
+  const m = 1024 / 12; // px per metre across
+  const edge = (px, w) => { x.fillRect(px - w / 2, 0, w, 1024); };
+  // White edge lines.
+  x.fillStyle = '#dcdcdc';
+  edge(0.35 * m, 10);
+  edge(11.65 * m, 10);
+  // Double yellow centre lines.
+  x.fillStyle = '#e6c832';
+  edge(512 - 15, 12);
+  edge(512 + 15, 12);
+  // White lane dashes: 2 m on, 2 m off (256 px on, 256 off).
+  x.fillStyle = '#e9e9e9';
+  for (const cx of [3 * m, 9 * m]) {
+    for (const y0 of [0, 512]) x.fillRect(cx - 6.5, y0, 13, 256);
+  }
+  const t = new CT(c);
+  t.colorSpace = SC;
+  t.anisotropy = aniso;
+  return t;
+}
 
-  g.userData.lamps = lamps;
-  g.userData.setState = setState;
-  g.userData.phase = phase;
-  setState(initialState);
-  addBlobShadow(g, 0, 0, 1.2, 1.2, 0.55);
+// Sidewalk tile: 1024x1024 px = 16 m x 16 m, seams every 2 m.
+export function makeSidewalkTexture(aniso) {
+  const [c, x] = canvas(1024, 1024);
+  const rnd = mulberry(4102);
+  x.fillStyle = '#b3a98f';
+  x.fillRect(0, 0, 1024, 1024);
+  // Per-tile shade variation.
+  for (let ty = 0; ty < 8; ty += 1) {
+    for (let tx = 0; tx < 8; tx += 1) {
+      const v = rnd() * 14 - 7;
+      x.fillStyle = v >= 0 ? `rgba(255,255,255,${v / 100})` : `rgba(0,0,0,${-v / 100})`;
+      x.fillRect(tx * 128, ty * 128, 128, 128);
+    }
+  }
+  // Speckle.
+  for (let i = 0; i < 4200; i += 1) {
+    const v = 140 + Math.floor(rnd() * 60);
+    x.fillStyle = `rgb(${v},${v - 6},${v - 22})`;
+    x.fillRect(rnd() * 1024, rnd() * 1024, 1.6, 1.6);
+  }
+  // Seams.
+  x.strokeStyle = '#8a7f68';
+  x.lineWidth = 3;
+  for (let i = 0; i <= 8; i += 1) {
+    x.beginPath(); x.moveTo(i * 128, 0); x.lineTo(i * 128, 1024); x.stroke();
+    x.beginPath(); x.moveTo(0, i * 128); x.lineTo(1024, i * 128); x.stroke();
+  }
+  const t = new CT(c);
+  t.colorSpace = SC;
+  t.wrapS = RW;
+  t.wrapT = RW;
+  t.anisotropy = aniso;
+  return t;
+}
+
+// Zebra crossing: 1024x256 px = 12 m x 3 m, opaque so it never sorts
+// against the blobs. Six white bars on asphalt.
+export function makeZebraTexture(aniso) {
+  const [c, x] = canvas(1024, 256);
+  const rnd = mulberry(4103);
+  x.fillStyle = '#4b4e53';
+  x.fillRect(0, 0, 1024, 256);
+  for (let i = 0; i < 500; i += 1) {
+    const v = 52 + Math.floor(rnd() * 84);
+    x.fillStyle = `rgb(${v},${v + 2},${v + 6})`;
+    x.fillRect(rnd() * 1024, rnd() * 256, 2, 2);
+  }
+  x.fillStyle = '#e9e9e9';
+  for (let i = 0; i < 6; i += 1) {
+    const cx = (1 + i * 2) * (1024 / 12);
+    x.fillRect(cx - 30, 0, 60, 256);
+  }
+  // Wear: a few dark scuffs on the bars.
+  for (let i = 0; i < 26; i += 1) {
+    x.fillStyle = 'rgba(40,40,44,0.35)';
+    x.fillRect(rnd() * 1024, rnd() * 256, 8 + rnd() * 22, 4 + rnd() * 10);
+  }
+  const t = new CT(c);
+  t.colorSpace = SC;
+  t.anisotropy = aniso;
+  return t;
+}
+
+// --------------------------------------------------------- facade atlas
+
+const PALETTES = [
+  { bg: '#d8c49a', win: '#2a3a4a', trim: '#b09a6a' },
+  { bg: '#a85a4a', win: '#22303e', trim: '#7a3a30' },
+  { bg: '#5a7a9a', win: '#1c2836', trim: '#3a5a7a' },
+  { bg: '#7a8a6a', win: '#24303a', trim: '#5a6a4a' },
+  { bg: '#e0d8c0', win: '#2a3a4a', trim: '#b8ac88' },
+  { bg: '#4a4f55', win: '#12181f', trim: '#2e3338' },
+];
+const SHOP_NAMES = ['SHOP', 'CAFE', '24H', 'BANK'];
+
+function paintFacadeCell(x, ox, oy, pal, style, rnd) {
+  x.fillStyle = pal.bg;
+  x.fillRect(ox, oy, 256, 256);
+  // Floor lines.
+  x.fillStyle = pal.trim;
+  for (let f = 1; f < 8; f += 1) x.fillRect(ox, oy + f * 32, 256, 2);
+  if (style === 0) {
+    // 5x8 pane grid.
+    for (let r = 0; r < 8; r += 1) {
+      for (let col = 0; col < 5; col += 1) {
+        const wx = ox + 14 + col * 48;
+        const wy = oy + 8 + r * 32;
+        const lit = rnd() < 0.14;
+        x.fillStyle = lit ? '#ffd97a' : pal.win;
+        x.fillRect(wx, wy, 34, 20);
+        x.fillStyle = 'rgba(255,255,255,0.25)';
+        x.fillRect(wx, wy, 34, 4);
+      }
+    }
+  } else {
+    // Horizontal strip windows.
+    for (let r = 0; r < 8; r += 1) {
+      const wy = oy + 8 + r * 32;
+      const lit = rnd() < 0.12;
+      x.fillStyle = lit ? '#ffd97a' : pal.win;
+      x.fillRect(ox + 12, wy, 232, 20);
+      x.fillStyle = pal.trim;
+      for (let m = 1; m < 6; m += 1) x.fillRect(ox + 12 + m * 40, wy, 3, 20);
+    }
+  }
+  // Top band.
+  x.fillStyle = pal.trim;
+  x.fillRect(ox, oy, 256, 6);
+}
+
+function paintShopCell(x, ox, oy, name, bg, rnd) {
+  x.fillStyle = bg;
+  x.fillRect(ox, oy, 256, 256);
+  // Sign band.
+  x.fillStyle = '#1a1a22';
+  x.fillRect(ox, oy, 256, 58);
+  x.fillStyle = '#ffffff';
+  x.font = '800 34px system-ui,sans-serif';
+  x.textAlign = 'center';
+  x.textBaseline = 'middle';
+  x.fillText(name, ox + 128, oy + 30);
+  // Big glass panes with a reflection streak.
+  for (let i = 0; i < 3; i += 1) {
+    const gx = ox + 12 + i * 80;
+    const grad = x.createLinearGradient(gx, oy + 70, gx, oy + 190);
+    grad.addColorStop(0, '#9db8cc');
+    grad.addColorStop(1, '#3a5a7a');
+    x.fillStyle = grad;
+    x.fillRect(gx, oy + 70, 72, 120);
+    x.fillStyle = 'rgba(255,255,255,0.3)';
+    x.beginPath();
+    x.moveTo(gx + 12, oy + 190);
+    x.lineTo(gx + 40, oy + 70);
+    x.lineTo(gx + 52, oy + 70);
+    x.lineTo(gx + 24, oy + 190);
+    x.closePath();
+    x.fill();
+  }
+  // Awning stripes.
+  for (let i = 0; i < 8; i += 1) {
+    x.fillStyle = i % 2 ? '#e74c3c' : '#f5f0e6';
+    x.fillRect(ox + i * 32, oy + 204, 32, 52);
+  }
+}
+
+export function makeFacadeAtlas() {
+  const [c, x] = canvas(1024, 1024);
+  const rnd = mulberry(4104);
+  for (let i = 0; i < 6; i += 1) {
+    const col = i % 4;
+    const row = Math.floor(i / 4);
+    paintFacadeCell(x, col * 256, row * 256, PALETTES[i], 0, rnd);
+  }
+  for (let i = 0; i < 6; i += 1) {
+    const cell = 6 + i;
+    const col = cell % 4;
+    const row = Math.floor(cell / 4);
+    paintFacadeCell(x, col * 256, row * 256, PALETTES[i], 1, rnd);
+  }
+  const shopBg = ['#2a6a3a', '#7a3a1a', '#1a3a5f', '#2a1a4a'];
+  for (let i = 0; i < 4; i += 1) {
+    const cell = 12 + i;
+    const col = cell % 4;
+    const row = Math.floor(cell / 4);
+    paintShopCell(x, col * 256, row * 256, SHOP_NAMES[i], shopBg[i], rnd);
+  }
+  const t = new CT(c);
+  t.colorSpace = SC;
+  return t;
+}
+
+// Map a box's faces onto one atlas cell. One cell covers 16 m x 16 m
+// of facade, so the windows repeat instead of stretching. The passed
+// h is the facade height to span, not necessarily the geometry's own
+// height — a 4.5 m podium passes h=20 to wear the whole storefront
+// cell (sign band + glass + awning) as a shop front.
+export function applyFacadeUVs(geo, cell, w, h, d) {
+  const uv = geo.attributes.uv;
+  const norm = geo.attributes.normal;
+  const col = cell % 4;
+  const row = Math.floor(cell / 4);
+  const u0 = col * 0.25;
+  const v0 = 1 - (row + 1) * 0.25;
+  for (let i = 0; i < uv.count; i += 1) {
+    const nx = Math.abs(norm.getX(i));
+    const ny = Math.abs(norm.getY(i));
+    let fw;
+    let fh;
+    if (nx > 0.5) { fw = d; fh = h; } else if (ny > 0.5) { fw = w; fh = d; } else { fw = w; fh = h; }
+    uv.setXY(i, u0 + uv.getX(i) * (fw / 16), v0 + uv.getY(i) * (fh / 16));
+  }
+  uv.needsUpdate = true;
+}
+
+// ------------------------------------------------------------------ sky
+
+export function makeSkyDome() {
+  const geo = new THREE.SphereGeometry(800, 32, 16);
+  const mat = new THREE.ShaderMaterial({
+    side: THREE.BackSide,
+    depthWrite: false,
+    fog: false,
+    vertexShader: 'varying vec3 vP; void main(){ vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: `varying vec3 vP;
+      void main(){
+        float h = clamp(normalize(vP).y, 0.0, 1.0);
+        vec3 zen = vec3(0.17, 0.16, 0.37);
+        vec3 mid = vec3(0.48, 0.31, 0.55);
+        vec3 hor = vec3(1.0, 0.55, 0.35);
+        vec3 col = h < 0.22 ? mix(hor, mid, h / 0.22) : mix(mid, zen, (h - 0.22) / 0.78);
+        float d = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) / 255.0;
+        gl_FragColor = vec4(col + d, 1.0);
+      }`,
+  });
+  const dome = new THREE.Mesh(geo, mat);
+  dome.renderOrder = -10;
+  return dome;
+}
+
+export function makeSunBillboard() {
+  const [c, x] = canvas(256, 256);
+  const g = x.createRadialGradient(128, 128, 4, 128, 128, 128);
+  g.addColorStop(0, 'rgba(255,240,200,1)');
+  g.addColorStop(0.25, 'rgba(255,200,120,0.85)');
+  g.addColorStop(0.6, 'rgba(255,140,80,0.25)');
+  g.addColorStop(1, 'rgba(255,140,80,0)');
+  x.fillStyle = g;
+  x.fillRect(0, 0, 256, 256);
+  const t = new CT(c);
+  t.colorSpace = SC;
+  const s = new SP(new THREE.SpriteMaterial({ map: t, transparent: true, depthWrite: false, fog: false }));
+  s.position.set(-560, 110, -260);
+  s.scale.set(150, 150, 1);
+  return s;
+}
+
+// ------------------------------------------------------- traffic lights
+
+// One lamp face: pole, arm, housing, three lamp orbs. The lit lamp is
+// a real sphere with a hot emissive core plus a halo ring sprite, so
+// the red reads as a glowing orb from any camera, not a flat disc.
+export function makeTrafficLight(state, offset) {
+  const g = new GP();
+  const dark = new MS({ color: 0x22262a, roughness: 0.6, metalness: 0.4 });
+  const pole = new ME(new CG(0.09, 0.11, 4.6, 8), dark);
+  pole.position.y = 2.3;
+  g.add(pole);
+  const arm = new ME(new BX(1.5, 0.1, 0.1), dark);
+  arm.position.set(0.7, 4.5, 0);
+  g.add(arm);
+  const housing = new ME(new BX(0.5, 1.35, 0.5), new MS({ color: 0x14161a, roughness: 0.5, metalness: 0.5 }));
+  housing.position.set(1.35, 4.1, 0);
+  g.add(housing);
+  const visor = new ME(new BX(0.56, 0.08, 0.56), dark);
+  visor.position.set(1.35, 4.82, 0);
+  g.add(visor);
+  const lamps = {};
+  const defs = [
+    ['r', 0xff2a22, 4.55],
+    ['y', 0xffb020, 4.1],
+    ['g', 0x2aff5e, 3.65],
+  ];
+  for (const [key, color, y] of defs) {
+    const m = new MS({ color: 0x1a1a1a, emissive: color, emissiveIntensity: 0.06, roughness: 0.3 });
+    const orb = new ME(new SG(0.17, 12, 10), m);
+    orb.position.set(1.35, y, 0.26);
+    g.add(orb);
+    lamps[key] = { mesh: orb, mat: m, color };
+  }
+  const halo = new SP(new THREE.SpriteMaterial({
+    map: ringTexture(), transparent: true, opacity: 0.9,
+    blending: AB, depthWrite: false,
+  }));
+  halo.scale.set(1.5, 1.5, 1);
+  halo.position.set(1.35, 4.55, 0.4);
+  g.add(halo);
+  g.userData.trafficLight = { lamps, halo, offset, state };
   return g;
 }
 
 export function updateTrafficLights(lights, time) {
-  // 16 s cycle: R 0-8, G 8-14, Y 14-16.
-  for (const l of lights) {
-    const t = (time + (l.userData.phase || 0)) % 16;
-    const s = t < 8 ? 'R' : t < 14 ? 'G' : 'Y';
-    if (l.userData.state !== s) l.userData.setState(s);
+  for (const tl of lights) {
+    const u = tl.userData.trafficLight;
+    const phase = (time + u.offset) % 13.5;
+    const lit = phase < 6 ? 'g' : phase < 7.5 ? 'y' : 'r';
+    for (const key of ['r', 'y', 'g']) {
+      const on = key === lit;
+      u.lamps[key].mat.emissiveIntensity = on ? 2.6 : 0.06;
+    }
+    const lamp = u.lamps[lit];
+    u.halo.position.set(1.35, lamp.mesh.position.y, 0.4);
+    u.halo.material.color.setHex(lamp.color);
+    u.halo.material.opacity = lit === 'r' ? 0.95 : 0.6;
+    u.state = lit;
   }
 }
 
-// ---------------------------------------------------------------------------
-// Soft beam: camera-facing sprites, soft radial glow, NO silhouette edge.
-// A cone's boundary reads as a hard triangle; two additive sprites (a wide
-// dim shaft + a narrow brighter core) fade to transparent at every edge.
-// ---------------------------------------------------------------------------
-let _beamGlowTex = null;
-export function beamGlowTexture() {
-  if (_beamGlowTex) return _beamGlowTex;
-  const canvas = document.createElement('canvas');
-  canvas.width = 256;
-  canvas.height = 256;
-  const ctx = canvas.getContext('2d');
-  const gr = ctx.createRadialGradient(128, 128, 2, 128, 128, 126);
-  gr.addColorStop(0, 'rgba(255,250,230,0.9)');
-  gr.addColorStop(0.25, 'rgba(255,240,200,0.55)');
-  gr.addColorStop(0.55, 'rgba(255,220,160,0.22)');
-  gr.addColorStop(0.8, 'rgba(255,200,130,0.07)');
-  gr.addColorStop(1, 'rgba(255,200,130,0)');
-  ctx.fillStyle = gr;
-  ctx.fillRect(0, 0, 256, 256);
-  _beamGlowTex = new CT(canvas);
-  return _beamGlowTex;
+// ------------------------------------------------------------- soft beam
+
+// A searchlight shaft as two additive sprites with no silhouette edge
+// (a cone mesh had hard triangle facets). a = source, b = ground point.
+export function makeSoftBeam(scene, a, b, rt, rb, o) {
+  const tex = poolTexture();
+  const len = Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z);
+  const mk = (t, r, op) => {
+    const s = new SP(new THREE.SpriteMaterial({ map: tex, transparent: true, opacity: op, blending: AB, depthWrite: false }));
+    s.position.set(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t);
+    s.scale.set(r * 2, len * 0.55, 1);
+    scene.add(s);
+    return s;
+  };
+  mk(0.3, rt, o);
+  mk(0.7, rb, o * 0.7);
 }
 
-export function makeSoftBeam(scene, a, b, rt, rb, opacity) {
-  const tex = beamGlowTexture();
+// ---------------------------------------------------------------- signs
+
+function signTexture(text, fg, bg, w, h) {
+  const [c, x] = canvas(512, Math.max(64, Math.round(512 * (h / w))));
+  x.fillStyle = bg;
+  x.fillRect(0, 0, c.width, c.height);
+  x.fillStyle = fg;
+  x.textAlign = 'center';
+  x.textBaseline = 'middle';
+  let size = Math.floor(c.height * 0.52);
+  x.font = `800 ${size}px system-ui,sans-serif`;
+  while (x.measureText(text).width > c.width * 0.92 && size > 12) {
+    size -= 4;
+    x.font = `800 ${size}px system-ui,sans-serif`;
+  }
+  x.fillText(text, c.width / 2, c.height / 2 + 2);
+  const t = new CT(c);
+  t.colorSpace = SC;
+  return t;
+}
+
+// A big unlit sign (MeshBasicMaterial, so it reads at dusk).
+export function makeV31Sign(name, bg, fg, w, h) {
   const g = new GP();
-  const mid = new V3((a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2);
-  // The beam runs mostly along the view direction, so the sprite is
-  // scaled to its vertical drop, not its 3D length: a tall soft shaft
-  // from the helicopter down to the target, no hard edges.
-  const drop = Math.max(2, Math.abs(a.y - b.y));
-  const wide = new THREE.Sprite(new THREE.SpriteMaterial({
-    map: tex, transparent: true, opacity: opacity * 0.9,
-    blending: AB, depthWrite: false,
-  }));
-  wide.position.copy(mid);
-  wide.scale.set(rb * 3.2, drop * 1.15, 1);
-  g.add(wide);
-  const core = new THREE.Sprite(new THREE.SpriteMaterial({
-    map: tex, transparent: true, opacity: Math.min(0.5, opacity * 1.6),
-    blending: AB, depthWrite: false,
-  }));
-  core.position.copy(mid);
-  core.scale.set(rb * 1.4, drop * 0.9, 1);
-  g.add(core);
-  scene.add(g);
+  const back = new ME(new BX(w + 0.2, h + 0.2, 0.12), new MS({ color: 0x1a1a1e, roughness: 0.7 }));
+  g.add(back);
+  const face = new ME(new PG(w, h), new MB({ map: signTexture(name, fg, bg, w, h) }));
+  face.position.z = 0.08;
+  g.add(face);
+  g.userData.v31sign = name;
+  return g;
+}
+
+// A flat canvas sign for shops, street signs and bus stops.
+export function makeSign(text, fg, bg, w = 6, h = 3) {
+  const m = new ME(new PG(w, h), new MB({ map: signTexture(text, fg, bg, w, h) }));
+  return m;
+}
+
+export function makeBillboard(text, fg, bg) {
+  const g = new GP();
+  const postMat = new MS({ color: 0x3a3f45, roughness: 0.7, metalness: 0.3 });
+  for (const dx of [-4, 4]) {
+    const post = new ME(new BX(0.4, 8, 0.4), postMat);
+    post.position.set(dx, 4, 0);
+    g.add(post);
+  }
+  const back = new ME(new BX(10.4, 4.4, 0.3), new MS({ color: 0x1a1a1e, roughness: 0.7 }));
+  back.position.y = 9;
+  g.add(back);
+  const face = new ME(new PG(10, 4), new MB({ map: signTexture(text, fg, bg, 10, 4) }));
+  face.position.set(0, 9, 0.18);
+  g.add(face);
+  return g;
+}
+
+// ------------------------------------------------------- street furniture
+
+export function makeLamp() {
+  const g = new GP();
+  const dark = new MS({ color: 0x2e3338, roughness: 0.6, metalness: 0.5 });
+  const pole = new ME(new CG(0.09, 0.12, 5.6, 8), dark);
+  pole.position.y = 2.8;
+  g.add(pole);
+  const arm = new ME(new BX(1.7, 0.09, 0.09), dark);
+  arm.position.set(0.8, 5.5, 0);
+  g.add(arm);
+  const head = new ME(new BX(0.55, 0.14, 0.28), dark);
+  head.position.set(1.6, 5.45, 0);
+  g.add(head);
+  const glow = new ME(new BX(0.45, 0.04, 0.2), new MB({ color: 0xffe6b0 }));
+  glow.position.set(1.6, 5.36, 0);
+  g.add(glow);
+  return g;
+}
+
+export function makeHydrant() {
+  const g = new GP();
+  const red = new MS({ color: 0xc0392b, roughness: 0.55 });
+  const body = new ME(new CG(0.2, 0.24, 0.72, 10), red);
+  body.position.y = 0.36;
+  g.add(body);
+  const dome = new ME(new SG(0.2, 10, 8, 0, PI * 2, 0, PI / 2), red);
+  dome.position.y = 0.72;
+  g.add(dome);
+  for (const s of [-1, 1]) {
+    const cap = new ME(new CG(0.09, 0.09, 0.14, 8), red);
+    cap.rotation.z = PI / 2;
+    cap.position.set(s * 0.24, 0.45, 0);
+    g.add(cap);
+  }
+  const base = new ME(new CG(0.28, 0.3, 0.12, 10), new MS({ color: 0x7a2a20, roughness: 0.8 }));
+  base.position.y = 0.06;
+  g.add(base);
+  return g;
+}
+
+export function makeBench() {
+  const g = new GP();
+  const wood = new MS({ color: 0x8a6b4f, roughness: 0.9 });
+  const iron = new MS({ color: 0x2e3338, roughness: 0.6, metalness: 0.4 });
+  const seat = new ME(new BX(1.8, 0.08, 0.5), wood);
+  seat.position.y = 0.45;
+  g.add(seat);
+  const back = new ME(new BX(1.8, 0.5, 0.07), wood);
+  back.position.set(0, 0.75, -0.24);
+  back.rotation.x = -0.15;
+  g.add(back);
+  for (const dx of [-0.8, 0.8]) {
+    const leg = new ME(new BX(0.08, 0.45, 0.45), iron);
+    leg.position.set(dx, 0.22, 0);
+    g.add(leg);
+  }
+  return g;
+}
+
+export function makeTree(rng) {
+  const g = new GP();
+  const trunk = new ME(new CG(0.14, 0.2, 2.1, 8), new MS({ color: 0x6a4a2a, roughness: 1 }));
+  trunk.position.y = 1.05;
+  g.add(trunk);
+  const greens = [0x2e7d32, 0x388e3c, 0x43a047];
+  const c1 = new ME(new SG(1.25, 10, 8), new MS({ color: rng.pick(greens), roughness: 1 }));
+  c1.position.set(0, 2.9, 0);
+  g.add(c1);
+  const c2 = new ME(new SG(0.85, 10, 8), new MS({ color: rng.pick(greens), roughness: 1 }));
+  c2.position.set(0.7, 3.5, 0.3);
+  g.add(c2);
+  return g;
+}
+
+function makePalmFronds(g, count, len, y, droop) {
+  const greens = [0x27ae60, 0x2ecc71, 0x1e8449];
+  for (let i = 0; i < count; i += 1) {
+    const a = (i / count) * PI * 2;
+    const frond = new ME(new BX(0.28, 0.04, len), new MS({ color: greens[i % 3], roughness: 1 }));
+    frond.position.set(Math.sin(a) * len * 0.32, y - 0.25, Math.cos(a) * len * 0.32);
+    frond.rotation.y = a;
+    frond.rotation.x = droop;
+    g.add(frond);
+  }
+}
+
+export function makePalm(rng) {
+  const g = new GP();
+  const h = rng.range(4.5, 6.5);
+  const trunk = new ME(new CG(0.14, 0.24, h, 8), new MS({ color: 0x7a5a3a, roughness: 1 }));
+  trunk.position.y = h / 2;
+  trunk.rotation.z = rng.range(-0.06, 0.06);
+  g.add(trunk);
+  makePalmFronds(g, 7, 3.0, h, 0.55);
+  for (let i = 0; i < 3; i += 1) {
+    const nut = new ME(new SG(0.14, 8, 6), new MS({ color: 0x6a4a2a, roughness: 1 }));
+    nut.position.set(Math.sin(i * 2.1) * 0.3, h - 0.3, Math.cos(i * 2.1) * 0.3);
+    g.add(nut);
+  }
+  return g;
+}
+
+// The hero-zone palm: taller, fuller, so the boulevard reads.
+export function makeV31Palm() {
+  const g = new GP();
+  const h = 8;
+  const trunk = new ME(new CG(0.16, 0.28, h, 8), new MS({ color: 0x7a5a3a, roughness: 1 }));
+  trunk.position.y = h / 2;
+  g.add(trunk);
+  makePalmFronds(g, 9, 3.6, h, 0.5);
+  return g;
+}
+
+// ---------------------------------------------------------- far skyline
+
+// 24 boxes at 450-550 m sharing 4 baked facade cells, so the horizon
+// is a city, not a flat colour.
+export function makeFarSkyline(atlas) {
+  const g = new GP();
+  const rnd = mulberry(4105);
+  const mat = new MS({ map: atlas, roughness: 0.9 });
+  for (let i = 0; i < 24; i += 1) {
+    const a = (i / 24) * PI * 2;
+    // Keep the sea side (due south) clear — the horizon there is water.
+    if (Math.sin(a) > 0.55 && Math.cos(a) > -0.4) continue;
+    const r = 450 + rnd() * 100;
+    const w = 24 + rnd() * 22;
+    const h = 40 + rnd() * 60;
+    const d = 24 + rnd() * 22;
+    const geo = new BX(w, h, d);
+    applyFacadeUVs(geo, Math.floor(rnd() * 4), w, h, d);
+    const tower = new ME(geo, mat);
+    tower.position.set(Math.cos(a) * r, h / 2 - 2, Math.sin(a) * r);
+    g.add(tower);
+  }
   return g;
 }

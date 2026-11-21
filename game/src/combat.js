@@ -3,419 +3,431 @@
 // head; gunmen shoot back from range, thugs close in to punch.
 //
 // CHILD ORDER in the enemy meshes is load-bearing: shots.js hides the
-// health bars (children 8-9) and the gunmen's rifles (children 12-14) by
-// number. Keep the add order.
+// health bars (children 8-9) and the gunmen's rifles (children 12-14)
+// by number. Keep the add order.
 import * as THREE from 'three';
 import { BX, CG, MB, MS, SG, ME, V3, GP, PI, AB, SP, PG, SH } from './geo.js';
 import { PLAYER, WEAPONS, ECONOMY, EFFECTS } from './config.js';
+import { blobShadowTexture, poolTexture } from './v31.js';
 
-let shadowTex = null;
-const B = (g, w, h, d, m, x = 0, y = 0, z = 0) => { const q = new ME(new BX(w, h, d), m); q.position.set(x, y, z); g.add(q); return q; };
+const B = (g, w, h, d, m, x = 0, y = 0, z = 0) => {
+  const q = new ME(new BX(w, h, d), m);
+  q.position.set(x, y, z);
+  g.add(q);
+  return q;
+};
 const mt = (c, r = 0.9) => new MS({ color: c, roughness: r });
 
-function createThugMesh() {
+function createEnemyMesh(kind) {
   const group = new GP();
-  const shirt = mt(0x7b241c);
+  const gunman = kind === 'gunman';
+  const shirt = gunman ? mt(0x2c3e50) : mt(0x7b241c);
   const skin = mt(0xc98d5f);
+  const pants = mt(0x2c3e50, 1);
+  // 0 torso, 1 head, 2 legL, 3 legR, 4 armL, 5 armR, 6 hat, 7 vest.
   const torso = B(group, 0.75, 0.9, 0.42, shirt, 0, 1.15, 0);
   torso.castShadow = true;
   const head = new ME(new SG(0.26, 12, 10), skin);
   head.position.y = 1.85;
   group.add(head);
-  const hair = new ME(new SG(0.27, 12, 8, 0, PI * 2, 0, PI / 2), mt(0x1a1a1a, 1));
-  hair.position.y = 1.9;
-  group.add(hair);
-  const neck = new ME(new CG(0.09, 0.11, 0.18, 8), skin);
-  neck.position.y = 1.68;
-  group.add(neck);
-  const legL = B(group, 0.26, 0.7, 0.3, mt(0x222222, 1), -0.19, 0.35, 0);
-  const legR = legL.clone();
-  legR.position.x = 0.19;
-  group.add(legR);
-  const armL = B(group, 0.2, 0.65, 0.22, shirt, -0.48, 1.15, 0);
-  const armR = armL.clone();
-  armR.position.x = 0.48;
-  group.add(armR);
-  const barBg = B(group, 1.1, 0.12, 0.05, new MB({ color: 0x881111 }), 0, 2.35, 0);
-  const barFg = B(group, 1.06, 0.08, 0.06, new MB({ color: 0x33dd33 }), 0, 2.35, 0);
+  const legL = B(group, 0.24, 0.7, 0.28, pants, -0.16, 0.35, 0);
+  const legR = B(group, 0.24, 0.7, 0.28, pants, 0.16, 0.35, 0);
+  const armL = B(group, 0.18, 0.65, 0.2, shirt, -0.48, 1.15, 0);
+  const armR = B(group, 0.18, 0.65, 0.2, shirt, 0.48, 1.15, 0);
+  const hat = B(group, 0.5, 0.12, 0.5, gunman ? mt(0x1a1a1a, 0.8) : mt(0x8a1a1a, 0.9), 0, 2.02, 0);
+  hat.visible = true;
+  const vest = B(group, 0.78, 0.5, 0.46, gunman ? mt(0x1a1a1a, 0.95) : mt(0x5a2a1a, 0.95), 0, 1.2, 0);
+  vest.visible = gunman;
+  // 8 health bar background, 9 health bar foreground.
+  const barBg = new ME(new PG(0.9, 0.12), new MB({ color: 0x661111 }));
+  barBg.position.set(0, 2.35, 0.3);
+  group.add(barBg);
+  const barFg = new ME(new PG(0.86, 0.08), new MB({ color: 0x37c978 }));
+  barFg.position.set(0, 2.35, 0.31);
+  group.add(barFg);
   group.userData.barFg = barFg;
-  group.userData.torso = torso;
+  // 10 ground blob.
+  const blob = new ME(new PG(1.1, 0.9), SH(blobShadowTexture(), 0.5));
+  blob.rotation.x = -PI / 2;
+  blob.position.set(0, 0.07, 0);
+  blob.renderOrder = 2;
+  group.add(blob);
+  // 11 muzzle flash sprite (hidden until the enemy fires).
+  const flash = new SP(new THREE.SpriteMaterial({
+    map: poolTexture(), color: 0xffa040, transparent: true, opacity: 0,
+    blending: AB, depthWrite: false,
+  }));
+  flash.position.set(0, 1.5, 0.6);
+  flash.scale.set(1.2, 1.2, 1);
+  group.add(flash);
+  group.userData.flash = flash;
+  if (gunman) {
+    // 12 barrel, 13 body, 14 stock — the rifle.
+    const barrel = B(group, 0.05, 0.05, 0.9, mt(0x222222, 0.4), 0.3, 1.45, 0.6);
+    barrel.visible = true;
+    B(group, 0.09, 0.14, 0.5, mt(0x3a2a1a, 0.8), 0.3, 1.42, 0.2);
+    B(group, 0.07, 0.12, 0.3, mt(0x3a2a1a, 0.8), 0.3, 1.4, -0.15);
+  }
   group.userData.legL = legL;
   group.userData.legR = legR;
   group.userData.armL = armL;
   group.userData.armR = armR;
-  if (shadowTex) {
-    // Big and dark — a small faint blob was invisible on the light
-    // pavement and the figures read as floating.
-    const sh = new ME(new PG(1.6, 1.1), SH(shadowTex, 0.65));
-    sh.rotation.x = -PI / 2;
-    sh.position.set(0, 0.1, 0);
-    group.add(sh);
-  } else {
-    B(group, 1.6, 0.02, 1.1, mt(0, 1), 0, 0.09, 0);
-  }
-  return group;
-}
-
-function createGunmanMesh() {
-  const group = createThugMesh();
-  group.children[0].material = mt(0x0a0a0a);
-  B(group, 0.56, 0.12, 0.56, mt(0x5a0f0f, 0.8), 0, 1.98, 0);
-  B(group, 0.78, 0.5, 0.46, mt(0x7b1a1a), 0, 1.2, 0);
-  const gunMat = new MS({ color: 0x111111, roughness: 0.4, metalness: 0.5 });
-  B(group, 0.09, 0.14, 0.9, gunMat, 0.35, 1.2, 0.35);
-  B(group, 0.06, 0.25, 0.12, gunMat, 0.35, 1.02, 0.5);
-  const barrel = new ME(new CG(0.05, 0.05, 0.4, 8), gunMat);
-  barrel.rotation.x = PI / 2;
-  barrel.position.set(0.35, 1.22, 0.95);
-  group.add(barrel);
   return group;
 }
 
 export function createCombat(game) {
-  shadowTex = game.textures && game.textures.shadow;
   const enemies = [];
   const tracers = [];
-  const parts = [];
+  const flashes = [];
+  const casings = [];
+  const sparks = [];
+  const explosions = [];
 
-  function addPart(mesh, pos, vel, life, grow = 0, grav = 0) {
-    mesh.position.copy(pos);
+  function spawnEnemy(kind, x, z) {
+    const mesh = createEnemyMesh(kind);
+    mesh.position.set(x, 0, z);
     game.scene.add(mesh);
-    parts.push({ mesh, vel: vel.clone(), life, maxLife: life, grow, grav });
-  }
-
-  function spawnFlash(pos) {
-    const flash = new SP(new THREE.SpriteMaterial({ map: game.textures.fireball, transparent: true, blending: AB, depthWrite: false }));
-    flash.scale.set(0.45, 0.45, 1);
-    addPart(flash, pos, new V3(0, 0, 0), EFFECTS.fl);
-  }
-
-  function spawnCasing(pos, heading) {
-    const casing = new ME(
-      new BX(0.06, 0.03, 0.1),
-      new MS({ color: 0xd4af37, metalness: 0.7, roughness: 0.4 }),
-    );
-    casing.rotation.y = Math.random() * PI;
-    const side = new V3(Math.cos(heading), 0, -Math.sin(heading));
-    addPart(casing, new V3(pos.x + side.x * 0.4, 1.1, pos.z + side.z * 0.4), new V3(side.x * 1.5, 2.2, side.z * 1.5), EFFECTS.ca, 0, 12);
-  }
-
-  function spawnSparks(pos, color = 0xffcc44, n = 4) {
-    for (let i = 0; i < n; i += 1) {
-      const spark = new ME(
-        new BX(0.12, 0.12, 0.12),
-        new MB({ color, transparent: true }),
-      );
-      const a = Math.random() * PI * 2;
-      const b = Math.random() * PI - PI / 2;
-      addPart(spark, pos, new V3(Math.cos(a) * Math.cos(b) * 6, Math.abs(Math.sin(b)) * 5 + 1, Math.sin(a) * Math.cos(b) * 6), EFFECTS.sp, 0, 9);
-    }
-  }
-
-  function spawnExplosion(pos, so = 0.7) {
-    const origin = new V3(pos.x, pos.y + 1, pos.z);
-    const fire = game.textures && game.textures.fireball;
-    if (fire) {
-      const sprite = new SP(new THREE.SpriteMaterial({ map: fire, transparent: true, blending: AB, depthWrite: false }));
-      sprite.scale.set(2.6, 2.6, 1);
-      addPart(sprite, origin, new V3(0, 0.5, 0), EFFECTS.ex, 6, 0);
-    } else {
-      for (let i = 0; i < 8; i += 1) {
-        const ball = new ME(
-          new SG(0.6, 8, 6),
-          new MB({ color: 0xff7711, transparent: true }),
-        );
-        const a = (i / 8) * PI * 2;
-        addPart(ball, origin, new V3(Math.cos(a) * 3, 1.5, Math.sin(a) * 3), EFFECTS.ex, 2, 0);
-      }
-    }
-    const smoke = game.textures && game.textures.smoke;
-    for (let i = 0; i < 4; i += 1) {
-      const puff = smoke
-        ? new SP(new THREE.SpriteMaterial({ map: smoke, transparent: true, opacity: so * 0.7, depthWrite: false }))
-        : new ME(new SG(1.1, 8, 6), new MS({ color: 0x555555, roughness: 1, transparent: true, opacity: so }));
-      if (smoke) puff.scale.set(1.6, 1.6, 1);
-      addPart(puff, new V3(pos.x + (i - 1.5) * 0.9 - 0.6, pos.y + 2 + i * 0.6, pos.z + (i % 2 ? 0.5 : -0.4)), new V3(0, 1.2, 0), EFFECTS.ex * 1.4, 2.5, 0);
-    }
-    game.hud.shake();
+    const e = {
+      kind,
+      mesh,
+      pos: new V3(x, 0, z),
+      health: kind === 'gunman' ? 60 : 50,
+      maxHealth: kind === 'gunman' ? 60 : 50,
+      alive: true,
+      speed: kind === 'gunman' ? 1.6 : 2.2,
+      attackTimer: 0,
+      shootTimer: game.rng.range(0.5, 1.5),
+      phase: game.rng.range(0, PI * 2),
+    };
+    enemies.push(e);
+    return e;
   }
 
   function spawnThug(x, z) {
-    const mesh = createThugMesh();
-    mesh.position.set(x, 0, z);
-    game.scene.add(mesh);
-    const enemy = {
-      mesh, kind: 'thug',
-      pos: new V3(x, 0, z),
-      health: 30, maxHealth: 30,
-      punchTimer: 0, shootTimer: 0,
-      alive: true,
-      phase: game.rng.range(0, PI * 2),
-    };
-    enemies.push(enemy);
-    return enemy;
+    return spawnEnemy('thug', x, z);
   }
 
   function spawnGunman(x, z) {
-    const mesh = createGunmanMesh();
-    mesh.position.set(x, 0, z);
-    game.scene.add(mesh);
-    const enemy = {
-      mesh, kind: 'gunman',
-      pos: new V3(x, 0, z),
-      health: 40, maxHealth: 40,
-      punchTimer: 0, shootTimer: 1,
-      alive: true,
-      phase: game.rng.range(0, PI * 2),
-    };
-    enemies.push(enemy);
-    return enemy;
+    return spawnEnemy('gunman', x, z);
   }
 
-  // A tracer is 6 short boxes laid end to end along the shot line.
-  function spawnTracer(from, to, color = 0xffe14d) {
+  function addTracer(from, to, color = 0xffa040) {
     const dir = new V3().subVectors(to, from);
     const len = dir.length();
-    if (len < 0.1) return;
-    dir.normalize();
-    for (let i = 0; i < 6; i++) {
-      const tracer = new ME(new BX(0.07, 0.07, len / 6), new MB({ color, transparent: true, opacity: 0.9, blending: AB }));
-      tracer.position.copy(from).addScaledVector(dir, len * (i + 0.5) / 6);
-      tracer.lookAt(to);
-      game.scene.add(tracer);
-      tracers.push({ mesh: tracer, life: 0.16 });
+    const m = new ME(
+      new BX(len, 0.08, 0.08),
+      new MB({ color, transparent: true, opacity: 0.95, blending: AB, depthWrite: false }),
+    );
+    m.position.copy(from).addScaledVector(dir, 0.5);
+    m.lookAt(to);
+    game.scene.add(m);
+    tracers.push({ mesh: m, life: EFFECTS.fl });
+    return m;
+  }
+
+  function addFlash(pos, scale = 1) {
+    const s = new SP(new THREE.SpriteMaterial({
+      map: poolTexture(), color: 0xffa040, transparent: true, opacity: 0.95,
+      blending: AB, depthWrite: false,
+    }));
+    s.position.copy(pos);
+    s.scale.set(1.6 * scale, 1.6 * scale, 1);
+    game.scene.add(s);
+    flashes.push({ sprite: s, life: EFFECTS.fl });
+    const light = new THREE.PointLight(0xffa040, 2, 8);
+    light.position.copy(pos);
+    game.scene.add(light);
+    flashes.push({ sprite: null, light, life: EFFECTS.fl });
+    return s;
+  }
+
+  function spawnCasing(pos) {
+    const m = new ME(new BX(0.06, 0.06, 0.14), mt(0xd8a020, 0.4));
+    m.position.copy(pos);
+    m.position.y = 1.2;
+    game.scene.add(m);
+    casings.push({ mesh: m, vel: new V3((Math.random() - 0.5) * 2, 2, (Math.random() - 0.5) * 2), life: EFFECTS.ca });
+  }
+
+  function spawnSparks(pos) {
+    for (let i = 0; i < 5; i += 1) {
+      const s = new SP(new THREE.SpriteMaterial({
+        map: poolTexture(), color: 0xffd94d, transparent: true, opacity: 0.9,
+        blending: AB, depthWrite: false,
+      }));
+      s.position.set(pos.x + (Math.random() - 0.5), pos.y + Math.random() * 0.5, pos.z + (Math.random() - 0.5));
+      s.scale.set(0.3, 0.3, 1);
+      game.scene.add(s);
+      sparks.push({ sprite: s, life: EFFECTS.sp });
     }
+  }
+
+  function spawnExplosion(pos, scale = 1) {
+    const tex = game.textures.fireball || game.textures.smoke;
+    const fire = new SP(new THREE.SpriteMaterial({
+      map: tex, color: 0xff8030, transparent: true, opacity: 0.95,
+      blending: AB, depthWrite: false,
+    }));
+    fire.position.set(pos.x, 1.2 * scale, pos.z);
+    fire.scale.set(3.2 * scale, 3.2 * scale, 1);
+    game.scene.add(fire);
+    const smokeTex = game.textures.smoke;
+    const smoke = smokeTex ? new SP(new THREE.SpriteMaterial({
+      map: smokeTex, color: 0x555555, transparent: true, opacity: 0.7, depthWrite: false,
+    })) : null;
+    if (smoke) {
+      smoke.position.set(pos.x, 2.5 * scale, pos.z);
+      smoke.scale.set(3 * scale, 3 * scale, 1);
+      game.scene.add(smoke);
+    }
+    const light = new THREE.PointLight(0xff8030, 3, 12 * scale);
+    light.position.set(pos.x, 2, pos.z);
+    game.scene.add(light);
+    explosions.push({ fire, smoke, light, life: EFFECTS.ex, scale });
+    game.audio.explosion();
+    // Blast damage.
+    const p = game.player.car ? game.player.car.pos : game.player.pos;
+    if (Math.hypot(p.x - pos.x, p.z - pos.z) < 4 * scale) {
+      game.player.health -= 20 * scale;
+      game.player.lastHitAt = game.time;
+      game.hud.shake();
+    }
+    for (const e of enemies) {
+      if (e.alive && Math.hypot(e.pos.x - pos.x, e.pos.z - pos.z) < 4 * scale) {
+        e.health -= 50 * scale;
+      }
+    }
+  }
+
+  function muzzleWorld() {
+    const p = game.player;
+    const fx = Math.sin(p.heading);
+    const fz = Math.cos(p.heading);
+    // The muzzle is the rifle's world position plus the barrel tip
+    // (~0.95 m ahead of the rifle origin). The old fixed 0.8 m
+    // forward from the player's centre put the flash directly behind
+    // his torso from the chase camera, so it was invisible.
+    const rifle = p.mesh.userData.rifle;
+    if (rifle) {
+      const wp = new V3();
+      rifle.getWorldPosition(wp);
+      return new V3(wp.x + fx * 0.95, 1.55, wp.z + fz * 0.95);
+    }
+    return new V3(p.pos.x + fx * 0.8, 1.55, p.pos.z + fz * 0.8);
+  }
+
+  function aimPoint() {
+    if (game.aim) return game.aim.clone();
+    // Nearest enemy in front, else a point 30 m ahead.
+    const p = game.player;
+    const fx = Math.sin(p.heading);
+    const fz = Math.cos(p.heading);
+    let best = null;
+    let bestD = PLAYER.shootRange;
+    for (const e of enemies) {
+      if (!e.alive) continue;
+      const dx = e.pos.x - p.pos.x;
+      const dz = e.pos.z - p.pos.z;
+      const d = Math.hypot(dx, dz);
+      if (d < bestD && dx * fx + dz * fz > 0) {
+        bestD = d;
+        best = e;
+      }
+    }
+    if (best) return new V3(best.pos.x, 1.2, best.pos.z);
+    return new V3(p.pos.x + fx * 30, 1.2, p.pos.z + fz * 30);
   }
 
   function playerPunch() {
-    const player = game.player;
-    if (player.punchTimer > 0 || !player.onFoot) return;
-    player.punchTimer = PLAYER.punchCooldown;
+    const p = game.player;
+    if (p.punchTimer > 0 || !p.onFoot) return;
+    p.punchTimer = PLAYER.punchCooldown;
     game.audio.punch();
-    const fx = Math.sin(player.heading);
-    const fz = Math.cos(player.heading);
-    for (const enemy of enemies) {
-      if (!enemy.alive) continue;
-      const dx = enemy.pos.x - player.pos.x;
-      const dz = enemy.pos.z - player.pos.z;
-      const dist = Math.hypot(dx, dz);
-      if (dist > PLAYER.punchRange) continue;
-      const dot = (dx * fx + dz * fz) / (dist || 1);
-      if (dot < 0.3) continue;
-      damageEnemy(enemy, PLAYER.punchDamage);
-      game.hud.shake();
-    }
-    for (const ped of game.peds) {
-      if (!ped.alive) continue;
-      const dx = ped.pos.x - player.pos.x;
-      const dz = ped.pos.z - player.pos.z;
-      const dist = Math.hypot(dx, dz);
-      if (dist > PLAYER.punchRange) continue;
-      const dot = (dx * fx + dz * fz) / (dist || 1);
-      if (dot < 0.3) continue;
-      ped.alive = false;
-      ped.mesh.visible = false;
-      game.police.commitCrime(1);
-      game.hud.flash('You hit a pedestrian! The cops are coming.');
+    const fx = Math.sin(p.heading);
+    const fz = Math.cos(p.heading);
+    for (const e of enemies) {
+      if (!e.alive) continue;
+      const dx = e.pos.x - p.pos.x;
+      const dz = e.pos.z - p.pos.z;
+      const d = Math.hypot(dx, dz);
+      if (d < PLAYER.punchRange && dx * fx + dz * fz > 0) {
+        e.health -= PLAYER.punchDamage;
+        e.pos.x += (dx / d) * 1.2;
+        e.pos.z += (dz / d) * 1.2;
+        game.hud.hitmark();
+        spawnSparks(e.pos);
+        if (e.health <= 0) killEnemy(e);
+        return;
+      }
     }
   }
 
   function playerShoot() {
-    const player = game.player;
-    const weapon = WEAPONS[player.weapon];
-    if (!weapon || !player.onFoot) return;
-    if (player.shootTimer > 0 || player.reloadTimer > 0) return;
-    if (player.mag <= 0) {
-      game.audio.click();
-      game.hud.flash('Out of ammo — reloading.');
-      reloadWeapon();
+    const p = game.player;
+    if (!p.onFoot) return;
+    if (p.weapon === 'fists') {
+      playerPunch();
       return;
     }
-    player.shootTimer = player.weapon === 'rifle' ? PLAYER.rifleCooldown : PLAYER.pistolCooldown;
-    player.mag -= 1;
+    if (p.shootTimer > 0 || p.reloadTimer > 0) return;
+    const w = WEAPONS[p.weapon];
+    if (p.mag <= 0) {
+      game.audio.click();
+      game.hud.flash('Out of mag — R to reload.');
+      return;
+    }
+    p.shootTimer = p.weapon === 'rifle' ? PLAYER.rifleCooldown : PLAYER.pistolCooldown;
+    p.mag -= 1;
+    const from = muzzleWorld();
+    const to = aimPoint();
+    addTracer(from, to);
+    addFlash(from, p.weapon === 'rifle' ? 1.2 : 0.8);
+    spawnCasing(from);
     game.audio.gunshot();
-    const fx = Math.sin(player.heading);
-    const fz = Math.cos(player.heading);
-    let muzzle = new V3(player.pos.x + fx * 0.8, 1.2, player.pos.z + fz * 0.8);
-    const rf = player.mesh.userData.rifle;
-    if (player.weapon === 'rifle' && rf) muzzle = rf.localToWorld(new V3(0, 0.02, 0.93));
-    const range = PLAYER.shootRange;
-    let bestDist = range;
-    let bestEnemy = null;
-    let bestCar = null;
-    for (const enemy of enemies) {
-      if (!enemy.alive) continue;
-      const dx = enemy.pos.x - player.pos.x;
-      const dz = enemy.pos.z - player.pos.z;
-      const dist = Math.hypot(dx, dz);
-      if (dist > range) continue;
-      const dot = (dx * fx + dz * fz) / (dist || 1);
-      if (dot < 0.92) continue;
-      if (dist < bestDist) {
-        bestDist = dist;
-        bestEnemy = enemy;
-        bestCar = null;
+    game.hud.shake();
+    // Hit: the first enemy within 1.2 m of the aim point.
+    for (const e of enemies) {
+      if (!e.alive) continue;
+      if (Math.hypot(e.pos.x - to.x, e.pos.z - to.z) < 1.6) {
+        e.health -= w.damage;
+        game.hud.hitmark();
+        spawnSparks(e.pos);
+        if (e.health <= 0) killEnemy(e);
+        break;
       }
     }
-    const allCars = [...game.cars.parked, ...game.cars.traffic, ...(game.police.cars || [])];
-    if (game.cars.comet) allCars.push(game.cars.comet);
-    if (game.cars.armored) allCars.push(game.cars.armored);
-    for (const car of allCars) {
-      const dx = car.pos.x - player.pos.x;
-      const dz = car.pos.z - player.pos.z;
-      const dist = Math.hypot(dx, dz);
-      if (dist > range) continue;
-      const dot = (dx * fx + dz * fz) / (dist || 1);
-      if (dot < 0.92) continue;
-      if (dist < bestDist) {
-        bestDist = dist;
-        bestCar = car;
-        bestEnemy = null;
-      }
-    }
-    const tg = bestEnemy || bestCar;
-    const end = game.aim || (tg ? new V3(tg.pos.x, 1.2, tg.pos.z) : new V3(player.pos.x + fx * bestDist, 1.2, player.pos.z + fz * bestDist));
-    const tf = player.weapon === 'rifle' && rf ? rf.localToWorld(new V3(0, 0.02, 0.93)) : muzzle;
-    spawnTracer(tf, end, game.player.weapon === 'rifle' ? 0xff9500 : 0xffe14d);
-    spawnFlash(muzzle);
-    spawnCasing(player.pos, player.heading);
-    game.hud.hitmark();
-    if (bestEnemy) {
-      damageEnemy(bestEnemy, weapon.damage);
-      spawnSparks(end);
-    } else if (bestCar) {
-      bestCar.health = Math.max(0, (bestCar.health || 0) - weapon.damage);
-      spawnSparks(end, 0xffaa33);
-      if (bestCar.kind === 'police') game.police.commitCrime(1);
-      if (bestCar.health <= 0) {
-        bestCar.wrecked = true;
-        bestCar.speed = 0;
-        spawnExplosion(new V3(bestCar.pos.x, 1, bestCar.pos.z));
-        game.audio.explosion();
-        if (bestCar.kind === 'police') game.hud.flash('Police car disabled.');
-      }
-    }
-    game.hud.update();
+  }
+
+  function killEnemy(e) {
+    e.alive = false;
+    e.mesh.visible = false;
+    const drop = e.kind === 'gunman' ? ECONOMY.gunmanDrop : ECONOMY.thugDrop;
+    game.cash += drop;
+    game.hud.flash(`+ $${drop}`);
+    game.audio.pickup();
   }
 
   function reloadWeapon() {
-    const player = game.player;
-    const weapon = WEAPONS[player.weapon];
-    if (!weapon || player.reloadTimer > 0) return;
-    if (player.mag >= weapon.mag || player.ammo <= 0) return;
-    player.reloadTimer = 1.0;
+    const p = game.player;
+    if (p.weapon === 'fists') return;
+    const w = WEAPONS[p.weapon];
+    if (p.mag >= w.mag || p.ammo <= 0 || p.reloadTimer > 0) return;
+    p.reloadTimer = 0.9;
     game.audio.reload();
-    const needed = weapon.mag - player.mag;
-    const taken = Math.min(needed, player.ammo);
-    player.ammo -= taken;
-    player.mag += taken;
-  }
-
-  function damageEnemy(enemy, amount) {
-    enemy.health -= amount;
-    enemy.flashT = 0.12;
-    const scale = Math.max(0, enemy.health / enemy.maxHealth);
-    enemy.mesh.userData.barFg.scale.x = scale;
-    enemy.mesh.userData.barFg.position.x = -(1 - scale) * 0.53;
-    if (enemy.health <= 0) {
-      enemy.alive = false;
-      enemy.fallT = 1.0;
-      enemy.mesh.rotation.x = -PI / 2 * 0.85;
-      const drop = enemy.kind === 'gunman' ? ECONOMY.gunmanDrop : ECONOMY.thugDrop;
-      game.cash += drop;
-      game.hud.flash(`${enemy.kind === 'gunman' ? 'Gunman' : 'Thug'} down. +$${drop}.`);
-      game.audio.pickup();
-      game.hud.update();
-    }
+    const take = Math.min(w.mag - p.mag, p.ammo);
+    p.mag += take;
+    p.ammo -= take;
   }
 
   function update(dt) {
-    for (const enemy of enemies) {
-      if (!enemy.alive) {
-        if (enemy.fallT > 0) {
-          enemy.fallT -= dt;
-          if (enemy.fallT <= 0) enemy.mesh.visible = false;
-        }
-        continue;
-      }
-      enemy.flashT = Math.max(0, (enemy.flashT || 0) - dt);
-      if (enemy.flashT > 0) {
-        enemy.mesh.userData.torso.material.emissive.setHex(0x551111);
-        enemy.mesh.rotation.x = -0.25;
-      } else {
-        enemy.mesh.userData.torso.material.emissive.setHex(0x000000);
-        enemy.mesh.rotation.x = 0;
-      }
-      enemy.punchTimer = Math.max(0, enemy.punchTimer - dt);
-      enemy.shootTimer = Math.max(0, enemy.shootTimer - dt);
-      const dx = game.player.pos.x - enemy.pos.x;
-      const dz = game.player.pos.z - enemy.pos.z;
+    const p = game.player;
+    const target = p.car ? p.car.pos : p.pos;
+    for (const e of enemies) {
+      if (!e.alive) continue;
+      const dx = target.x - e.pos.x;
+      const dz = target.z - e.pos.z;
       const dist = Math.hypot(dx, dz);
-      if (!game.player.onFoot || dist > 80) continue;
-      enemy.mesh.rotation.y = Math.atan2(dx, dz);
-      if (enemy.kind === 'gunman') {
-        if (dist > 24) {
-          enemy.pos.x += (dx / dist) * 4 * dt;
-          enemy.pos.z += (dz / dist) * 4 * dt;
-        } else if (dist < 10) {
-          enemy.pos.x -= (dx / dist) * 3 * dt;
-          enemy.pos.z -= (dz / dist) * 3 * dt;
+      e.mesh.rotation.y = Math.atan2(dx, dz);
+      const swing = Math.sin(game.time * 8 + e.phase) * 0.4;
+      e.mesh.userData.legL.rotation.x = swing;
+      e.mesh.userData.legR.rotation.x = -swing;
+      // Health bar follows health.
+      const frac = Math.max(0, e.health / e.maxHealth);
+      e.mesh.userData.barFg.scale.x = frac;
+      e.mesh.userData.barFg.position.x = -(1 - frac) * 0.43;
+      if (e.kind === 'thug') {
+        if (dist > 1.8) {
+          e.pos.x += (dx / dist) * e.speed * dt;
+          e.pos.z += (dz / dist) * e.speed * dt;
+        } else {
+          e.attackTimer -= dt;
+          if (e.attackTimer <= 0) {
+            e.attackTimer = 0.9;
+            p.health -= 8;
+            p.lastHitAt = game.time;
+            game.audio.punch();
+            game.hud.shake();
+          }
         }
-        enemy.mesh.position.copy(enemy.pos);
-        if (enemy.shootTimer <= 0 && dist < 42) {
-          enemy.shootTimer = 1.2;
-          const from = new V3(enemy.pos.x, 1.4, enemy.pos.z);
-          const to = new V3(game.player.pos.x, 1.2, game.player.pos.z);
-          spawnTracer(from, to, 0xff6644);
-          spawnFlash(from);
+      } else {
+        // Gunman: hold range and shoot.
+        if (dist > 18) {
+          e.pos.x += (dx / dist) * e.speed * dt;
+          e.pos.z += (dz / dist) * e.speed * dt;
+        }
+        e.shootTimer -= dt;
+        if (e.shootTimer <= 0 && dist < 25) {
+          e.shootTimer = game.rng.range(1.2, 2.2);
+          const from = new V3(e.pos.x, 1.5, e.pos.z);
+          const to = new V3(target.x, 1.2, target.z);
+          addTracer(from, to, 0xff5040);
+          const fl = e.mesh.userData.flash;
+          fl.material.opacity = 0.95;
+          setTimeout(() => { fl.material.opacity = 0; }, 120);
           game.audio.gunshot();
-          game.player.health = Math.max(0, game.player.health - 6);
-          game.player.lastHitAt = game.time;
+          p.health -= 6;
+          p.lastHitAt = game.time;
           game.hud.shake();
         }
-        continue;
       }
-      if (dist > 1.6) {
-        enemy.pos.x += (dx / dist) * 3.2 * dt;
-        enemy.pos.z += (dz / dist) * 3.2 * dt;
-        enemy.mesh.position.copy(enemy.pos);
-        const swing = Math.sin(game.time * 9 + enemy.phase) * 0.4;
-        enemy.mesh.userData.legL.rotation.x = swing;
-        enemy.mesh.userData.legR.rotation.x = -swing;
-        enemy.mesh.userData.armL.rotation.x = -swing;
-        enemy.mesh.userData.armR.rotation.x = swing;
-      } else if (enemy.punchTimer <= 0) {
-        enemy.punchTimer = 1.0;
-        game.player.health = Math.max(0, game.player.health - 8);
-        game.player.lastHitAt = game.time;
-        game.hud.shake();
-        game.audio.punch();
-      }
-      enemy.mesh.userData.barFg.lookAt(game.camera.position);
+      e.mesh.position.copy(e.pos);
+      if (e.health <= 0) killEnemy(e);
     }
-    for (let i = tracers.length - 1; i >= 0; i -= 1) {
-      const tracer = tracers[i];
-      tracer.life -= dt;
-      tracer.mesh.material.opacity = Math.max(0, Math.min(1, tracer.life / 0.16)) * 0.9;
-      if (tracer.life <= 0) {
-        game.scene.remove(tracer.mesh);
-        tracers.splice(i, 1);
+    // Timers.
+    if (p.punchTimer > 0) p.punchTimer -= dt;
+    if (p.shootTimer > 0) p.shootTimer -= dt;
+    if (p.reloadTimer > 0) p.reloadTimer -= dt;
+    const tick = (list) => {
+      for (let i = list.length - 1; i >= 0; i -= 1) {
+        const it = list[i];
+        it.life -= dt;
+        if (it.life <= 0) {
+          if (it.mesh) game.scene.remove(it.mesh);
+          if (it.sprite) game.scene.remove(it.sprite);
+          if (it.light) game.scene.remove(it.light);
+          list.splice(i, 1);
+        }
+      }
+    };
+    tick(tracers);
+    tick(flashes);
+    tick(sparks);
+    for (let i = casings.length - 1; i >= 0; i -= 1) {
+      const c = casings[i];
+      c.life -= dt;
+      c.vel.y -= 9 * dt;
+      c.mesh.position.addScaledVector(c.vel, dt);
+      if (c.mesh.position.y < 0.05) {
+        c.mesh.position.y = 0.05;
+        c.vel.set(0, 0, 0);
+      }
+      if (c.life <= 0) {
+        game.scene.remove(c.mesh);
+        casings.splice(i, 1);
       }
     }
-    for (let i = parts.length - 1; i >= 0; i -= 1) {
-      const part = parts[i];
-      part.life -= dt;
-      if (part.life <= 0) {
-        game.scene.remove(part.mesh);
-        parts.splice(i, 1);
-        continue;
+    for (let i = explosions.length - 1; i >= 0; i -= 1) {
+      const ex = explosions[i];
+      ex.life -= dt;
+      const t = 1 - ex.life / EFFECTS.ex;
+      ex.fire.scale.set(3.2 * ex.scale * (1 + t), 3.2 * ex.scale * (1 + t), 1);
+      ex.fire.material.opacity = Math.max(0, 0.95 - t);
+      if (ex.smoke) {
+        ex.smoke.position.y += dt * 1.5;
+        ex.smoke.material.opacity = Math.max(0, 0.7 - t * 0.5);
       }
-      part.vel.y -= part.grav * dt;
-      part.mesh.position.addScaledVector(part.vel, dt);
-      if (part.grow) part.mesh.scale.multiplyScalar(1 + part.grow * dt);
-      if (part.mesh.material.transparent) part.mesh.material.opacity = Math.max(0, part.life / part.maxLife);
+      ex.light.intensity = Math.max(0, 3 - t * 3);
+      if (ex.life <= 0) {
+        game.scene.remove(ex.fire);
+        if (ex.smoke) game.scene.remove(ex.smoke);
+        game.scene.remove(ex.light);
+        explosions.splice(i, 1);
+      }
     }
   }
 
-  return { enemies, spawnThug, spawnGunman, spawnExplosion, spawnCasing, spawnSparks, playerPunch, playerShoot, reloadWeapon, update };
+  return {
+    enemies, spawnThug, spawnGunman, spawnExplosion, spawnCasing,
+    spawnSparks, playerPunch, playerShoot, reloadWeapon, update,
+  };
 }

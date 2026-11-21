@@ -7,7 +7,12 @@ import { spawnPoliceCar } from './vehicles.js';
 import { nearestNode } from './roads.js';
 import { resolveBuildingCollision } from './city.js';
 
-const B = (g, w, h, d, m, x = 0, y = 0, z = 0) => { const q = new ME(new BX(w, h, d), m); q.position.set(x, y, z); g.add(q); return q; };
+const B = (g, w, h, d, m, x = 0, y = 0, z = 0) => {
+  const q = new ME(new BX(w, h, d), m);
+  q.position.set(x, y, z);
+  g.add(q);
+  return q;
+};
 const mt = (c, r = 0.9) => new MS({ color: c, roughness: r });
 
 function rotatedAABB(x, z, halfLen, halfWid, angle) {
@@ -18,206 +23,180 @@ function rotatedAABB(x, z, halfLen, halfWid, angle) {
   return { minX: x - hx, maxX: x + hx, minZ: z - hz, maxZ: z + hz };
 }
 
-// The helicopter. CHILD ORDER is load-bearing: shots.js recolors
-// children[0] (the body) for the burning / sunset staging.
-function createHelicopterMesh() {
-  const group = new GP();
-  const bodyMat = mt(0xd8dce2, 0.5);
-  const body = B(group, 2.4, 1.6, 4.5, bodyMat, 0, 0, 0);
+function createHeli() {
+  const g = new GP();
+  const bodyMat = mt(0x2a2f36, 0.5);
+  // Child 0 is the body — shots.js recolors it.
+  const body = B(g, 2.4, 1.6, 4.5, bodyMat, 0, 0, 0);
   body.castShadow = true;
-  B(group, 0.6, 0.6, 4, bodyMat, 0, 0.3, -4);
-  B(group, 0.3, 1.4, 0.8, bodyMat, 0, 0.8, -5.8);
-  B(group, 2.0, 1.0, 1.2, new MS({ color: 0x1a2a3a, roughness: 0.2, metalness: 0.6 }), 0, 0.3, 2.2);
-  const tailRotor = B(group, 0.08, 2.2, 0.3, mt(0x222222, 0.5), 0.35, 0.8, -5.8);
-  const rotor = B(group, 9, 0.08, 0.5, mt(0x222222, 0.5), 0, 1.1, 0);
-  const rotor2 = B(group, 0.5, 0.08, 9, mt(0x222222, 0.5), 0, 1.1, 0);
-  const skidMat = mt(0x333333, 0.8);
-  for (const side of [-1, 1]) B(group, 0.15, 0.15, 3.5, skidMat, side * 1.1, -1.1, 0);
-  // Searchlight cone + bulb under the nose. The cone stays hidden in the
-  // screenshots (it rendered as hard triangles); the soft beam sprites
-  // in shots.js carry the light instead.
-  const scrim = new ME(
-    new CN(1.1, 3, 12, 1, true),
-    new MB({ color: 0xfff8c0, transparent: true, opacity: 0.12, side: THREE.FrontSide }),
+  const glass = B(g, 2.0, 0.9, 1.4, mt(0x14181c, 0.2), 0, 0.3, 1.6);
+  glass.castShadow = true;
+  // Tail boom to z=-5.8, tail fin and rear rotor.
+  B(g, 0.45, 0.45, 4.0, bodyMat, 0, 0.2, -4.0);
+  B(g, 0.1, 1.3, 0.9, mt(0xd21f2b, 0.6), 0, 0.6, -5.7);
+  const rearRotor = B(g, 0.08, 1.7, 0.3, mt(0x222222, 0.6), 0.3, 0.5, -5.7);
+  // Main rotor: 9 m across, spins in update().
+  const rotor = B(g, 9, 0.08, 0.5, mt(0x222222, 0.6), 0, 1.15, 0);
+  g.userData.rotor = rotor;
+  g.userData.rearRotor = rearRotor;
+  // Skids.
+  for (const s of [-0.9, 0.9]) B(g, 0.12, 0.12, 3.4, mt(0x333333, 0.6), s, -1.0, 0);
+  // Searchlight cone under the belly. Shots hide it (the soft beam
+  // sprites carry the light instead); in play it marks the heli's pool.
+  const spot = new ME(
+    new CN(2.2, 0.5, 6, 12, 1, true),
+    new MB({ color: 0xfff2cc, transparent: true, opacity: 0.16, side: THREE.DoubleSide, depthWrite: false }),
   );
-  scrim.position.set(0, -1.8, 0);
-  group.add(scrim);
-  const bulb = new ME(
-    new CI(0.5, 16),
-    new MB({ color: 0xfff2b0 }),
-  );
-  bulb.rotation.x = PI / 2;
-  bulb.position.set(0, -1.2, 1.5);
-  group.add(bulb);
-  group.userData.rotor = rotor;
-  group.userData.rotor2 = rotor2;
-  group.userData.tailRotor = tailRotor;
-  group.userData.spotlight = scrim;
-  group.visible = false;
-  return group;
+  spot.position.y = -3.4;
+  spot.rotation.x = PI;
+  g.add(spot);
+  g.userData.spotlight = spot;
+  return g;
 }
 
 export function createPolice(game) {
-  const state = {
-    wanted: 0,
-    cars: [],
-    decayTimer: 0,
-    decayArmed: false,
-    ramCooldown: 0,
-    roadblock: null,
-  };
-  const heli = createHelicopterMesh();
+  const state = { wanted: 0, cars: [] };
+  let lastCrimeAt = -100;
+  let lastDecayAt = 0;
+  let roadblock = null;
+  let roadblockAt = -100;
+
+  const heli = createHeli();
+  heli.visible = false;
   game.scene.add(heli);
 
-  function commitCrime(stars) {
-    if (state.wanted >= 5) return;
-    state.wanted = Math.min(5, state.wanted + stars);
-    state.decayTimer = 0;
-    game.hud.flash(`Wanted ${state.wanted} — the PD is on you!`);
+  function spawnChaser() {
+    const p = game.player.car ? game.player.car.pos : game.player.pos;
+    const node = nearestNode(game.roads, p.x + game.rng.range(-60, 60), p.z + game.rng.range(-60, 60));
+    const car = spawnPoliceCar(game);
+    car.pos.set(node.x, 0, node.z);
+    car.heading = game.rng.range(0, PI * 2);
+    car.mesh.position.copy(car.pos);
+    car.mesh.rotation.y = car.heading;
+    state.cars.push(car);
+    return car;
   }
 
-  function keepCars() {
-    const max = state.wanted >= 4 ? POLICE.maxActiveCarsHigh : POLICE.maxActiveCars;
-    const want = Math.min(state.wanted, max);
-    while (state.cars.length < want) {
+  function placeRoadblock() {
+    const p = game.player.car ? game.player.car.pos : game.player.pos;
+    const ahead = nearestNode(game.roads, p.x, p.z);
+    const cars = [];
+    for (const s of [-1, 1]) {
       const car = spawnPoliceCar(game);
-      if (state.cars.length % 2 === 1) {
-        // Every second car spawns ahead of the player, so the chase
-        // closes in from the front as well as from behind.
-        const playerPos = game.player.car ? game.player.car.pos : game.player.pos;
-        const heading = game.player.car ? game.player.car.heading : game.player.heading;
-        const ax = playerPos.x + Math.cos(heading) * 70;
-        const az = playerPos.z - Math.sin(heading) * 70;
-        const node = nearestNode(game.roads, ax, az);
-        car.pos.set(node.x, 0, node.z);
-        car.mesh.position.copy(car.pos);
-      }
+      const along = s * 2.5;
+      car.pos.set(ahead.x + along, 0, ahead.z + s * 3.5);
+      car.heading = PI / 2;
+      car.mesh.position.copy(car.pos);
+      car.mesh.rotation.y = car.heading;
+      car.userData = car.userData || {};
+      car.roadblock = true;
       state.cars.push(car);
+      cars.push(car);
     }
-    while (state.cars.length > want) {
-      const car = state.cars.pop();
-      game.scene.remove(car.mesh);
-    }
+    roadblock = cars;
+    roadblockAt = game.time;
   }
 
-  function spawnRoadblock() {
-    const playerPos = game.player.car ? game.player.car.pos : game.player.pos;
-    const heading = game.player.car ? game.player.car.heading : game.player.heading;
-    const ax = playerPos.x + Math.cos(heading) * 80;
-    const az = playerPos.z - Math.sin(heading) * 80;
-    const node = nearestNode(game.roads, ax, az);
-    const perp = heading + PI / 2;
-    const barriers = [];
-    const colliders = [];
-    for (const offset of [-3.5, 3.5]) {
-      const bx = node.x + Math.cos(perp) * offset;
-      const bz = node.z - Math.sin(perp) * offset;
-      const barrier = new GP();
-      B(barrier, 5, 1, 0.4, mt(0xe67e22, 0.7), 0, 0.9, 0);
-      B(barrier, 5, 0.3, 0.42, mt(0xf5f5f0, 0.7), 0, 1.1, 0);
-      const legL = B(barrier, 0.3, 0.8, 0.3, mt(0x333333, 0.8), -2.2, 0.4, 0);
-      const legR = legL.clone();
-      legR.position.x = 2.2;
-      barrier.add(legR);
-      barrier.position.set(bx, 0, bz);
-      barrier.rotation.y = perp;
-      barrier.traverse((o) => { if (o.isMesh) o.castShadow = true; });
-      game.scene.add(barrier);
-      barriers.push(barrier);
-      colliders.push(rotatedAABB(bx, bz, 2.5, 0.4, perp));
+  function commitCrime(n) {
+    state.wanted = Math.min(5, state.wanted + n);
+    lastCrimeAt = game.time;
+    const max = state.wanted >= 4 ? POLICE.maxActiveCarsHigh : POLICE.maxActiveCars;
+    while (state.cars.filter((c) => !c.wrecked).length < Math.min(state.wanted + 1, max)) {
+      spawnChaser();
     }
-    for (const c of colliders) game.city.colliders.push(c);
-    state.roadblock = { node, barriers, colliders };
-    game.hud.flash('Roadblock ahead!');
-  }
-
-  function removeRoadblock() {
-    if (!state.roadblock) return;
-    for (const barrier of state.roadblock.barriers) game.scene.remove(barrier);
-    for (const c of state.roadblock.colliders) {
-      const i = game.city.colliders.indexOf(c);
-      if (i >= 0) game.city.colliders.splice(i, 1);
+    if (state.wanted >= POLICE.heliAtStars && !heli.visible) {
+      heli.visible = true;
+      const p = game.player.car ? game.player.car.pos : game.player.pos;
+      heli.position.set(p.x + 12, 38, p.z + 12);
     }
-    state.roadblock = null;
+    if (state.wanted >= POLICE.roadblockAtStars && !roadblock && game.time - roadblockAt > 20) {
+      placeRoadblock();
+    }
   }
 
   function update(dt) {
-    keepCars();
-    state.ramCooldown = Math.max(0, state.ramCooldown - dt);
-    const playerPos = game.player.car ? game.player.car.pos : game.player.pos;
-    if (state.wanted >= POLICE.roadblockAtStars && !state.roadblock) spawnRoadblock();
-    if (state.wanted < POLICE.roadblockAtStars && state.roadblock) removeRoadblock();
-    const heliActive = state.wanted >= POLICE.heliAtStars;
-    heli.visible = heliActive;
-    if (heliActive) {
-      heli.position.x += (playerPos.x + 12 - heli.position.x) * Math.min(1, dt * 0.8);
-      heli.position.z += (playerPos.z + 12 - heli.position.z) * Math.min(1, dt * 0.8);
-      heli.position.y = 38;
+    game.audio.updateSiren(dt, state.wanted);
+    const target = game.player.car ? game.player.car.pos : game.player.pos;
+    // Helicopter: hover over the player, rotor spinning.
+    if (state.wanted >= POLICE.heliAtStars) {
+      heli.visible = true;
+      const hx = target.x + 12;
+      const hz = target.z + 12;
+      heli.position.x += (hx - heli.position.x) * Math.min(1, 0.8 * dt);
+      heli.position.z += (hz - heli.position.z) * Math.min(1, 0.8 * dt);
+      heli.position.y = 38 + Math.sin(game.time * 0.8) * 1.2;
+      heli.rotation.y += dt * 0.15;
       heli.userData.rotor.rotation.y += dt * 22;
-      heli.userData.rotor2.rotation.y += dt * 22;
-      heli.userData.tailRotor.rotation.x += dt * 30;
-      heli.rotation.y = Math.atan2(playerPos.x - heli.position.x, playerPos.z - heli.position.z);
-      const spot = heli.userData.spotlight;
-      if (spot) {
-        const dist = Math.hypot(playerPos.x - heli.position.x, playerPos.z - heli.position.z);
-        spot.rotation.x = PI + Math.max(-0.3, Math.min(0.3, dist * 0.008));
-      }
+      heli.userData.rearRotor.rotation.x += dt * 18;
+    } else {
+      heli.visible = false;
     }
-    let nearestPolice = Infinity;
+    // Chase cars: steer at the player, ram when close.
     for (const car of state.cars) {
-      const dx = playerPos.x - car.pos.x;
-      const dz = playerPos.z - car.pos.z;
+      if (car.wrecked) continue;
+      if (car.roadblock) {
+        car.mesh.position.copy(car.pos);
+        continue;
+      }
+      const dx = target.x - car.pos.x;
+      const dz = target.z - car.pos.z;
       const dist = Math.hypot(dx, dz);
-      nearestPolice = Math.min(nearestPolice, dist);
-      const wantedHeading = Math.atan2(-dz, dx);
-      let diff = wantedHeading - car.heading;
+      const want = Math.atan2(-dz, dx);
+      let diff = want - car.heading;
       while (diff > PI) diff -= PI * 2;
       while (diff < -PI) diff += PI * 2;
-      car.heading += Math.max(-1.8 * dt, Math.min(1.8 * dt, diff * 2));
-      car.speed = Math.min(CAR.policeTopSpeed, car.speed + 14 * dt);
-      const nx = car.pos.x + Math.cos(car.heading) * car.speed * dt;
-      const nz = car.pos.z - Math.sin(car.heading) * car.speed * dt;
-      car.pos.set(nx, 0, nz);
-      if (resolveBuildingCollision(car.pos, CAR.radius, game.city.colliders)) car.speed *= 0.5;
-      car.mesh.position.set(car.pos.x, 0, car.pos.z);
+      car.heading += Math.max(-2.2 * dt, Math.min(2.2 * dt, diff));
+      const top = dist > 60 ? CAR.policeTopSpeed : CAR.policeTopSpeed * 0.85;
+      car.speed += (top - car.speed) * Math.min(1, 1.5 * dt);
+      car.pos.x += Math.cos(car.heading) * car.speed * dt;
+      car.pos.z += -Math.sin(car.heading) * car.speed * dt;
+      resolveBuildingCollision(car.pos, CAR.radius, game.city.colliders);
+      car.mesh.position.copy(car.pos);
       car.mesh.rotation.y = car.heading;
-      const blink = Math.floor(game.time * 4) % 2 === 0;
-      if (car.mesh.userData.lightR) {
-        car.mesh.userData.lightR.material.emissive.setHex(blink ? 0xff0000 : 0x220000);
-        car.mesh.userData.lightB.material.emissive.setHex(blink ? 0x000022 : 0x0000ff);
-      }
-      if (dist < 4.5 && state.ramCooldown <= 0) {
-        state.ramCooldown = POLICE.ramCooldown;
-        game.player.health = Math.max(0, game.player.health - POLICE.ramDamage);
-        game.player.lastHitAt = game.time;
-        game.hud.shake();
-        if (game.player.car) {
-          game.player.car.speed *= 0.6;
-          game.player.car.health = Math.max(0, game.player.car.health - 8);
-          game.player.car.pos.x += (dx / dist) * 1.5;
-          game.player.car.pos.z += (dz / dist) * 1.5;
+      if (dist < 3.2) {
+        if (!car.ramAt || game.time - car.ramAt > POLICE.ramCooldown) {
+          car.ramAt = game.time;
+          const victim = game.player.car;
+          if (victim) {
+            victim.health -= POLICE.ramDamage * 4;
+            car.speed *= 0.3;
+          } else {
+            game.player.health -= POLICE.ramDamage;
+            game.player.lastHitAt = game.time;
+          }
+          game.audio.crash();
+          game.hud.shake();
         }
       }
-    }
-    if (state.wanted > 0) {
-      const escaping = game.missions.state.escaping;
-      const after = escaping ? POLICE.escapeDecayAfterSeconds : POLICE.decayAfterSeconds;
-      const interval = escaping ? POLICE.escapeDecayIntervalSeconds : POLICE.decayIntervalSeconds;
-      if (nearestPolice > 80) {
-        state.decayTimer += dt;
-        const threshold = state.decayArmed ? interval : after;
-        if (state.decayTimer > threshold) {
-          state.decayTimer = 0;
-          state.decayArmed = true;
-          state.wanted -= 1;
-          if (state.wanted === 0) game.hud.flash('You lost them.');
-        }
-      } else {
-        state.decayTimer = 0;
-        state.decayArmed = false;
+      if (car.health <= 0) {
+        car.wrecked = true;
+        car.speed = 0;
+        game.audio.wreck();
       }
     }
-    game.audio.updateSiren(dt, state.wanted);
+    // Drop wrecked cars from the active list.
+    state.cars = state.cars.filter((c) => {
+      if (c.wrecked) {
+        game.scene.remove(c.mesh);
+        return false;
+      }
+      return true;
+    });
+    if (roadblock) {
+      roadblock = roadblock.filter((c) => !c.wrecked);
+      if (state.wanted < POLICE.roadblockAtStars || roadblock.length === 0) {
+        for (const c of roadblock) c.roadblock = false;
+        roadblock = null;
+      }
+    }
+    // Heat cools off when the player lays low.
+    const escaping = game.missions.state.escaping;
+    const after = escaping ? POLICE.escapeDecayAfterSeconds : POLICE.decayAfterSeconds;
+    const interval = escaping ? POLICE.escapeDecayIntervalSeconds : POLICE.decayIntervalSeconds;
+    if (state.wanted > 0 && game.time - lastCrimeAt > after && game.time - lastDecayAt > interval) {
+      lastDecayAt = game.time;
+      state.wanted -= 1;
+    }
   }
 
   return { state, commitCrime, update, heli };

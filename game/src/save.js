@@ -6,7 +6,8 @@ import { SAVE_KEY } from './config.js';
 export function saveGame(game) {
   try {
     const data = {
-      version: 3,
+      version: 4,
+      savedAt: Date.now(),
       cash: game.cash,
       health: game.player.health,
       missionIndex: game.missions.state.index,

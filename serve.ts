@@ -78,4 +78,5 @@ createServer((request, response) => {
 }).listen(port, '127.0.0.1', () => {
   console.log(`game/ is on http://localhost:${port}`);
   console.log('Shots: ?shot=chase&seed=7  ?shot=gunfight&seed=7  ?shot=downtown&seed=7  ?shot=sunset&seed=7');
+  console.log('Audit: add &audit=1 to log sign + heli screen positions to the console.');
 });
