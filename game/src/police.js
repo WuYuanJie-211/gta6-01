@@ -68,19 +68,19 @@ function createHeli() {
   B(g, 0.12, 1.5, 1.1, mt(0x1b2430, 0.6), 0, 0.75, -5.6);
   B(g, 0.14, 0.12, 0.9, mt(0xffd94d, 0.5), 0, 1.52, -5.6);
   B(g, 0.1, 0.12, 0.1, new MS({ color: 0xff2222, emissive: 0xff0000, emissiveIntensity: 2 }), 0, 1.66, -5.6);
-  // Tail rotor: a 4-blade X (two crossed boxes, 45/135 deg) on the
-  // LEFT side of the fin, small dark hub, light-grey tips. The old
-  // 8-spoke star (four boxes at 45 deg) + the hub disc read as a
-  // gear (v43). No outer disc: the disc was the source of the gear
-  // reading. (The 0/90 deg + was fixed to a 45 deg X in v44 — the
-  // checklist wants a countable 4-blade 45 deg cross.)
+  // Tail rotor: bright 4-blade X (v45) — 0xC8C8C8 blades with a dark
+  // outline box behind each, 0x555555 hub; no outer disc (v43 gear).
   const rearRotor = new GP();
   rearRotor.position.set(-0.4, 0.7, -5.6);
-  const rrMat = mt(0x16181a, 0.6);
-  const rrHub = new ME(new CG(0.1, 0.1, 0.1, 10), mt(0x16181a, 0.5));
+  const rrMat = mt(0xC8C8C8, 0.6);
+  const rrOut = mt(0x222222, 0.6);
+  const rrHub = new ME(new CG(0.23, 0.23, 0.1, 10), mt(0x555555, 0.5));
   rrHub.rotation.z = PI / 2;
   rearRotor.add(rrHub);
   for (const a of [PI / 4, 3 * PI / 4]) {
+    const ol = new ME(new BX(0.07, 1.56, 0.41), rrOut);
+    ol.rotation.x = a;
+    rearRotor.add(ol);
     const bl = new ME(new BX(0.06, 1.5, 0.35), rrMat);
     bl.rotation.x = a;
     rearRotor.add(bl);
@@ -130,7 +130,7 @@ function createHeli() {
   }
   g.add(rotor);
   g.userData.rotor = rotor;
-  const disc = new ME(new CI(5.4, 40), new MB({ color: 0x1a1a1a, transparent: true, opacity: 0.22, side: DS, depthWrite: false }));
+  const disc = new ME(new CI(5.4, 40), new MB({ color: 0xffffff, transparent: true, opacity: 0.12, side: DS, depthWrite: false }));
   disc.rotation.x = -PI / 2;
   disc.position.y = 1.22;
   g.add(disc);

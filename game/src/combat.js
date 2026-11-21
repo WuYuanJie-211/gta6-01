@@ -115,8 +115,7 @@ export function createCombat(game) {
   function addTracer(from, to, color = 0xffa040) {
     const dir = new V3().subVectors(to, from);
     const len = dir.length();
-    // Thin (0.03 m) and bright — the old 0.02 m rod read as a broken
-    // thread. Never shares a mesh with the flash.
+    // Thin (0.03 m) and bright. Never shares a mesh with the flash.
     const m = new ME(
       new BX(0.03, 0.03, len),
       new MB({ color, transparent: true, opacity: 0.85, blending: AB, depthWrite: false }),
@@ -128,36 +127,34 @@ export function createCombat(game) {
     return m;
   }
 
-  // Muzzle flash: a SHORT cone + a big glow sprite, both AT the
-  // muzzle anchor, along the barrel axis, lasting 2 frames. The core
-  // is near-white (0xfff6d8) and the glow sprite is big (2.2 m) — the
-  // old small orange flash washed out against the bright orange wall
-  // and read as nothing at all (v43 shot 2). The glow is deliberately
-  // oversized: from the staged camera the muzzle sits just inside the
-  // player's torso silhouette, so a 1.6 m sprite was fully occluded.
+  // Muzzle flash (v45): a SHORT cone along the BARREL + a small glow,
+  // both AT the muzzle anchor, lasting 2 frames. The cone is 22 px
+  // (0.107 m at rifle scale), base radius 9 px — the old 0.6 m cone
+  // + 2.2 m glow washed the whole muzzle into one white blob and the
+  // cone never read. The glow is 0.9 m now, a halo not a blob.
   function addFlash(pos, dir, scale = 1) {
     const d = dir.clone().normalize();
     const up = new V3(0, 1, 0);
     const q = new THREE.Quaternion().setFromUnitVectors(up, d);
-    const outer = new ME(new CN(0.2 * scale, 0.6 * scale, 8), new MB({ color: 0xff9a2e, transparent: true, opacity: 0.95, blending: AB, depthWrite: false }));
+    const outer = new ME(new CN(0.044 * scale, 0.107 * scale, 8), new MB({ color: 0xff9a2e, transparent: true, opacity: 0.95, blending: AB, depthWrite: false }));
     outer.quaternion.copy(q);
-    outer.position.copy(pos).addScaledVector(d, 0.28 * scale);
+    outer.position.copy(pos).addScaledVector(d, 0.05 * scale);
     game.scene.add(outer);
-    const inner = new ME(new CN(0.12 * scale, 0.45 * scale, 8), new MB({ color: 0xfff6d8, transparent: true, opacity: 1, blending: AB, depthWrite: false }));
+    const inner = new ME(new CN(0.03 * scale, 0.08 * scale, 8), new MB({ color: 0xfff6d8, transparent: true, opacity: 1, blending: AB, depthWrite: false }));
     inner.quaternion.copy(q);
-    inner.position.copy(pos).addScaledVector(d, 0.22 * scale);
+    inner.position.copy(pos).addScaledVector(d, 0.04 * scale);
     game.scene.add(inner);
     const glow = new SP(new THREE.SpriteMaterial({
       map: poolTexture(), color: 0xfff2c0, transparent: true, opacity: 1,
       blending: AB, depthWrite: false,
     }));
     glow.position.copy(pos).addScaledVector(d, 0.15 * scale);
-    glow.scale.set(2.2 * scale, 2.2 * scale, 1);
+    glow.scale.set(0.9 * scale, 0.9 * scale, 1);
     game.scene.add(glow);
     flashes.push({ sprite: glow, life: 0.033 });
     flashes.push({ mesh: outer, life: 0.033 });
     flashes.push({ mesh: inner, life: 0.033 });
-    const light = new THREE.PointLight(0xffa040, 3, 4);
+    const light = new THREE.PointLight(0xffa040, 3, 2.5);
     light.position.copy(pos);
     game.scene.add(light);
     flashes.push({ sprite: null, light, life: 0.033 });
@@ -303,6 +300,11 @@ export function createCombat(game) {
     const to = aimPoint();
     addTracer(from, to);
     const dir = new V3().subVectors(to, from);
+    // v45: the flash cone follows the BARREL (rifle +z), not the aim
+    // line — the barrel points up-right, the aim drops to the chest;
+    // a cone on the aim line reads as detached from the gun.
+    const rifle = p.mesh.userData.rifle;
+    if (rifle) rifle.getWorldDirection(dir);
     addFlash(from, dir, p.weapon === 'rifle' ? 1.2 : 0.8);
     spawnCasing(from);
     game.audio.gunshot();
