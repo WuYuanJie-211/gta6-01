@@ -27,6 +27,42 @@ function mulberry32(seed) {
   };
 }
 
+// 3-pointed muzzle-flash star texture (v47): a bright core with three
+// spikes — one long spike along +x (the barrel direction), two shorter
+// spikes at +/-120 deg. Drawn once, cached. The sprite's long axis is
+// the texture's +x, so material.rotation aligns it with the barrel's
+// screen direction.
+let _flashTex = null;
+function flashStarTex() {
+  if (_flashTex) return _flashTex;
+  const c = document.createElement('canvas');
+  c.width = 128; c.height = 128;
+  const x = c.getContext('2d');
+  x.translate(64, 64);
+  const spike = (ang, len, wid) => {
+    x.save(); x.rotate(ang);
+    const g = x.createLinearGradient(0, 0, len, 0);
+    g.addColorStop(0, 'rgba(255,246,216,1)');
+    g.addColorStop(0.4, 'rgba(255,180,60,0.9)');
+    g.addColorStop(1, 'rgba(255,140,40,0)');
+    x.fillStyle = g;
+    x.beginPath(); x.moveTo(0, -wid); x.lineTo(len, 0); x.lineTo(0, wid); x.closePath(); x.fill();
+    x.restore();
+  };
+  spike(0, 62, 7);
+  spike(2.094, 34, 6);
+  spike(-2.094, 34, 6);
+  const core = x.createRadialGradient(0, 0, 1, 0, 0, 14);
+  core.addColorStop(0, 'rgba(255,250,230,1)');
+  core.addColorStop(0.5, 'rgba(255,220,140,0.9)');
+  core.addColorStop(1, 'rgba(255,180,60,0)');
+  x.fillStyle = core;
+  x.beginPath(); x.arc(0, 0, 14, 0, PI * 2); x.fill();
+  _flashTex = new CT(c);
+  _flashTex.colorSpace = SC; // v47: match taxi/glass tex — no CS = invisible sprite
+  return _flashTex;
+}
+
 // A soft additive light pool on the ground (the pool texture).
 function pool(g, x, z, r, o, y = 0.07) {
   const t = g.textures && g.textures.pool;
@@ -243,8 +279,12 @@ function stageChase(game) {
   // under c2 is asphalted (a dark plane at y=0.06, v45 below), so
   // the cruiser reads as on the road. c2 moves 3 m south so it sits
   // at screen y360-450.
+  // v47: c2 into the lane — x +2.6 m, z -0.4 m (was x=230, on the
+  // beige plaza with an asphalt patch under it; now x=232.6, four
+  // wheels on the road itself). The patch follows c2.pos, so it
+  // moves with the cruiser.
   const c1 = pc(game, vx + 6, vz - 1, -PI / 2 + 0.4, 24);
-  const c2 = pc(game, vx - 7, vz - 8, -PI / 2, 24);
+  const c2 = pc(game, vx - 4.4, vz - 8.4, -PI / 2, 24);
   for (const c of [c1, c2]) {
     if (c.mesh.userData.lightR) {
       c.mesh.userData.lightR.material.emissive.setHex(0xff0000);
@@ -288,19 +328,13 @@ function stageChase(game) {
   blob(game, 240, -198, 12.0, 8.0, 0.7, 0.08);
   blob(game, 237.8, -203.7, 4.3, 1.8, 0.7, 0.09);
   blob(game, 236.2, -206.3, 4.3, 1.8, 0.7, 0.09);
-  // v46: dense cores ON the two dashes (renderOrder 3, like the
-  // gunfight cores) — the soft blobs' radial gradient fades to
-  // ~0.6 alpha at the dash, so the dash still read 187-209. A 0.85
-  // core centred on each dash forces it to <=150. Dash A centre
-  // (237.6,-203.5), dash B centre (241,-206) — probed from the v45
-  // render. The radial texture (centre 0.95, edge 0) keeps the edge
-  // soft, so no hard slab. A third small core sits on dash B's north
-  // end (241,-207.5) — that corner still read 209, the big core's
-  // gradient is too weak 1.5 m off-centre. The "dash" is the double
-  // yellow centre line: its north end (z~-208.5) sits at the cores'
-  // gradient edge. A 4x4, 0.95 core centred further north (241,-208.5)
-  // puts that end inside the dense centre.
-  for (const [cx, cz, w, d, o] of [[237.6, -203.5, 4.5, 5.5, 0.85], [241, -206, 4.5, 5.5, 0.85], [241, -208.5, 4.0, 4.0, 0.95]]) {
+  // v47: dense cores ON the dashes (renderOrder 3, like the gunfight
+  // cores). v46's cores were narrower than the dash — the dash ends
+  // stuck out past the gradient's dense centre, so the dash still
+  // read ~116-230. The main core is now 6x7 m centred exactly on the
+  // west lane dash (237,-203), so the whole 2 m dash sits inside the
+  // dense centre with margin; opacity 0.72 per the plan.
+  for (const [cx, cz, w, d, o] of [[237, -203, 6, 7, 0.72], [241, -206, 4.5, 5.5, 0.72], [241, -208.5, 4.0, 4.0, 0.72]]) {
     const core = new ME(new PG(w, d), SH(blobShadowTexture(), o));
     core.rotation.x = -PI / 2;
     core.position.set(cx, 0.13, cz);
@@ -372,7 +406,7 @@ function stageChase(game) {
   // as a sign hung ON the helicopter. Now the sign's letters sit at
   // screen y~200-280 and the skids clear it by >=30 px.
   const gym = makeV31Sign('GYM', '#1a3a5f', '#FFFFFF', 6, 3.5);
-  gym.position.set(233, 3.0, -220);
+  gym.position.set(233, 2.75, -220); // v47: down 0.25 m, skid gap 33 -> ~44 px
   gym.rotation.y = 0;
   game.scene.add(gym);
   for (const px of [231, 235]) {
@@ -439,7 +473,10 @@ function stageGunfight(game) {
   // v45: upright (rotation.x 0, not 0.3) — the 0.3 forward lean read
   // as falling, not leaning on the wall. Feet on the ground, back
   // 10 px off the wall.
+  // v47: torso straightened 3 deg (rotation.z +0.05) — the red figure
+  // still read as leaning sideways.
   th.mesh.rotation.x = 0;
+  th.mesh.rotation.z = 0.05;
   th.mesh.scale.y = 0.85;
   // Hide the gunmen's rifles — the barrel crossed the duellist's torso
   // and read as passing through him. The tracer + muzzle flash carry
@@ -454,13 +491,19 @@ function stageGunfight(game) {
   // core (renderOrder 3) draws after the dash texture and after any
   // light pool, so nothing repaints over it.
   blob(game, -183, 197, 4.5, 3.5, 0.5, 0.1);
-  const pcore = new ME(new PG(2.5, 1.8), SH(blobShadowTexture(), 0.85));
+  // v47: core enlarged 1.8 -> 3.0 m deep — the 2 m dash segment stuck
+  // out past the core's dense centre (the dash ends read 159-201).
+  // 3.0 m covers the whole segment plus margin; opacity 0.72.
+  const pcore = new ME(new PG(2.5, 3.0), SH(blobShadowTexture(), 0.72));
   pcore.rotation.x = -PI / 2;
   pcore.position.set(-183, 0.13, 197);
   pcore.renderOrder = 3;
   game.scene.add(pcore);
   blob(game, -183, 189, 3.5, 2.8, 0.5, 0.1);
-  const dcore = new ME(new PG(2.0, 1.5), SH(blobShadowTexture(), 0.85));
+  // v47: far gunman's core enlarged 1.5 -> 2.5 m deep, same reason;
+  // same world size as the near core would read smaller at his
+  // distance, so 2.5 m keeps the dash covered. Opacity 0.72.
+  const dcore = new ME(new PG(2.0, 2.5), SH(blobShadowTexture(), 0.72));
   dcore.rotation.x = -PI / 2;
   dcore.position.set(-183, 0.13, 189);
   dcore.renderOrder = 3;
@@ -488,30 +531,31 @@ function stageGunfight(game) {
   skid(game, -183.5, 198.5);
   game.input.fireAction(ACTION_SHOOT);
   game.step(STEP);
-  // v46: STATIC muzzle cone — the combat.js flash lives 2 frames and
-  // never lands in the screenshot (the paint loop runs 2 frames
-  // after the shot, and the cone is foreshortened end-on from this
-  // camera when it follows the aim line). This cone is a permanent
-  // mesh at the muzzle, oriented along the BARREL (rifle origin ->
-  // muzzle, which points up-right on screen), apex at the muzzle,
-  // base forward. It is the cone the checklist measures: 28 px long,
-  // 8 px base radius, 7 px bright core, 2-frame look, no glow disc.
+  // v47: STATIC muzzle flash — a screen-space billboard (three-pointed
+  // star sprite), reusing the tracer's material set: transparent,
+  // additive, depthWrite off, renderOrder 6 above the gun body. The
+  // v46 cone foreshortened to a disc from this camera (the barrel
+  // points away from it), and the v46 sprite never rendered (it fell
+  // in the opaque queue / depth-tested behind the gun). The star's
+  // long spike aligns with the barrel's SCREEN direction (muzzle ->
+  // barrel-end projected), so the flash reads long, not round.
   const sRifle = player.mesh.userData.rifle;
   if (sRifle && sRifle.userData.muzzle) {
     const mPos = new V3();
     sRifle.userData.muzzle.getWorldPosition(mPos);
-    const rPos = new V3();
-    sRifle.getWorldPosition(rPos);
     const bDir = new V3(-183, 1.2, 189).sub(mPos).normalize();
-    const cq = new THREE.Quaternion().setFromUnitVectors(new V3(0, 1, 0), bDir.clone().negate());
-    const cOut = new ME(new CN(0.075 * 1.2, 0.25 * 1.2, 8), new MB({ color: 0xff9a2e }));
-    cOut.quaternion.copy(cq);
-    cOut.position.copy(mPos).addScaledVector(bDir, 0.05 * 1.2);
-    game.scene.add(cOut);
-    const cIn = new ME(new CN(0.05 * 1.2, 0.16 * 1.2, 8), new MB({ color: 0xfff6d8 }));
-    cIn.quaternion.copy(cq);
-    cIn.position.copy(mPos).addScaledVector(bDir, 0.04 * 1.2);
-    game.scene.add(cIn);
+    const bEnd = mPos.clone().addScaledVector(bDir, 1.5);
+    game.camera.updateMatrixWorld();
+    const toScr = (v) => { const p = v.clone().project(game.camera); return [((p.x + 1) / 2) * 1280, ((1 - p.y) / 2) * 720]; };
+    const [mx, my] = toScr(mPos);
+    const [bx, by] = toScr(bEnd);
+    const ang = Math.atan2(-(by - my), bx - mx);
+    const flash = new THREE.Sprite(new THREE.SpriteMaterial({ map: flashStarTex(), color: 0xffd28a, transparent: true, opacity: 0.95, blending: AB, depthWrite: false, depthTest: false }));
+    flash.material.rotation = ang;
+    flash.position.copy(mPos).addScaledVector(bDir, 0.06);
+    flash.scale.set(0.44, 0.4, 1); // v47: 0.35x0.22 read 22x9 px, need 26-30x16-20
+    flash.renderOrder = 6;
+    game.scene.add(flash);
   }
   // Clear the hit sparks: the shot hits the duellist, and spawnSparks
   // puts 5 glowing sprites at his feet that outlive the flash and
@@ -574,11 +618,15 @@ function stageDowntown(game) {
   // northbound + one southbound on the avenue. The old westbound
   // queue sat between the camera and the taxi and would have hidden
   // it from the new east camera.
+  // v47: the red (212,-177) and orange (205,-183) traffic cars read as
+  // two flat red-orange blocks on the road (the median hides their
+  // lower halves, only the roofs show). Deleted — parked out of frame
+  // at (0,300); the other four cars keep their colours and spots.
   const spots = [
     { x: 228, z: -177, prev: '180,-180', target: '240,-180', h: 0 },
-    { x: 212, z: -177, prev: '180,-180', target: '240,-180', h: 0 },
+    { x: 0, z: 300, prev: '180,-180', target: '240,-180', h: 0 },
     { x: 220, z: -183, prev: '300,-180', target: '240,-180', h: PI },
-    { x: 205, z: -183, prev: '300,-180', target: '240,-180', h: PI },
+    { x: 0, z: 300, prev: '300,-180', target: '240,-180', h: PI },
     { x: 243, z: -200, prev: '240,-240', target: '240,-180', h: PI / 2 },
     { x: 237, z: -160, prev: '240,-120', target: '240,-180', h: -PI / 2 },
   ];
@@ -600,7 +648,10 @@ function stageDowntown(game) {
   // (armored, first spot) still read with its wheel on the sidewalk
   // edge — moved 1.5 m west into the lane centre (x=243) and 2 m
   // north (z=-194) so all four wheels sit clearly on asphalt.
-  const parkedSpots = [[243, -194], [244.5, -168], [244.5, -204]];
+  // v47: the dark van (armored, second spot) moved right 70 px — 0.84 m
+  // north (z -168 -> -168.84) so its right front wheel sits back on
+  // asphalt, clear of the curb. (v46 moved the wrong spot's van.)
+  const parkedSpots = [[243, -194], [244.5, -168.84], [244.5, -204]];
   const others = game.cars.parked.filter((c) => c !== taxi);
   others.slice(0, 3).forEach((c, i) => place(c, parkedSpots[i][0], parkedSpots[i][1], PI / 2));
   others.slice(3).forEach((c) => { place(c, 0, 300, 0); });
@@ -791,7 +842,8 @@ function stageSunset(game) {
         }));
         const h = 0.6 + fireRng() * 1.2;
         s.position.set(lx + (fireRng() - 0.5) * 0.5, h, lz + (fireRng() - 0.5) * 0.6);
-        const sz = 0.25 + fireRng() * 0.35;
+        // v47: particle size -15% so the flame top drops back to y≈305.
+        const sz = (0.25 + fireRng() * 0.35) * 0.85;
         s.scale.set(sz, sz * 1.4, 1);
         bc.mesh.add(s);
       }
@@ -855,14 +907,14 @@ function stageSunset(game) {
   // a distant straight boulevard (v43). v45: he read 60% tall — move
   // him 0.3 m further west (to x247.1) so he reads 45% (the first
   // build moved him 3 m west and he shrank to 27% — too far).
-  // v46: he read 60% tall — shrink to 45% (scale 1.15 -> 0.9) and
+  // v47: he read 60% tall — shrink to 45% (scale 0.9 -> 0.75) and
   // move 0.7 m further west (x247.8, away from the east camera).
   // Torso turned 20 deg more (rotation +0.7) so his right side
   // opens to the camera and the rifle clears the torso outline.
   const fgGun = game.combat.spawnGunman(247.8, -181.2);
   fgGun.mesh.children[8].visible = fgGun.mesh.children[9].visible = false;
   fgGun.mesh.rotation.y = PI / 2 + PI + 0.7;
-  fgGun.mesh.scale.setScalar(0.9);
+  fgGun.mesh.scale.setScalar(0.75);
   blob(game, 247.8, -181.2, 5.0, 4.0, 0.5, 0.12);
   // Rifle: in his RIGHT hand (local +x, the camera side after the
   // torso turn), longer (1.6 m) and angled up-right so the barrel

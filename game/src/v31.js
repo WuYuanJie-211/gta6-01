@@ -377,8 +377,8 @@ export function makeSkyDome() {
     fragmentShader: `varying vec3 vP;
       void main(){
         float h = clamp(normalize(vP).y, 0.0, 1.0);
-        vec3 zen = vec3(0.17, 0.16, 0.37);
-        vec3 mid = vec3(0.48, 0.31, 0.55);
+        vec3 zen = vec3(0.24, 0.23, 0.30);
+        vec3 mid = vec3(0.44, 0.40, 0.48);
         vec3 hor = vec3(1.0, 0.55, 0.35);
         vec3 col = h < 0.22 ? mix(hor, mid, h / 0.22) : mix(mid, zen, (h - 0.22) / 0.78);
         float d = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) / 255.0;
@@ -429,7 +429,7 @@ export function makeTrafficLight(state, offset) {
   g.add(visor);
   const lamps = {};
   const defs = [
-    ['r', 0xff2a22, 4.55],
+    ['r', 0xffb020, 4.55],
     ['y', 0xffb020, 4.1],
     ['g', 0x2aff5e, 3.65],
   ];

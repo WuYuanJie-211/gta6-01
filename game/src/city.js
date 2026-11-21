@@ -125,7 +125,7 @@ export function buildCity(scene, rng, textures) {
     garage: { x: 270, z: 30 },
     diner: { x: 30, z: 150 },
     race: [{ x: 180, z: -180 }, { x: 180, z: 60 }, { x: -60, z: 60 }, { x: -60, z: -180 }],
-    busStops: [{ x: 14, z: -174 }, { x: -14, z: -186 }, { x: 246, z: -174 }, { x: 234, z: -186 }, { x: 14, z: 6 }, { x: -14, z: -6 }],
+    busStops: [{ x: 14, z: -174 }, { x: -14, z: -186 }, { x: 234, z: -186 }, { x: 14, z: 6 }, { x: -14, z: -6 }],
     collectibles: [{ x: 120, z: -183 }, { x: 0, z: 30 }, { x: -120, z: 120 }, { x: 300, z: -60 }, { x: -240, z: -300 }],
   };
 
@@ -229,8 +229,8 @@ export function buildCity(scene, rng, textures) {
     const x0 = CITY.roadLinesX[i] + 6;
     const x1 = CITY.roadLinesX[i + 1] - 6;
     const cx = (x0 + x1) / 2;
-    box(scene, 48, 0.7, 0.5, medianMat, cx, 0.35, -180);
-    box(scene, 48, 0.1, 0.3, medianTop, cx, 0.75, -180);
+    box(scene, 48, 0.45, 0.5, medianMat, cx, 0.225, -180);
+    box(scene, 48, 0.1, 0.3, medianTop, cx, 0.5, -180);
     col.push({ minX: x0, maxX: x1, minZ: -180.25, maxZ: -179.75 });
   }
   // Zebra crossings: opaque planes on the hero-zone intersections, so
@@ -549,12 +549,10 @@ export function buildCity(scene, rng, textures) {
         // Storefront cell, not a flat dark box — the face shot 2 sees.
         const sw = box(scene, w * 0.7, 3, 0.2, facadeMat, x, 1.5, z + d / 2 + 0.1);
         applyFacadeUVs(sw.geometry, 12, w * 0.7, 20, 0.2);
-        // Awning flush to the wall (v46): old 0.22 tilt left its back
-        // edge off the facade and it read as floating. Back edge now
-        // inside the wall; two diagonal struts tie it to the facade.
+        // v47: sunk 0.35 m (y 3.4 -> 3.05).
         const awnCol = rng.pick([0xc0392b, 0x1e8449, 0xe67e22, 0x7d3c98, 0x2c3e50, 0x0066aa]);
         const awnMat = rng.chance(0.5) ? TM(tx.awning, 2, 1, 0.9) : M(awnCol, 0.85);
-        const awn2 = box(scene, w * 0.75, 0.15, 2, awnMat, x, 3.4, z + d / 2 + 0.7);
+        const awn2 = box(scene, w * 0.75, 0.15, 2, awnMat, x, 3.05, z + d / 2 + 0.7);
         awn2.rotation.x = 0.05;
         for (const s of [-1, 1]) {
           const strut = box(scene, 0.12, 2.1, 0.12, M(0x8a8a8a, 0.9), x + s * w * 0.25, 2.78, z + d / 2 + 0.85);
@@ -580,13 +578,15 @@ export function buildCity(scene, rng, textures) {
   // so their crowns stay well below the heli's 8.5 m flight band.
   const heroPalmSpots = [
     [232.5, -195, 9, 1.5, 2.1], [247.5, -195, 9, 1.1, 0.9],
-    [232.5, -185, 7, 1.0, 0.4], [247.5, -210, 10, 1.6, 3.3],
+    [232.5, -185, 7, 1.0, 0.4], [248.8, -211.5, 10, 1.6, 3.3],
     [232.5, -168, 7, 0.8, 4.0], [247.5, -158, 8, 1.2, 5.5],
-    [232.5, -155, 9, 1.8, 1.2], [247.5, -165, 9, 0.9, 2.8],
+    [232.5, -155, 9, 1.8, 1.2], [246.3, -163.4, 9, 0.9, 2.8],
   ];
-  for (const [px, pz, ph, pl, pd] of heroPalmSpots) {
+  for (let i = 0; i < heroPalmSpots.length; i += 1) {
+    const [px, pz, ph, pl, pd] = heroPalmSpots[i];
     const palm = makeV31Palm(ph, pl, pd);
     palm.position.set(px, 0, pz);
+    if (i === 3 || i === 7) palm.scale.setScalar(0.8); // v47: cut-top palms down
     scene.add(palm);
   }
   // 4 streetlights in the hero zone. The (232.5,-170) lamp stood on the
@@ -643,15 +643,15 @@ export function buildCity(scene, rng, textures) {
       // strip, so it reads as a real awning, not a pure black flat
       // plate (v42).
       if (i % 4 < 2) {
-        box(scene, 1.4, 0.2, pd * 0.6, M(SHOP_AWN[i % SHOP_AWN.length], 0.85), t.x + pw / 2 + 0.7, 3.3, t.z);
-        box(scene, 0.08, 0.5, pd * 0.6, M(SHOP_AWN[i % SHOP_AWN.length], 0.85), t.x + pw / 2 + 1.36, 3.05, t.z);
+        box(scene, 1.4, 0.2, pd * 0.6, M(SHOP_AWN[i % SHOP_AWN.length], 0.85), t.x + pw / 2 + 0.7, 2.95, t.z); // v47: sunk 0.35
+        box(scene, 0.08, 0.5, pd * 0.6, M(SHOP_AWN[i % SHOP_AWN.length], 0.85), t.x + pw / 2 + 1.36, 2.7, t.z);
       }
     } else {
       box(scene, pw, 4.5, 0.12, M(panelCol, 0.9), t.x, 2.25, t.z + pd / 2 + 0.08);
       box(scene, pw * 0.6, 2.2, 0.08, M(glassCol, 0.3, { emissive: glassCol }), t.x, 1.6, t.z + pd / 2 + 0.18);
       if (i % 4 < 2) {
-        box(scene, pw * 0.6, 0.2, 1.4, M(SHOP_AWN[i % SHOP_AWN.length], 0.85), t.x, 3.3, t.z + pd / 2 + 0.7);
-        box(scene, pw * 0.6, 0.5, 0.08, M(SHOP_AWN[i % SHOP_AWN.length], 0.85), t.x, 3.05, t.z + pd / 2 + 1.36);
+        box(scene, pw * 0.6, 0.2, 1.4, M(SHOP_AWN[i % SHOP_AWN.length], 0.85), t.x, 2.95, t.z + pd / 2 + 0.7); // v47: sunk 0.35
+        box(scene, pw * 0.6, 0.5, 0.08, M(SHOP_AWN[i % SHOP_AWN.length], 0.85), t.x, 2.7, t.z + pd / 2 + 1.36);
       }
     }
     // A prop out front (crate / bin / potted plant, cycling).
@@ -770,9 +770,9 @@ export function buildCity(scene, rng, textures) {
     sign.position.set(bx, h + 1.25, bz - d / 2 - 0.1);
     sign.rotation.y = PI;
     scene.add(sign);
-    // Awning flush + struts (v46) — same floating fix as the towers.
+    // v47: sunk 0.35 m (y 3.2 -> 2.85).
     const awning = new ME(new BX(w * 0.6, 0.15, 2), M(0x2c3e50, 0.9));
-    awning.position.set(bx, 3.2, bz - d / 2 - 0.6);
+    awning.position.set(bx, 2.85, bz - d / 2 - 0.6);
     awning.rotation.x = 0.08;
     awning.castShadow = true;
     scene.add(awning);

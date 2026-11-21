@@ -68,23 +68,22 @@ function createHeli() {
   B(g, 0.12, 1.5, 1.1, mt(0x1b2430, 0.6), 0, 0.75, -5.6);
   B(g, 0.14, 0.12, 0.9, mt(0xffd94d, 0.5), 0, 1.52, -5.6);
   B(g, 0.1, 0.12, 0.1, new MS({ color: 0xff2222, emissive: 0xff0000, emissiveIntensity: 2 }), 0, 1.66, -5.6);
-  // Tail rotor (v46): 0xDCDCDC blades 5 px wide, 1 px outline,
-  // 0x666666 hub; no disc, no backing plate. v45's 2-3 px blades
-  // read as a dark clump. The blades are MeshBasic (unlit) — the
-  // standard material fell to ~160 in the tail's shadow, below the
-  // 200 the checklist needs; unlit 0xDCDCDC reads ~220.
+  // Tail rotor (v47): blades forced unlit — emissive 0xE8E8E8, width
+  // 0.1 -> 0.15 m (5 -> 7 px) so they clear the dark outline, hub
+  // bright. v46's MeshBasic blades were swallowed by the 0x222222
+  // outline (bigger than the blade) and read as a dark blob.
   const rearRotor = new GP();
   rearRotor.position.set(-0.4, 0.7, -5.6);
-  const rrMat = new MB({ color: 0xDCDCDC });
+  const rrMat = new MS({ color: 0xE8E8E8, emissive: 0xE8E8E8, emissiveIntensity: 1 });
   const rrOut = mt(0x222222, 0.6);
-  const rrHub = new ME(new CG(0.23, 0.23, 0.1, 10), mt(0x666666, 0.5));
+  const rrHub = new ME(new CG(0.23, 0.23, 0.1, 10), rrMat);
   rrHub.rotation.z = PI / 2;
   rearRotor.add(rrHub);
   for (const a of [PI / 4, 3 * PI / 4]) {
     const ol = new ME(new BX(0.11, 1.56, 0.66), rrOut);
     ol.rotation.x = a;
     rearRotor.add(ol);
-    const bl = new ME(new BX(0.1, 1.5, 0.6), rrMat);
+    const bl = new ME(new BX(0.15, 1.5, 0.6), rrMat);
     bl.rotation.x = a;
     rearRotor.add(bl);
     for (const s of [-1, 1]) {
