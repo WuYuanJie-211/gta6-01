@@ -541,8 +541,8 @@ export function buildCity(scene, rng, textures) {
         const floors = Math.min(4, Math.floor(h / 7));
         for (let f = 0; f < floors; f += 1) {
           box(scene, w * 0.4, 0.25, 1.4, M(0x6a5a4a), x, 4 + f * 7, z + d / 2 + 0.7, true);
-          box(scene, w * 0.4, 0.7, 0.35, M(0x6a5a48, 0.7), x, 4 + f * 7 + 0.45, z + d / 2 + 1.35);
-          for (const s of [-1, 1]) box(scene, 0.06, 0.7, d * 0.4, M(0x2c3e50, 0.7), x + s * (w / 2 + 1.35), 4 + f * 7 + 0.45, z);
+          box(scene, w * 0.4, 0.7, 0.42, M(0xB8A48C, 0.7), x, 4 + f * 7 + 0.45, z + d / 2 + 1.35);
+          for (const s of [-1, 1]) box(scene, 0.06, 0.7, d * 0.4, M(0x9E5A3A, 0.7), x + s * (w / 2 + 1.35), 4 + f * 7 + 0.45, z);
         }
       }
       if (h < 16 && rng.chance(0.8)) {
@@ -578,7 +578,7 @@ export function buildCity(scene, rng, textures) {
   // so their crowns stay well below the heli's 8.5 m flight band.
   const heroPalmSpots = [
     [232.5, -195, 9, 1.5, 2.1], [247.5, -195, 9, 1.1, 0.9],
-    [232.5, -185, 7, 1.0, 0.4], [250.1, -213.0, 10, 1.6, 3.3],
+    [232.5, -185.5, 7, 1.0, 0.4], [250.1, -213.0, 10, 1.6, 3.3],
     [232.5, -168.5, 7, 0.8, 4.0], [247.5, -158, 8, 1.2, 5.5],
     [232.5, -155, 9, 1.8, 1.2], [246.3, -163.4, 9, 0.9, 2.8],
   ];
@@ -627,7 +627,7 @@ export function buildCity(scene, rng, textures) {
   // and a prop out front. The old podium wore one atlas cell, so every
   // shop read as the same brick box. The panel/glass sit on the same
   // face as the tower's sign (east for odd i, south for even i).
-  const SHOP_PALETTE = [0x8c4a3a, 0xd8c9a8, 0xa8bfae, 0xc9a878, 0x7d8b96, 0x4a4a4a];
+  const SHOP_PALETTE = [0x8c4a3a, 0xd8c9a8, 0xa8bfae, 0xc9a878, 0x4a4a52, 0x4a4a4a];
   const SHOP_GLASS = [0xffd98a, 0x9fd8ff, 0xa8e6a0, 0xd8a8b0, 0x8a7a62, 0x8ecae6];
   const SHOP_AWN = [0xc0392b, 0x1e8449, 0xe67e22, 0x6e5a6e, 0x2c3e50, 0x0066aa];
   heroTowers.forEach((t, i) => {

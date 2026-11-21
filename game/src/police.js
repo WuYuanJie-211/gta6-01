@@ -75,7 +75,7 @@ function createHeli() {
   rearRotor.position.set(-0.4, 0.7, -5.6);
   const rrMat = new MS({ color: 0xE8E8E8, emissive: 0xE8E8E8, emissiveIntensity: 1 });
   const rrOut = mt(0x222222, 0.6);
-  const rrHub = new ME(new CG(0.23, 0.23, 0.1, 10), rrMat);
+  const rrHub = new ME(new CG(0.14, 0.14, 0.1, 10), rrMat);
   rrHub.rotation.z = PI / 2;
   rearRotor.add(rrHub);
   for (const a of [PI / 4, 3 * PI / 4]) {

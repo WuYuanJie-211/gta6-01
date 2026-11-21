@@ -56,7 +56,7 @@ export const CAR_MODELS = {
   bus: { name: 'Bus', topSpeed: 18, accel: 10, price: 2000, len: 7.5, height: 2.2 },
   muscle: { name: 'Muscle', topSpeed: 32, accel: 21, price: 1800, len: 4.4, height: 0.85 },
   sport: { name: 'Comet GT', topSpeed: 38, accel: 24, price: 2500, len: 4.6, height: 0.75 },
-  armored: { name: 'Armored Van', topSpeed: 25, accel: 15, price: 0, len: 5.2, height: 1.9 },
+  armored: { name: 'Armored Van', topSpeed: 25, accel: 15, price: 0, len: 4.7, height: 1.9 },
 };
 
 // Driving feel + police chase numbers, shared by vehicles / police.

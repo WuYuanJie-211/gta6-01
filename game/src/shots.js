@@ -645,7 +645,7 @@ function stageDowntown(game) {
     t.speed = 0;
   });
   // Distinct bright colours — no dark van reading as a black box.
-  const paintJobs = [0x39557a, 0xc0392b, 0x16a085, 0xe67e22, 0xecf0f1, 0x7d3c98];
+  const paintJobs = [0x39557a, 0xc0392b, 0x16a085, 0xe67e22, 0xecf0f1, 0x3c3c3c];
   game.cars.traffic.slice(0, 6).forEach((t, i) => {
     t.mesh.userData.body.material = new MS({ color: paintJobs[i], roughness: 0.4, metalness: 0.4 });
   });
@@ -883,8 +883,8 @@ function stageSunset(game) {
   // Second cruiser, on the south lane (z=-188) — at -184 it stood
   // between the camera and the comet and hid it; here it frames the
   // burning car instead and the comet stays clear on the north lane.
-  const pc2 = pc(game, 238, -190, PI, 0);
-  blob(game, 238, -190, 6.0, 3.8, 0.6, 0.08);
+  const pc2 = pc(game, 238, -188.6, PI, 0);
+  blob(game, 238, -188.6, 6.0, 3.8, 0.6, 0.08);
   const heli = game.police.heli;
   if (heli) {
     heli.visible = true;
@@ -1035,10 +1035,10 @@ function stageSunset(game) {
   }
   const med4Mat = new MS({ color: 0x5e564b, roughness: 0.9 });
   const med4Top = new MS({ color: 0x3a3a3a, roughness: 0.7 });
-  const med4 = new ME(new BX(36, 0.3, 0.5), med4Mat);
+  const med4 = new ME(new BX(36, 0.3, 0.3), med4Mat);
   med4.position.set(264, 0.15, -180);
   game.scene.add(med4);
-  const med4T = new ME(new BX(36, 0.1, 0.3), med4Top);
+  const med4T = new ME(new BX(36, 0.1, 0.18), med4Top);
   med4T.position.set(264, 0.35, -180);
   game.scene.add(med4T);
   const med4Cap = new ME(new CG(0.25, 0.25, 0.3, 12), med4Mat);
