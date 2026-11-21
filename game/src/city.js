@@ -542,7 +542,7 @@ export function buildCity(scene, rng, textures) {
         for (let f = 0; f < floors; f += 1) {
           box(scene, w * 0.4, 0.25, 1.4, M(0x6a5a4a), x, 4 + f * 7, z + d / 2 + 0.7, true);
           box(scene, w * 0.4, 0.7, 0.42, M(0xB8A48C, 0.7), x, 4 + f * 7 + 0.45, z + d / 2 + 1.35);
-          for (const s of [-1, 1]) box(scene, 0.06, 0.7, d * 0.4, M(0x9E5A3A, 0.7), x + s * (w / 2 + 1.35), 4 + f * 7 + 0.45, z);
+          for (const s of [-1, 1]) box(scene, 0.06, 0.7, d * 0.4, M(0x8E5438+f*257,0.7), x + s * (w / 2 + 1.35), 4 + f * 7 + 0.45, z);
         }
       }
       if (h < 16 && rng.chance(0.8)) {

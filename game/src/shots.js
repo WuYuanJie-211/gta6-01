@@ -287,7 +287,7 @@ function stageChase(game) {
   // wheels sit at 234.05 (just inside the road edge) and the car
   // peeks out left of the van. y stays 0 (see above).
   const c1 = pc(game, vx + 6, vz - 1, -PI / 2 + 0.4, 24);
-  const c2 = pc(game, vx - 2.0, vz - 8.8, -PI / 2, 24);
+  const c2 = pc(game, vx - 3.5, vz - 8.8, -PI / 2, 24);
   for (const c of [c1, c2]) {
     if (c.mesh.userData.lightR) {
       c.mesh.userData.lightR.material.emissive.setHex(0xff0000);
@@ -408,7 +408,7 @@ function stageChase(game) {
     rl.position.set(vx, 3.2, vz);
     game.scene.add(rl);
   }
-  skid(game, vx - 2, vz - 8);
+  skid(game, vx - 3.5, vz - 8);
   // GYM sign (v46): lowered to y=3.0 and the heli raised to y=9.5 —
   // the v45 sign (y=5.0) overlapped the heli's belly/skids and read
   // as a sign hung ON the helicopter. Now the sign's letters sit at
