@@ -3,7 +3,7 @@ import{BX,CG,MB,MS,ME,V3,PI,AB,PG,CT,DS,SH,CI,SC}from'./geo.js';
 import { STEP } from './config.js';
 import { enterCar, spawnPoliceCar } from './vehicles.js';
 import { ACTION_SHOOT } from './input.js';
-import { makeSoftBeam } from './v31.js';
+import { makeSoftBeam, blobShadowTexture } from './v31.js';
 function pool(g,x,z,r,o,y=.07){
   const t=g.textures&&g.textures.pool;if(!t)return;
   const p=new ME(new PG(r*2,r*2),new MB({map:t,transparent:true,opacity:o,blending:AB,depthWrite:false}));
@@ -29,7 +29,12 @@ function beam(g,a,b,rt,rb,o){
 function blob(g,x,z,w,d,o,y=.12){
   if(!g.textures.shadow)return;
   const s=new ME(new PG(w,d),SH(g.textures.shadow,o));
-  s.rotation.x=-PI/2;s.position.set(x,y,z);g.scene.add(s);return s;
+  // v39: renderOrder=2 — ground shadows must draw AFTER the transparent
+  // road markings/zebra/pools. The zebra plane's centre sits ~1.4m from
+  // the shot-4 camera, so it sorted after the blob and repainted the grey
+  // dash over it (v38: dash darkened 93->86 only, while the far-centred
+  // marking plane darkened 91->52). Same for the heli light pool.
+  s.rotation.x=-PI/2;s.position.set(x,y,z);s.renderOrder=2;g.scene.add(s);return s;
 }
 // v37: windshield frame for EVERY van/armored of the model, not just the
 // hero van — the v36 plate went on the armored van only, so the other
@@ -355,18 +360,22 @@ function stageSunset(game) {
   if (game.skyDome) game.skyDome.visible = false;
   if (game.sunBillboard) game.sunBillboard.visible = false;
   game.sun.color.set(0xff7733);
-  const r = game.combat.spawnGunman(243, -179.5);
+  const r = game.combat.spawnGunman(243, -179);
   r.mesh.children[8].visible = r.mesh.children[9].visible = false;
   r.mesh.rotation.y = -PI / 2;
-  // v38: gunman 0.5m south (was -180) + BIGGER blob 4.2x3.6/0.8 (was
-  // 2.8x2.2/0.65). Root cause (pixel-verified): the gunman stood on dark
-  // asphalt just EAST of the zebra (bars end x=242.25), so the v37 dark
-  // blob had no contrast and was invisible; the bright thing Gemini read
-  // as a "white disc" was the white zebra dash + bright yellow stripes
-  // flanking his feet. The bigger blob now reaches the light zebra bars
-  // (x=241.0, 241.7) and the yellow stripe (z=-179), so the darkening
-  // reads on light ground; the gunman himself sits closer to the stripe.
-  blob(game, 243, -179.5, 4.2, 3.6, 0.8, 0.12);
+  // v39: gunman fully onto the yellow stripe (was -179.5) + blob at full
+  // opacity 1.0 (was 0.8) + a darker core blob. Root cause (pixel +
+  // render-order verified): the v38 blob DID darken the yellow stripe
+  // but NOT the grey lane dash under the feet — the zebra plane's centre
+  // sits ~1.4m from the camera, so it sorted after the blob and repainted
+  // the dash over it; the heli light pool (additive, at 243,-180) also
+  // lifts the shadow. Fix: blob() now sets renderOrder=2 (shadows draw
+  // after markings + pools), and a core blob (canvas texture, centre
+  // alpha 0.95, soft falloff — no hard edge) darkens the dash under the
+  // feet to near-asphalt so it reads clearly greyed, not bright.
+  blob(game, 243, -179, 4.2, 3.6, 1.0, 0.12);
+  const core=new ME(new PG(2.0,1.6),SH(blobShadowTexture(),0.8));
+  core.rotation.x=-PI/2;core.position.set(243,0.13,-179);core.renderOrder=3;game.scene.add(core);
   const p = game.player;
   p.pos.set(243, 0, -180);
   p.heading = PI;
