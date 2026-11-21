@@ -11,7 +11,21 @@ import { BX, CG, CN, MB, MS, ME, V3, PI, AB, PG, CT, DS, SH, CI, SC } from './ge
 import { STEP } from './config.js';
 import { enterCar, spawnPoliceCar } from './vehicles.js';
 import { ACTION_SHOOT } from './input.js';
-import { makeSoftBeam, blobShadowTexture } from './v31.js';
+import { makeSoftBeam, blobShadowTexture, makeV31Sign } from './v31.js';
+
+// A seeded RNG for deterministic staged effects (flames, sparks) —
+// independent of the game's rng so the staging stays byte-identical
+// for a given seed.
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return () => {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
 
 // A soft additive light pool on the ground (the pool texture).
 function pool(g, x, z, r, o, y = 0.07) {
@@ -178,19 +192,19 @@ function stageChase(game) {
   van.stolen = true;
   van.speed = 22.5;
   enterCar(game, van);
-  game.police.state.wanted = 4;
   camB(game);
   // The taxi parked at (240,-175) sat half-clipped at the left/bottom
   // frame edge and read as a background artefact — move it out of the shot.
   const edge = game.cars.parked.find((c) => c.pos.x === 240 && c.pos.z === -175);
   if (edge) place(edge, 0, 300, 0);
-  // c2 sits at x=246 (east edge) and 16 m north — clear of the van's
-  // c1 angled 23 deg (L-shape): from dead behind, c2 hid as a sliver
-  // behind c1 — both white, 3 m apart. With c1 diagonal, c2 (straight)
-  // reads as a distinct second cruiser beside it, not a white box
-  // peeking out behind the van.
+  // c2 sits in the WEST (oncoming) lane (x=230, 7 m west of the van)
+  // and 11 m north of it — a police cruiser swerving into oncoming
+  // traffic. The old c2 (x=246.5, east lane) sat at almost the same
+  // screen x as c1 and was occluded by it; from the chase camera the
+  // two cruisers now flank the van (c2 left, c1 right) with the van
+  // in the centre.
   const c1 = pc(game, vx + 6, vz - 1, -PI / 2 + 0.4, 24);
-  const c2 = pc(game, vx + 9, vz - 23, -PI / 2, 24);
+  const c2 = pc(game, vx - 7, vz - 11, -PI / 2, 24);
   for (const c of [c1, c2]) {
     if (c.mesh.userData.lightR) {
       c.mesh.userData.lightR.material.emissive.setHex(0xff0000);
@@ -204,10 +218,12 @@ function stageChase(game) {
     rp.position.set(-0.2, 1.48, 0);
     c.mesh.add(rp);
   }
-  // Ground blobs under both cruisers — BIG and dark (7.5x5.0, 0.95)
-  // so the shadow reads on the dark asphalt; at 5.6x3.4 it was
-  // invisible against the road. The blob spans the yellow line (x=240),
-  // so it visibly darkens the marking beside the car.
+  // Ground blobs under the van and both cruisers — BIG and dark
+  // (7.5x5.0, 0.6) so the shadow reads on the dark asphalt. The van
+  // had NO separate blob in v43 (only its small mesh shadow) and read
+  // as floating with zero shadow under it. The blob spans the yellow
+  // line (x=240), so it visibly darkens the marking beside the car.
+  blob(game, vx, vz, 7.5, 5.0, 0.6, 0.08);
   blob(game, c1.pos.x, c1.pos.z, 7.5, 5.0, 0.6, 0.08);
   blob(game, c2.pos.x, c2.pos.z, 7.5, 5.0, 0.6, 0.08);
   // Layout plan (v43): camera 1.4 m, pitch ~level, FOV 48 (NOT 60) —
@@ -235,20 +251,16 @@ function stageChase(game) {
     // Hide the heli's cream scrim cone — it rendered as two hard-edged
     // triangles under the heli; the soft beam sprites stay.
     heli.userData.spotlight.visible = false;
-    // Ahead (20 m north) and lower (8.5 m), over the avenue, at 1.6x.
-    // The v42 heli is a full rebuild (light police body, navy belly,
-    // red stripe, 4-blade rotor + translucent disc, tail boom + tail
-    // rotor), so it reads as a helicopter instead of a grey box with a
-    // stick. Rotation PI/2-0.2 turns its long axis east-west so the
-    // camera (south) sees the full side profile: body + tail + rotor.
-    // Lower + further north than v41 keeps the whole rotor disc inside
-    // the top edge with margin.
-    heli.position.set(vx - 4.5, 8.5, vz - 20);
-    heli.scale.setScalar(1.6);
+    // v44: shrunk to 0.72x (scale 1.6 -> 1.15) and moved 6 m further
+    // north + 2.5 m east, 0.5 m lower. At 1.6x the rotor tips cut 57 px
+    // past the top edge and the tail rotor sat at x=54 (v43). The
+    // rotor is parked at 45 deg so the four blades read as an X.
+    heli.position.set(vx - 2, 8.0, vz - 26);
+    heli.scale.setScalar(1.15);
     heli.rotation.y = PI / 2 - 0.2;
     // Rotor parked at a diagonal so the 4 blades read as an X, never a
     // single rod (the shot never steps the game, so the rotor is static).
-    heli.userData.rotor.rotation.y = 0.6;
+    heli.userData.rotor.rotation.y = 0.785;
     // No cone beam — the two soft-beam sprites read as a hard triangle.
     // One faint wide glow only: a soft shaft with no core, no edge.
     // The shaft hangs under the heli, not under the van.
@@ -261,6 +273,19 @@ function stageChase(game) {
     game.scene.add(rl);
   }
   skid(game, vx - 2, vz - 8);
+  // GYM sign into frame: the city's GYM sign sits on a tower at
+  // (146.9,-134.8), far west and behind this camera, so shot 1 had no
+  // GYM at all (v43). This one mounts on the CINEMA tower's EAST face
+  // (tower 208.3,-275.3, w=17.1 -> face at x=216.85), BELOW the
+  // CINEMA sign (y=3.5, not 7) — the south face is seen at a glancing
+  // angle and its ground floor is hidden behind the shop podium
+  // (v44). It sits at x=220, on the podium's east face, so the
+  // podium (which protrudes east of the tower face) does not hide it.
+  // Facing the chase camera, upper-left.
+  const gym = makeV31Sign('GYM', '#6e5a6e', '#FFFFFF', 8, 2.5);
+  gym.position.set(221, 3.5, -275.3);
+  gym.rotation.y = PI / 2;
+  game.scene.add(gym);
 }
 
 function stageGunfight(game) {
@@ -271,30 +296,31 @@ function stageGunfight(game) {
   player.mag = 30;
   player.ammo = 60;
   // The player stands SOUTH of the duellist and the camera looks NORTH
-  // toward downtown. Both men stand ON the east white lane dash
-  // (x=-177) at the CENTRE of a dash segment — player z=197 (dash
-  // 196-198), duellist z=189 (dash 188-190) — so the shadow blob covers
-  // the white dash under their feet for a full segment. The blob is big
-  // (4.5x3.5) with a dark core, so the dash is visibly half-dark north
-  // and south of their feet at normal size — the v42 blob (2.2x1.8)
-  // only darkened a sliver the reviewers could not see.
-  player.pos.set(-177, 0, 197);
+  // toward downtown. BOTH men stand ON the west white lane dash
+  // (x=-183 — the avenue's dashes are at x=-183 and x=-171; the old
+  // x=-177 put the player on bare asphalt between the double yellow
+  // and the east dash, so his shadow never darkened a marking, v43).
+  // Both stand at the CENTRE of a dash segment — player z=197 (dash
+  // 196-198), duellist z=189 (dash 188-190) — so the shadow blob
+  // covers the white dash under their feet for a full segment.
+  player.pos.set(-183, 0, 197);
   player.heading = PI;
   player.mesh.position.copy(player.pos);
   player.mesh.rotation.y = player.heading;
   player.mesh.rotation.x = 0;
   player.mesh.scale.y = 0.85;
   const rifle = player.mesh.userData.rifle;
-  // Shorter rifle (scale 1.0), pulled back, pointed straight ahead — the
-  // old long angled barrel reached through the duellist's torso.
-  // Local x -0.35 (not +0.15): the mesh is rotated PI, so local +x is
-  // world west — the old spot put the rifle on his far (west) side,
-  // hidden behind his torso from the chase camera. Local -0.35 is
-  // world east: his right side, beside the body, so the muzzle flash
-  // and tracer start clear of his silhouette.
-  rifle.position.set(-0.35, 1.62, 0.55);
-  rifle.rotation.set(0.16, 0.15, 0);
-  rifle.scale.setScalar(1.0);
+  // Bigger rifle (scale 1.3), turned 26 deg toward the camera-right so
+  // the barrel reads side-on instead of foreshortened to a stub — the
+  // old scale-1.0 rifle pointing straight away was invisible (v43).
+  // Local x -0.55 (not -0.35): the mesh is rotated PI, so local +x is
+  // world west — the old spot put the rifle only just outside the
+  // torso (half-width 0.375 m), so from the staged camera the muzzle
+  // sat inside the torso silhouette and the flash was fully occluded
+  // by his own body (v44). At -0.55 the muzzle clears the silhouette.
+  rifle.position.set(-0.55, 1.65, 0.55);
+  rifle.rotation.set(0.16, 0.45, 0);
+  rifle.scale.setScalar(1.3);
   // No steel tip: the light tip read as a detached floating handgun
   // (v42). The barrel is mid-grey now and the flash cone at the muzzle
   // anchor carries the shot.
@@ -304,9 +330,18 @@ function stageGunfight(game) {
   // second man at (560, 500), player on the right golden line).
   game.aim = new V3(-183, 1.2, 189);
   game.combat.spawnGunman(-183, 189).mesh.scale.setScalar(1.15);
-  const g2 = game.combat.spawnGunman(-173.2, 191.0);
+  // The second gunman + thug were staged at (-173.2, 191) / (-172.3,
+  // 191.2) — 65 deg off the view axis, OUT of frame in v43 (their
+  // screen x was 1506/1644). They sit north of the player now, inside
+  // the frame cone: g2 west of the duellist, thug east of the player
+  // near the double yellow.
+  const g2 = game.combat.spawnGunman(-188, 193.0);
   g2.mesh.rotation.y = 0.6;
-  const th = game.combat.spawnThug(-172.3, 191.2);
+  // The thug stands WEST of g2 (x=-189), not east — at (-181.5, 190)
+  // he sat at the far right edge and fell off-frame when the camera
+  // rotated (v44 first render: x=1325). West of g2 he reads as a
+  // third figure on the left, clear of the player.
+  const th = game.combat.spawnThug(-189, 195.0);
   th.mesh.rotation.x = 0.3;
   th.mesh.scale.y = 0.85;
   // Hide the gunmen's rifles — the barrel crossed the duellist's torso
@@ -321,10 +356,10 @@ function stageGunfight(game) {
   // the white dash under each pair of feet is visibly half-dark. The
   // core (renderOrder 3) draws after the dash texture and after any
   // light pool, so nothing repaints over it.
-  blob(game, -177, 197, 4.5, 3.5, 0.5, 0.1);
+  blob(game, -183, 197, 4.5, 3.5, 0.5, 0.1);
   const pcore = new ME(new PG(2.5, 1.8), SH(blobShadowTexture(), 0.85));
   pcore.rotation.x = -PI / 2;
-  pcore.position.set(-177, 0.13, 197);
+  pcore.position.set(-183, 0.13, 197);
   pcore.renderOrder = 3;
   game.scene.add(pcore);
   blob(game, -183, 189, 3.5, 2.8, 0.5, 0.1);
@@ -333,17 +368,18 @@ function stageGunfight(game) {
   dcore.position.set(-183, 0.13, 189);
   dcore.renderOrder = 3;
   game.scene.add(dcore);
-  blob(game, -173.2, 191.0, 2.0, 1.6, 0.5, 0.1);
-  blob(game, -172.3, 191.2, 2.0, 1.6, 0.5, 0.1);
-  game.police.state.wanted = 4;
+  blob(game, -188, 193.0, 2.0, 1.6, 0.5, 0.1);
+  blob(game, -189, 195.0, 2.0, 1.6, 0.5, 0.1);
   camB(game);
   // Profile view, NOT over-the-shoulder: camB puts the camera due
   // south (behind the player), so the muzzle, flash and rifle are all
-  // occluded by his own body. From the SOUTH-SOUTHEAST (angle PI/6)
+  // occluded by his own body. From the SOUTH-SOUTHEAST (angle 0.65)
   // we see his right side — the rifle, the muzzle and the flash in
   // profile — and the duellist sits up-left of him, not directly
-  // behind him (at PI/4 the duellist hid behind the player).
-  game.cameraAngle = PI / 6;
+  // behind him (at PI/4 the duellist hid behind the player). The
+  // wider angle also pushes the big orange brick wall (left third)
+  // out of frame.
+  game.cameraAngle = 0.65;
   // Layout plan: camera 1.2 m, pitch ~level, FOV 40 — telephoto
   // compression presses the wall up against the figures. camX is
   // NEGATIVE now: the near gunman sits on the RIGHT golden line (the
@@ -352,15 +388,19 @@ function stageGunfight(game) {
   game.camPitch = -0.06;
   game.camX = -2.1;
   setFov(game, 40);
-  skid(game, -177.5, 198.5);
+  skid(game, -183.5, 198.5);
   game.input.fireAction(ACTION_SHOOT);
   game.step(STEP);
-  // The muzzle flash lights the road — a warm point light at the flash.
-  // NO ground light pool: the additive pool washed the gunman shadows
-  // out and read as a glowing yellow blob under their feet (v42).
-  const fl = new THREE.PointLight(0xffa040, 2.5, 9);
-  fl.position.set(-177, 1.6, 194.5);
-  game.scene.add(fl);
+  // Clear the hit sparks: the shot hits the duellist, and spawnSparks
+  // puts 5 glowing sprites at his feet that outlive the flash and
+  // read as two glowing yellow-white blobs (v42/v43/v44). The flash
+  // and tracer stay — only the sparks go.
+  if (game.combat.clearSparks) game.combat.clearSparks();
+  // NO ground light pool and NO extra point light here: the old `fl`
+  // PointLight (intensity 2.5, range 9, at (-177, 1.6, 194.5)) lit the
+  // asphalt around both men's feet and read as two glowing yellow-white
+  // blobs (v43). The muzzle flash's own light (range 4 m, at the
+  // muzzle) is the only fire light in this shot.
   // Even light: a soft ambient lift so the brick edges do not fall to
   // black while the muzzle flash lights the centre (the shot-2
   // "vignetting" was a bright centre against dark edges).
@@ -371,7 +411,11 @@ function stageGunfight(game) {
 function stageDowntown(game) {
   game.missions.setProgress(3, 0);
   const taxi = game.cars.parked.find((c) => c.model === 'taxi') || game.cars.parked[0];
-  place(taxi, 258, -183, PI);
+  // v44 reshoot: the taxi TURNS NORTH at the intersection (heading
+  // PI/2) instead of sitting westbound. The old rear view showed only
+  // the taxi's 1.9 m rear — 59 px wide (v43). Turned north, the camera
+  // (east, looking west) sees the taxi's full 4.2 m east side, ~290 px.
+  place(taxi, 248, -180, PI / 2);
   if (taxi.mesh.userData.roofSign) taxi.mesh.userData.roofSign.position.x = 0.3;
   // TAXI roof-sign text + textured rear glass — the sign was a blank pale
   // slab and the glass a flat grey card. Text plane on the sign's rear
@@ -392,30 +436,28 @@ function stageDowntown(game) {
   rglass.rotation.y = -PI / 2;
   rglass.position.set(cab.position.x - taxi.mesh.userData.bodyLen * 0.26 - 0.01, cab.position.y, 0);
   taxi.mesh.add(rglass);
-  game.police.state.wanted = 4;
   taxi.speed = 0;
   enterCar(game, taxi);
-  // Brake-light boxes on the taxi's rear (on the car, not the ground).
-  // NO red glow plane on the asphalt: it read as a light blob under
-  // the taxi (v42).
-  for (const gz of [-183.8, -182.2]) {
-    const g = new ME(new BX(0.15, 0.25, 0.5), new MB({ color: 0xff2222, transparent: true, opacity: 0.5 }));
-    g.position.set(260, 0.75, gz);
+  // Brake-light boxes on the taxi's rear (south face now, it faces
+  // north) — on the car, not the ground. NO red glow plane on the
+  // asphalt: it read as a light blob under the taxi (v42).
+  for (const gx of [247.3, 248.7]) {
+    const g = new ME(new BX(0.5, 0.25, 0.15), new MB({ color: 0xff2222, transparent: true, opacity: 0.5 }));
+    g.position.set(gx, 0.75, -177.9);
     game.scene.add(g);
   }
-  // 6 traffic cars in the hero zone. The taxi (258,-183, westbound) is
-  // stopped at the red light; two cars queue ahead of it in the same
-  // lane, three come eastbound in the north lane, one more westbound
-  // past the intersection. The queue cars are staggered 2 m sideways so
-  // they read as separate cars, not one blob, and the taxi's black roof
-  // no longer sticks to the car ahead.
+  // 6 traffic cars, none between the camera (east) and the taxi: two
+  // eastbound in the north lane, two westbound further west, one
+  // northbound + one southbound on the avenue. The old westbound
+  // queue sat between the camera and the taxi and would have hidden
+  // it from the new east camera.
   const spots = [
-    { x: 252, z: -181.6, prev: '300,-180', target: '240,-180', h: PI },
-    { x: 246, z: -184.4, prev: '300,-180', target: '240,-180', h: PI },
-    { x: 244, z: -177, prev: '180,-180', target: '240,-180', h: 0 },
     { x: 228, z: -177, prev: '180,-180', target: '240,-180', h: 0 },
     { x: 212, z: -177, prev: '180,-180', target: '240,-180', h: 0 },
-    { x: 216, z: -183, prev: '240,-180', target: '180,-180', h: PI },
+    { x: 220, z: -183, prev: '300,-180', target: '240,-180', h: PI },
+    { x: 205, z: -183, prev: '300,-180', target: '240,-180', h: PI },
+    { x: 243, z: -200, prev: '240,-240', target: '240,-180', h: PI / 2 },
+    { x: 237, z: -160, prev: '240,-120', target: '240,-180', h: -PI / 2 },
   ];
   game.cars.traffic.slice(0, 6).forEach((t, i) => {
     place(t, spots[i].x, spots[i].z, spots[i].h);
@@ -449,31 +491,30 @@ function stageDowntown(game) {
     blob(game, walkers[i][0], walkers[i][1], 1.4, 1.1, 0.5, 0.1);
   });
   camB(game);
-  // v43: panned (PI/2 - 0.10) — a SMALLER offset moves SUITES right
-  // into frame (at -0.16 its S was still cut at the left edge; at -0.30
-  // it fell off the frame). BODEGA stays readable at this pan.
-  // Layout plan: the ONLY overhead telephoto — camera 9 m, FOV 34.
-  // camDist 32 puts the camera 35 m back, so the taxi reads 22-26%
-  // of frame width and the street converges to a vanishing point.
-  // camLookOff -1.5 nudges the taxi right toward the golden point;
-  // cameraAngle -0.05 (not -0.10) pulls SUITES fully in frame.
-  game.camDist = 32;
-  game.camPitch = 0.21;
-  game.cameraAngle = PI / 2 - 0.05;
-  game.camX = 2.5;
-  game.camLookOff = -1.5;
+  // v44: camera EAST of the taxi, looking west — the street converges
+  // to a vanishing point ~190 px right of centre (x≈830), and the
+  // taxi's 4.2 m side fills ~290 px. camDist 14 (17 m with the +3 for
+  // being in a car), pitch 0.15 (camera ~4 m up), FOV 34 telephoto.
+  // camLookOff -2.0 pushes the taxi right toward the golden point.
+  // The old high/wide shot (camDist 32, 35 m back) saw only the
+  // taxi's rear at 59 px and the VP dead centre.
+  game.camDist = 14;
+  game.camPitch = 0.15;
+  game.cameraAngle = 1.72;
+  game.camX = 0;
+  game.camLookOff = -2.0;
   setFov(game, 34);
-  // Foreground silhouette: a pedestrian on the south sidewalk ~10 m
+  // Foreground silhouette: a pedestrian on the south sidewalk ~11 m
   // from the camera, lower-left, back to the camera — the Z-path
   // anchor that pulls the eye back down.
   const fg = game.peds[6];
   if (fg) {
-    fg.pos.set(269, 0, -174);
+    fg.pos.set(256, 0, -190);
     fg.mesh.position.copy(fg.pos);
     fg.mesh.rotation.y = PI;
     fg.mode = 'chat';
     fg.waiting = false;
-    blob(game, 269, -174, 1.4, 1.1, 0.5, 0.1);
+    blob(game, 256, -190, 1.4, 1.1, 0.5, 0.1);
   }
   // Hold the pan: updateCamera auto-aligns the angle back behind the
   // taxi 2.5 s after the last drag, which erased the pan by screenshot
@@ -499,8 +540,6 @@ function stageSunset(game) {
   place(comet, 243, -196, PI / 2);
   comet.stolen = true;
   comet.speed = 0;
-  game.police.state.wanted = 5;
-  game.cash = 2000000;
   const tex = game.textures.sunsetSky;
   if (tex) {
     tex.mapping = THREE.EquirectangularReflectionMapping;
@@ -512,17 +551,22 @@ function stageSunset(game) {
   if (game.skyDome) game.skyDome.visible = false;
   if (game.sunBillboard) game.sunBillboard.visible = false;
   game.sun.color.set(0xff7733);
-  // Gunman ON the east white lane dash (x=243), 1.5 m NORTH of the
-  // camera target — at 9 m that is ~10 deg off the view axis, so in
-  // frame he reads on the RIGHT golden line (791, 500), back to
-  // camera, rim-lit. (At z=-184 he was 29 deg off-axis, out of frame.)
-  const r = game.combat.spawnGunman(243, -181.5);
+  // Gunman ON the SOUTH white lane dash (z=-183 — the avenue's dashes
+  // are at z=-177 and z=-183; the old z=-177.5 put him on the north
+  // dash but far left of frame, x=404), at the centre of a dash
+  // segment (x=240, segment 240-242), so the shadow blob darkens the
+  // white dash under his feet. On the south dash he reads on the
+  // RIGHT golden line (x~837), back to camera, rim-lit. He faces
+  // WEST (rotation.y = PI/2 + PI), BACK TO the east camera — the old
+  // PI/2 faced him north, so the camera saw his FACE and the shot
+  // lost the over-the-shoulder read (v43).
+  const r = game.combat.spawnGunman(240, -183);
   r.mesh.children[8].visible = r.mesh.children[9].visible = false;
-  r.mesh.rotation.y = PI / 2;
-  blob(game, 243, -181.5, 5.0, 4.0, 0.5, 0.12);
+  r.mesh.rotation.y = PI / 2 + PI;
+  blob(game, 240, -183, 5.0, 4.0, 0.5, 0.12);
   const core = new ME(new PG(2.5, 1.8), SH(blobShadowTexture(), 0.85));
   core.rotation.x = -PI / 2;
-  core.position.set(243, 0.13, -181.5);
+  core.position.set(240, 0.13, -183);
   core.renderOrder = 3;
   game.scene.add(core);
   const p = game.player;
@@ -538,63 +582,135 @@ function stageSunset(game) {
   p.mesh.position.copy(p.pos);
   p.mesh.rotation.y = p.heading;
   p.mesh.visible = false;
-  // Burning car 2 m SOUTH of the camera target's axis (~10 deg off),
-  // further WEST (x=236, ~16 m from the camera) so its body reads
-  // 20% of frame width, not 45%. In frame it sits lower-left.
-  const bc = pc(game, 236, -178, PI, 0);
+  // Burning car BROADSIDE (heading PI/2, north) at (233,-177), ~18 m
+  // from the camera — the camera (east) sees its full 4.2 m side,
+  // ~275 px wide, at the lower-left golden point. The old car faced
+  // west (heading PI) so the camera saw only its 1.9 m rear, ~95 px,
+  // and the cones on its roof read as a floating yellow pyramid.
+  // Its front bumper stops just short of the median at z=-180.
+  const bc = pc(game, 233, -177, PI / 2, 0);
   // Char the burning car — clone the materials first, they are shared
   // across every car of the same colour (recolouring the shared white
-  // would char the second cruiser too).
+  // would char the second cruiser too). The char is MEDIUM (0x3a2a22),
+  // not near-black: at 0x241a14 the car read as a dark pickup truck,
+  // not a police car (v44). The light bar stays UNCHARRED so the car
+  // still reads as a cruiser.
   const bm = bc.mesh.userData;
   bm.body.material = bm.body.material.clone();
-  bm.body.material.color.setHex(0x241a14);
+  bm.body.material.color.setHex(0x3a2a22);
   bm.cabin.material = bm.cabin.material.clone();
-  bm.cabin.material.color.setHex(0x141018);
-  if (bm.lightBar) {
-    bm.lightBar.material = bm.lightBar.material.clone();
-    bm.lightBar.material.color.setHex(0x0a0a0c);
-  }
+  bm.cabin.material.color.setHex(0x2a2226);
   bc.mesh.position.y = -0.05;
   // The sunk mesh drags its own under-car shadow below the road, so the
   // burning car gets an explicit blob to ground it.
-  blob(game, 236, -178, 6.0, 3.8, 0.6, 0.08);
-  // Flames are 3D CONES PARENTED TO THE CAR (local coords — the car
-  // faces -x at heading PI, so local x = 242.5 - world x), not flat
-  // sprites — sprites always face the camera and read as a 2D decal on
-  // a beige block (v42). Tallest tongue 3.0 m = 1.6x the car height.
-  const flameMat = new MB({ color: 0xff7a20, transparent: true, opacity: 0.92 });
-  const coreMat = new MB({ color: 0xffd94d, transparent: true, opacity: 0.95 });
-  for (const [lx, fr, fh] of [[1.3, 0.85, 2.8], [0, 0.65, 2.2], [-0.9, 0.5, 1.6]]) {
-    const cone = new ME(new CN(fr, fh, 8), flameMat);
-    cone.position.set(lx, 1.0 + fh / 2, 0);
-    bc.mesh.add(cone);
-    const inner = new ME(new CN(fr * 0.55, fh * 0.6, 8), coreMat);
-    inner.position.set(lx, 1.0 + fh * 0.3, 0);
-    bc.mesh.add(inner);
-  }
+  blob(game, 233, -177, 6.0, 3.8, 0.6, 0.08);
+  // Fire is PARTICLES emitted from the car body, not cones: the old
+  // 3 cones (tallest 2.8 m) read as a solid yellow triangle floating
+  // above the roof with a gap from the body (v43). 6 emission points
+  // (engine bay, A-pillar, rear seat, roofline) x 10 sprites each,
+  // seeded so the render is deterministic, additive so they glow
+  // against the car. Every sprite sits inside the car outline
+  // (local x -1.9..1.9, z -0.8..0.8) and no higher than 2.5 m
+  // (1.6x the car height). The ones below the roofline are occluded
+  // by the body; the ones above it read as flame tongues.
+  const fireRng = mulberry32(44);
   const fireTex = game.textures.fireball;
   if (fireTex) {
-    const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: fireTex, color: 0xff8030, transparent: true, opacity: 0.5, blending: AB, depthWrite: false }));
-    glow.position.set(0.5, 1.8, 0);
-    glow.scale.set(1.6, 2.0, 1);
+    const fireCols = [0xffd94d, 0xff9a2e, 0xff7a20];
+    const firePts = [[1.6, 0.3], [1.1, -0.3], [0.4, 0.3], [-0.2, -0.3], [-0.9, 0.3], [-1.4, -0.2]];
+    for (const [lx, lz] of firePts) {
+      for (let i = 0; i < 10; i += 1) {
+        const s = new THREE.Sprite(new THREE.SpriteMaterial({
+          map: fireTex, color: fireCols[i % 3], transparent: true,
+          opacity: 0.55 + fireRng() * 0.4, blending: AB, depthWrite: false,
+        }));
+        const h = 0.5 + fireRng() * 2.0;
+        s.position.set(lx + (fireRng() - 0.5) * 0.6, h, lz + (fireRng() - 0.5) * 0.5);
+        const sz = 0.3 + fireRng() * 0.5;
+        s.scale.set(sz, sz * 1.4, 1);
+        bc.mesh.add(s);
+      }
+    }
+    const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: fireTex, color: 0xff8030, transparent: true, opacity: 0.4, blending: AB, depthWrite: false }));
+    glow.position.set(0.3, 1.2, 0);
+    glow.scale.set(2.4, 2.0, 1);
     bc.mesh.add(glow);
   }
-  // Second cruiser, on the south lane (z=-176) — at -184 it stood
+  // Second cruiser, on the south lane (z=-188) — at -184 it stood
   // between the camera and the comet and hid it; here it frames the
   // burning car instead and the comet stays clear on the north lane.
-  const pc2 = pc(game, 238, -188, PI, 0);
-  blob(game, 238, -188, 6.0, 3.8, 0.6, 0.08);
+  const pc2 = pc(game, 238, -190, PI, 0);
+  blob(game, 238, -190, 6.0, 3.8, 0.6, 0.08);
   const heli = game.police.heli;
   if (heli) {
     heli.visible = true;
-    // Overhead at (228, 7.5, -172), scale 1.2 — SOUTH of the view
-    // axis so it sits UPPER-LEFT (~300, 160), not top-centre, and
-    // small enough that the rotor stays inside the frame.
-    heli.position.set(228, 7.5, -172);
-    heli.scale.setScalar(1.2);
+    // v44: shrunk to 0.72x (scale 1.2 -> 0.86) and moved 3 m further
+    // west + 3 m north, 1.5 m lower. At (231, 7.5, -169) the rotor
+    // still cut 177 px past the left edge and 20 px past the top
+    // (v44 first render) — the rotor is 9.3 m across at ~19 m, so it
+    // needs ~25 m of distance and a lower centre to fit. The rotor
+    // is parked at 45 deg so the blades read as an X.
+    heli.position.set(222, 8.0, -172);
+    heli.scale.setScalar(0.86);
     heli.rotation.y = 0;
-    heli.userData.rotor.rotation.y = 0.5;
+    heli.userData.rotor.rotation.y = 0.785;
     heli.userData.spotlight.visible = false;
+  }
+  // Sun disc: the old vertical beam (a 40 m beacon pillar, now
+  // hidden) is gone; the sun is a bright disc + a warm halo at screen
+  // (550, 120) — upper-centre sky, clear of the foreground gunman's
+  // head (which sits at ~(910, 305) and swallowed the first two suns
+  // at (940, 300) and (950, 200)), of the BODEGA sign, and of the
+  // palm crown at (650-850, 80-230) that hid the third sun at
+  // (700, 150). At 80 m out the disc is 6 m across (radius ~32 px)
+  // and the halo 3x that. Sprites with depthTest off so no building
+  // can occlude them; the disc is the brightest thing in the frame.
+  const sunTex = game.textures.pool;
+  if (sunTex) {
+    const sunDisc = new THREE.Sprite(new THREE.SpriteMaterial({ map: sunTex, color: 0xfff2c0, transparent: true, opacity: 0.95, depthWrite: false, depthTest: false }));
+    sunDisc.position.set(172, 27, -186);
+    sunDisc.scale.set(6, 6, 1);
+    sunDisc.renderOrder = 999;
+    game.scene.add(sunDisc);
+    const sunHalo = new THREE.Sprite(new THREE.SpriteMaterial({ map: sunTex, color: 0xff9a2e, transparent: true, opacity: 0.35, depthWrite: false, depthTest: false }));
+    sunHalo.position.set(172, 27, -186);
+    sunHalo.scale.set(18, 18, 1);
+    sunHalo.renderOrder = 998;
+    game.scene.add(sunHalo);
+  }
+  // Foreground over-the-shoulder gunman (lower-right, x~980, y~560):
+  // a 1.9 m figure ~4.2 m from the camera, back to camera, 45% of
+  // frame height, shoulders y~300, feet y~690. He sits 4 m in front
+  // of the centre gunman but further north, so he reads at the right
+  // edge while the centre gunman stays visible to his left. This is
+  // the foreground layer shot 4 was missing — without it the shot is
+  // a distant straight boulevard (v43).
+  const fgGun = game.combat.spawnGunman(247.4, -181.2);
+  fgGun.mesh.children[8].visible = fgGun.mesh.children[9].visible = false;
+  fgGun.mesh.rotation.y = PI / 2 + PI;
+  fgGun.mesh.scale.setScalar(1.15);
+  blob(game, 247.4, -181.2, 5.0, 4.0, 0.5, 0.12);
+  // SUITES sign into shot 4: the city's SUITES sign sits on a tower
+  // at (204.5,-155.9), far south-west and out of this frame (its
+  // screen x is -122, and the east-face copy was -100), so shot 4 had
+  // no SUITES at all (v43/v44). This one is a freestanding billboard
+  // on two poles on the WEST sidewalk at (188,-170) — it lands at
+  // screen ~(380, 265), upper-left, readable. The poles make it read
+  // as intentional street furniture, not a floating plane. (At x=195
+  // and x=215 the sign sat INSIDE the SUITES tower's footprint
+  // (x 190-219) and the tower hid the "SU"; at z=-165 the building
+  // corner hid the "S" — the sign's screen x is set by its z, not
+  // its x, so it had to move NORTH to clear the corner. At z=-170
+  // the hero palm at (232.5,-175) hid the final S, so that palm
+  // moved south to (232.5,-168).)
+  const suites4 = makeV31Sign('SUITES', '#1a3a5f', '#FFFFFF', 10, 2.5);
+  suites4.position.set(188, 9.5, -170);
+  suites4.rotation.y = PI / 2;
+  game.scene.add(suites4);
+  for (const pz of [-175, -165]) {
+    const pole = new ME(new CG(0.12, 0.12, 8.25, 6), new MS({ color: 0x2e3338, roughness: 0.7 }));
+    pole.position.set(188, 4.125, pz);
+    game.scene.add(pole);
   }
   // Clear the frame: random traffic drove through the shot (a red
   // pickup blocked the comet at the right edge) and a pedestrian
@@ -636,21 +752,30 @@ function stageSunset(game) {
 export const SHOT_ORDER = ['chase', 'gunfight', 'downtown', 'sunset'];
 export function stageShot(name, game) {
   if (!SHOT_ORDER.includes(name)) name = 'downtown';
-  // Clock per shot — shots 1-3 are magenta dusk (17:31), shot 4 is orange
-  // sunset, later (18:12). One clock for two skies was the inconsistency.
-  game.shotClockMin = name === 'sunset' ? 18 * 60 + 12 : 17 * 60 + 31;
   game.screen = 'playing';
   game.camX = 0;
   game.hud.showMenu(false);
-  // Hide the mission beacon in every shot — its gold diamond floats in
-  // the middle of the road and reads as a stray object (v42 shot 4).
-  if (game.missions.hideBeacon) game.missions.hideBeacon();
-  // Hide the collectible gems in every shot — same stray-object read.
-  if (game.city.collectibleMeshes) for (const gem of game.city.collectibleMeshes) gem.visible = false;
   if (name === 'chase') stageChase(game);
   else if (name === 'gunfight') stageGunfight(game);
   else if (name === 'sunset') stageSunset(game);
   else stageDowntown(game);
+  // Hide the mission beacon + collectible gems AFTER the stage
+  // functions run: every stage calls setProgress(), and setProgress()
+  // re-shows the beacon (over the mission target) and all five gems.
+  // Hiding them first was undone by setProgress — that is how the gold
+  // diamond, the gold pyramid and the 40 m vertical beam got into
+  // shot 4 (v44). The beacon diamond sits over the race checkpoint at
+  // (180,-180) and the gem at (120,-183) sits on the same street, both
+  // dead centre on the horizon.
+  if (game.missions.hideBeacon) game.missions.hideBeacon();
+  if (game.city.collectibleMeshes) for (const gem of game.city.collectibleMeshes) gem.visible = false;
+  // One HUD for all four shots: $50, 17:31, 3 stars. The per-shot
+  // clock/cash/wanted sets are gone — a sunset at 18:12 with
+  // $2,000,000 next to three dusk shots at 17:31 with $50 read as four
+  // different games (v43).
+  game.cash = 50;
+  game.shotClockMin = 17 * 60 + 31;
+  game.police.state.wanted = 3;
   game.hud.setShotMode(true, true);
   game.hud.update();
 }

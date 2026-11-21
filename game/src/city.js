@@ -23,7 +23,7 @@ import {
 
 export const HERO_ZONE = { minX: 220, maxX: 260, minZ: -200, maxZ: -160, cx: 240, cz: -180 };
 const SIGN_NAMES = ['BODEGA', 'SUITES', 'HOTEL', 'CASINO', 'MALL', 'BANK', 'PIZZA', 'TACOS', 'GYM', 'CINEMA', 'BAR', '24H'];
-const SIGN_COLORS = ['#e67e22', '#1a3a5f', '#8a1a1a', '#2a1a4a', '#2a6a3a', '#c0392b', '#d35400', '#16a085', '#7d3c98', '#b03a2e', '#1a5f8a', '#333333'];
+const SIGN_COLORS = ['#e67e22', '#1a3a5f', '#8a1a1a', '#2a1a4a', '#2a6a3a', '#c0392b', '#d35400', '#16a085', '#6e5a6e', '#b03a2e', '#1a5f8a', '#333333'];
 
 const M = (c, r = 0.9, extra = {}) => new MS({ color: c, roughness: r, ...extra });
 const SM = (o) => new MS(o);
@@ -221,7 +221,10 @@ export function buildCity(scene, rng, textures) {
   // barriers, not the dark striped band the old rail read as. Gaps at
   // every intersection so cars can turn and the zebra crosses clean.
   const medianMat = new MS({ color: 0xb8b8b0, roughness: 0.9 });
-  const medianTop = new MS({ color: 0xe6c832, roughness: 0.7 });
+  // Dark grey top, not yellow: the yellow top read as a giant yellow
+  // guardrail crossing the whole lower half of the sunset shot (v43),
+  // where the camera looks straight down the barrier's length.
+  const medianTop = new MS({ color: 0x3a3a3a, roughness: 0.7 });
   for (let i = 0; i < CITY.roadLinesX.length - 1; i += 1) {
     const x0 = CITY.roadLinesX[i] + 6;
     const x1 = CITY.roadLinesX[i + 1] - 6;
@@ -571,7 +574,7 @@ export function buildCity(scene, rng, textures) {
   const heroPalmSpots = [
     [232.5, -195, 10, 1.5, 2.1], [247.5, -195, 9, 1.1, 0.9],
     [232.5, -185, 7, 1.0, 0.4], [247.5, -210, 11, 1.6, 3.3],
-    [232.5, -175, 7, 0.8, 4.0], [247.5, -158, 8, 1.2, 5.5],
+    [232.5, -168, 7, 0.8, 4.0], [247.5, -158, 8, 1.2, 5.5],
     [232.5, -155, 10, 1.8, 1.2], [247.5, -165, 9, 0.9, 2.8],
   ];
   for (const [px, pz, ph, pl, pd] of heroPalmSpots) {
@@ -618,8 +621,8 @@ export function buildCity(scene, rng, textures) {
   // shop read as the same brick box. The panel/glass sit on the same
   // face as the tower's sign (east for odd i, south for even i).
   const SHOP_PALETTE = [0x8c4a3a, 0xd8c9a8, 0xa8bfae, 0xc9a878, 0x7d8b96, 0x4a4a4a];
-  const SHOP_GLASS = [0xffd98a, 0x9fd8ff, 0xa8e6a0, 0xffb3c1, 0xd8c9a8, 0x8ecae6];
-  const SHOP_AWN = [0xc0392b, 0x1e8449, 0xe67e22, 0x7d3c98, 0x2c3e50, 0x0066aa];
+  const SHOP_GLASS = [0xffd98a, 0x9fd8ff, 0xa8e6a0, 0xd8a8b0, 0xd8c9a8, 0x8ecae6];
+  const SHOP_AWN = [0xc0392b, 0x1e8449, 0xe67e22, 0x6e5a6e, 0x2c3e50, 0x0066aa];
   heroTowers.forEach((t, i) => {
     const east = i % 2 === 1;
     const panelCol = SHOP_PALETTE[i % SHOP_PALETTE.length];
@@ -813,7 +816,10 @@ export function buildCity(scene, rng, textures) {
     board.rotation.y = PI / 4;
     scene.add(board);
   }
-  // Bus stops: bench + sign + shelter + route board.
+  // Bus stops: bench + sign + shelter + route board. Both signs sit
+  // on their own posts now — the BUS sign (y=2.2) and the route board
+  // (y=1.7) had no support and read as two green panels floating in
+  // mid-air in the downtown shot (v43).
   for (const stop of landmarks.busStops) {
     const bench = makeBench();
     bench.position.set(stop.x, 0, stop.z);
@@ -821,6 +827,9 @@ export function buildCity(scene, rng, textures) {
     const sign = makeSign('BUS', '#ffffff', '#2a6a3a', 3.0, 1.5);
     sign.position.set(stop.x, 2.2, stop.z);
     scene.add(sign);
+    const signPost = new ME(new CG(0.06, 0.06, 1.5, 6), M(0x2e3338, 0.7));
+    signPost.position.set(stop.x, 0.75, stop.z);
+    scene.add(signPost);
     const shelterMat = M(0x2a6a3a, 0.8);
     for (const dx of [-1.2, 1.2]) {
       const post = new ME(new CG(0.07, 0.07, 2.6, 6), shelterMat);
@@ -836,6 +845,9 @@ export function buildCity(scene, rng, textures) {
     const rb = makeSign('1路 5路 12路', '#ffffff', '#1a3a5f', 3.2, 1.4);
     rb.position.set(stop.x, 1.7, stop.z - 1.2);
     scene.add(rb);
+    const rbPost = new ME(new CG(0.06, 0.06, 1.1, 6), M(0x2e3338, 0.7));
+    rbPost.position.set(stop.x, 0.55, stop.z - 1.2);
+    scene.add(rbPost);
   }
   // The five green collectible packages.
   const collectibleMeshes = [];

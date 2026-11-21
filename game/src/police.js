@@ -50,39 +50,42 @@ function createHeli() {
     ex.position.set(s, 1.35, -1.0);
     g.add(ex);
   }
-  // Tail boom: thick tapered column, NAVY (not light grey — a white
-  // boom vanishes against the bright sky and the fin reads as a blank
-  // plate). White ring band around it.
-  const boomMat = mt(0x1b2430, 0.6);
-  const boom = new ME(new CG(0.2, 0.45, 3.8, 6), boomMat);
+  // Tail boom: thick tapered column, LIGHT grey — a navy boom
+  // vanished against the dark sunset sky and the tail rotor read as
+  // floating, disconnected (v43 shot 4). White ring band around it.
+  const boomMat = mt(0xdde3e8, 0.6);
+  const boom = new ME(new CG(0.3, 0.55, 3.8, 6), boomMat);
   boom.rotation.x = -PI / 2 + 0.05;
   boom.position.set(0, 0.3, -3.9);
   g.add(boom);
-  const ring = new ME(new CG(0.42, 0.42, 0.35, 6), mt(0xffffff, 0.5));
+  const ring = new ME(new CG(0.48, 0.48, 0.35, 6), mt(0x1b2430, 0.5));
   ring.rotation.x = -PI / 2 + 0.05;
   ring.position.set(0, 0.32, -3.0);
   g.add(ring);
   // Vertical fin (swept plate, NAVY) + thin yellow tip stripe + red
   // strobe on top. A light-grey fin made the black tail rotor read as
   // a Red Cross sign (v42).
-  B(g, 0.12, 1.5, 1.1, boomMat, 0, 0.75, -5.6);
+  B(g, 0.12, 1.5, 1.1, mt(0x1b2430, 0.6), 0, 0.75, -5.6);
   B(g, 0.14, 0.12, 0.9, mt(0xffd94d, 0.5), 0, 1.52, -5.6);
   B(g, 0.1, 0.12, 0.1, new MS({ color: 0xff2222, emissive: 0xff0000, emissiveIntensity: 2 }), 0, 1.66, -5.6);
-  // Tail rotor: 4-blade X on the LEFT side of the fin, with a hub disc
-  // and light-grey tips — never a bare black cross on a plate.
+  // Tail rotor: a 4-blade X (two crossed boxes, 45/135 deg) on the
+  // LEFT side of the fin, small dark hub, light-grey tips. The old
+  // 8-spoke star (four boxes at 45 deg) + the hub disc read as a
+  // gear (v43). No outer disc: the disc was the source of the gear
+  // reading. (The 0/90 deg + was fixed to a 45 deg X in v44 — the
+  // checklist wants a countable 4-blade 45 deg cross.)
   const rearRotor = new GP();
   rearRotor.position.set(-0.4, 0.7, -5.6);
   const rrMat = mt(0x16181a, 0.6);
-  const rrHub = new ME(new CG(0.16, 0.16, 0.1, 10), mt(0x555555, 0.5));
+  const rrHub = new ME(new CG(0.1, 0.1, 0.1, 10), mt(0x16181a, 0.5));
   rrHub.rotation.z = PI / 2;
   rearRotor.add(rrHub);
-  for (const a of [0, PI / 4, PI / 2, (3 * PI) / 4]) {
-    const bl = new ME(new BX(0.06, 1.5, 0.24), rrMat);
+  for (const a of [PI / 4, 3 * PI / 4]) {
+    const bl = new ME(new BX(0.06, 1.5, 0.35), rrMat);
     bl.rotation.x = a;
     rearRotor.add(bl);
     for (const s of [-1, 1]) {
-      // Tip position rotated with the blade (rotation about X).
-      const tip = new ME(new BX(0.07, 0.2, 0.26), mt(0xcccccc, 0.5));
+      const tip = new ME(new BX(0.07, 0.2, 0.37), mt(0xcccccc, 0.5));
       tip.position.set(0, s * 0.68 * Math.cos(a), s * 0.68 * Math.sin(a));
       tip.rotation.x = a;
       rearRotor.add(tip);
@@ -97,13 +100,11 @@ function createHeli() {
   rearRotor2.position.x = 0.4;
   g.add(rearRotor2);
   g.userData.rearRotor2 = rearRotor2;
-  // Main rotor: mast + hub + FOUR blades at 45 deg (two crossed boxes
-  // read as one rod + one slanted plate from a low camera — v42).
-  // Each blade is 10.8 m long, 0.9 m chord, with light-grey tips, and
-  // the whole rotor is parked diagonal in the shots. The translucent
-  // disc sits BELOW the blades (y=1.22 vs blades 1.35) as ONE closed
-  // circle — coplanar disc + blades rendered as two blurry unclosed
-  // ellipses (v42).
+  // Main rotor: mast + hub + FOUR blades (two crossed boxes, 0/90
+  // deg) + light-grey tips, parked diagonal in the shots so the four
+  // blades read as an X. The old eight-spoke star (four boxes at 45
+  // deg) read as one long rod + one big slanted plate from a low camera
+  // (v43). One closed translucent disc sits BELOW the blades.
   const rotor = new GP();
   rotor.position.y = 1.15;
   const mast = new ME(new CG(0.14, 0.14, 0.55, 8), mt(0x2e3338, 0.6));
@@ -113,13 +114,13 @@ function createHeli() {
   hub.position.y = 0.1;
   rotor.add(hub);
   const bladeMat = mt(0x16181a, 0.6);
-  for (const a of [0, PI / 4, PI / 2, (3 * PI) / 4]) {
-    const bl = new ME(new BX(10.8, 0.07, 0.9), bladeMat);
+  for (const a of [0, PI / 2]) {
+    const bl = new ME(new BX(10.8, 0.07, 1.0), bladeMat);
     bl.rotation.y = a;
     bl.position.y = 0.2;
     rotor.add(bl);
     for (const s of [-1, 1]) {
-      const tip = new ME(new BX(1.1, 0.08, 0.92), mt(0xcccccc, 0.5));
+      const tip = new ME(new BX(1.1, 0.08, 1.02), mt(0xcccccc, 0.5));
       const tx = s * 4.85 * Math.cos(a);
       const tz = -s * 4.85 * Math.sin(a);
       tip.position.set(tx, 0.2, tz);

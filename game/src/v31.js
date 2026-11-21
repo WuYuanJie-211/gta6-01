@@ -183,18 +183,19 @@ export function makeRoadTexture(aniso) {
   return t;
 }
 
-// Sidewalk tile: 1024x1024 px = 16 m x 16 m, seams every 2 m.
+// Sidewalk tile: 1024x1024 px = 16 m x 16 m, seams every 1 m (the
+// old 2 m tiles read as oversized beige slabs in the downtown shot).
 export function makeSidewalkTexture(aniso) {
   const [c, x] = canvas(1024, 1024);
   const rnd = mulberry(4102);
   x.fillStyle = '#b3a98f';
   x.fillRect(0, 0, 1024, 1024);
-  // Per-tile shade variation.
-  for (let ty = 0; ty < 8; ty += 1) {
-    for (let tx = 0; tx < 8; tx += 1) {
+  // Per-tile shade variation (1 m tiles).
+  for (let ty = 0; ty < 16; ty += 1) {
+    for (let tx = 0; tx < 16; tx += 1) {
       const v = rnd() * 14 - 7;
       x.fillStyle = v >= 0 ? `rgba(255,255,255,${v / 100})` : `rgba(0,0,0,${-v / 100})`;
-      x.fillRect(tx * 128, ty * 128, 128, 128);
+      x.fillRect(tx * 64, ty * 64, 64, 64);
     }
   }
   // Speckle.
@@ -203,12 +204,12 @@ export function makeSidewalkTexture(aniso) {
     x.fillStyle = `rgb(${v},${v - 6},${v - 22})`;
     x.fillRect(rnd() * 1024, rnd() * 1024, 1.6, 1.6);
   }
-  // Seams.
+  // Seams every 1 m (64 px).
   x.strokeStyle = '#8a7f68';
   x.lineWidth = 3;
-  for (let i = 0; i <= 8; i += 1) {
-    x.beginPath(); x.moveTo(i * 128, 0); x.lineTo(i * 128, 1024); x.stroke();
-    x.beginPath(); x.moveTo(0, i * 128); x.lineTo(1024, i * 128); x.stroke();
+  for (let i = 0; i <= 16; i += 1) {
+    x.beginPath(); x.moveTo(i * 64, 0); x.lineTo(i * 64, 1024); x.stroke();
+    x.beginPath(); x.moveTo(0, i * 64); x.lineTo(1024, i * 64); x.stroke();
   }
   const t = new CT(c);
   t.colorSpace = SC;
@@ -666,15 +667,29 @@ function makePalmCrown(g, x, y, z, scale, rnd) {
     pitch.rotation.x = droop;
     yaw.add(pitch);
     for (const s of [-1, 1]) {
-      // Narrower blade (0.38) with a stronger V-fold (0.6) — the old
-      // flat 0.5-wide blades read as thin fan blades, not palm leaves.
-      const blade = new ME(
-        new BX(0.38, 0.03, len),
-        new MS({ color: greens[(i + (s > 0 ? 1 : 0)) % 3], roughness: 1, side: DS }),
+      // Two-segment leaf with a tapered tip: a base blade (60% of the
+      // length) plus a narrower tip blade pitched down a further 30
+      // deg. A single flat box ended in a hard triangle edge and read
+      // as a paper fan (v43). The V-fold is stronger on the tip.
+      const col = greens[(i + (s > 0 ? 1 : 0)) % 3];
+      const base = new ME(
+        new BX(0.38, 0.03, len * 0.6),
+        new MS({ color: col, roughness: 1, side: DS }),
       );
-      blade.position.set(s * 0.15, 0, len / 2);
-      blade.rotation.z = -s * 0.6;
-      pitch.add(blade);
+      base.position.set(s * 0.15, 0, len * 0.3);
+      base.rotation.z = -s * 0.6;
+      pitch.add(base);
+      const tipJoint = new GP();
+      tipJoint.position.set(s * 0.15, 0, len * 0.6);
+      tipJoint.rotation.x = 0.5;
+      pitch.add(tipJoint);
+      const tip = new ME(
+        new BX(0.22, 0.03, len * 0.42),
+        new MS({ color: col, roughness: 1, side: DS }),
+      );
+      tip.position.set(0, 0, len * 0.21);
+      tip.rotation.z = -s * 0.7;
+      tipJoint.add(tip);
     }
     g.add(yaw);
   }
@@ -686,9 +701,11 @@ function makePalmCrown(g, x, y, z, scale, rnd) {
     dry.rotation.x = 1.9;
     g.add(dry);
   }
-  for (let i = 0; i < 4; i += 1) {
-    const a = (i / 4) * PI * 2 + 0.4;
-    const nut = new ME(new SG(0.11, 8, 6), new MS({ color: 0x6a5a3a, roughness: 1 }));
+  // Coconuts: small (0.09) and dark brown — the old 0.11 nuts read as
+  // one big orange ball on the sunset palm (v43).
+  for (let i = 0; i < 3; i += 1) {
+    const a = (i / 3) * PI * 2 + 0.4;
+    const nut = new ME(new SG(0.09, 8, 6), new MS({ color: 0x5a4a2a, roughness: 1 }));
     nut.position.set(x + Math.sin(a) * 0.35, y - 0.35, z + Math.cos(a) * 0.35);
     g.add(nut);
   }
