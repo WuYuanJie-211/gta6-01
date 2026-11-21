@@ -1,9 +1,18 @@
+// Combat: thugs and gunmen, punches, gunfire, tracers, muzzle flashes,
+// casings, sparks, explosions. Enemies carry a health bar above their
+// head; gunmen shoot back from range, thugs close in to punch.
+//
+// CHILD ORDER in the enemy meshes is load-bearing: shots.js hides the
+// health bars (children 8-9) and the gunmen's rifles (children 12-14) by
+// number. Keep the add order.
 import * as THREE from 'three';
-import{BX,CG,MB,MS,SG,ME,V3,GP,PI,AB,SP,PG,SH}from'./geo.js';
+import { BX, CG, MB, MS, SG, ME, V3, GP, PI, AB, SP, PG, SH } from './geo.js';
 import { PLAYER, WEAPONS, ECONOMY, EFFECTS } from './config.js';
+
 let shadowTex = null;
-const B=(g,w,h,d,m,x=0,y=0,z=0)=>{const q=new ME(new BX(w,h,d),m);q.position.set(x,y,z);g.add(q);return q;};
-const mt=(c,r=0.9)=>new MS({color:c,roughness:r});
+const B = (g, w, h, d, m, x = 0, y = 0, z = 0) => { const q = new ME(new BX(w, h, d), m); q.position.set(x, y, z); g.add(q); return q; };
+const mt = (c, r = 0.9) => new MS({ color: c, roughness: r });
+
 function createThugMesh() {
   const group = new GP();
   const shirt = mt(0x7b241c);
@@ -36,17 +45,18 @@ function createThugMesh() {
   group.userData.armL = armL;
   group.userData.armR = armR;
   if (shadowTex) {
-    // v33: bigger + darker (was 0.9x0.5 @ 0.5 — invisible on the light
-    // pavement; the shot-2 figures read as floating with no shadow).
-    const sh = new ME(new PG(1.6, 1.1), SH(shadowTex, .65));
+    // Big and dark — a small faint blob was invisible on the light
+    // pavement and the figures read as floating.
+    const sh = new ME(new PG(1.6, 1.1), SH(shadowTex, 0.65));
     sh.rotation.x = -PI / 2;
     sh.position.set(0, 0.1, 0);
     group.add(sh);
   } else {
-    B(group, 1.6, .02, 1.1, mt(0, 1), 0, .09, 0);
+    B(group, 1.6, 0.02, 1.1, mt(0, 1), 0, 0.09, 0);
   }
   return group;
 }
+
 function createGunmanMesh() {
   const group = createThugMesh();
   group.children[0].material = mt(0x0a0a0a);
@@ -61,21 +71,25 @@ function createGunmanMesh() {
   group.add(barrel);
   return group;
 }
+
 export function createCombat(game) {
   shadowTex = game.textures && game.textures.shadow;
   const enemies = [];
   const tracers = [];
   const parts = [];
+
   function addPart(mesh, pos, vel, life, grow = 0, grav = 0) {
     mesh.position.copy(pos);
     game.scene.add(mesh);
     parts.push({ mesh, vel: vel.clone(), life, maxLife: life, grow, grav });
   }
+
   function spawnFlash(pos) {
     const flash = new SP(new THREE.SpriteMaterial({ map: game.textures.fireball, transparent: true, blending: AB, depthWrite: false }));
-    flash.scale.set(.45,.45,1);
+    flash.scale.set(0.45, 0.45, 1);
     addPart(flash, pos, new V3(0, 0, 0), EFFECTS.fl);
   }
+
   function spawnCasing(pos, heading) {
     const casing = new ME(
       new BX(0.06, 0.03, 0.1),
@@ -85,6 +99,7 @@ export function createCombat(game) {
     const side = new V3(Math.cos(heading), 0, -Math.sin(heading));
     addPart(casing, new V3(pos.x + side.x * 0.4, 1.1, pos.z + side.z * 0.4), new V3(side.x * 1.5, 2.2, side.z * 1.5), EFFECTS.ca, 0, 12);
   }
+
   function spawnSparks(pos, color = 0xffcc44, n = 4) {
     for (let i = 0; i < n; i += 1) {
       const spark = new ME(
@@ -96,6 +111,7 @@ export function createCombat(game) {
       addPart(spark, pos, new V3(Math.cos(a) * Math.cos(b) * 6, Math.abs(Math.sin(b)) * 5 + 1, Math.sin(a) * Math.cos(b) * 6), EFFECTS.sp, 0, 9);
     }
   }
+
   function spawnExplosion(pos, so = 0.7) {
     const origin = new V3(pos.x, pos.y + 1, pos.z);
     const fire = game.textures && game.textures.fireball;
@@ -123,6 +139,7 @@ export function createCombat(game) {
     }
     game.hud.shake();
   }
+
   function spawnThug(x, z) {
     const mesh = createThugMesh();
     mesh.position.set(x, 0, z);
@@ -138,6 +155,7 @@ export function createCombat(game) {
     enemies.push(enemy);
     return enemy;
   }
+
   function spawnGunman(x, z) {
     const mesh = createGunmanMesh();
     mesh.position.set(x, 0, z);
@@ -153,19 +171,22 @@ export function createCombat(game) {
     enemies.push(enemy);
     return enemy;
   }
+
+  // A tracer is 6 short boxes laid end to end along the shot line.
   function spawnTracer(from, to, color = 0xffe14d) {
     const dir = new V3().subVectors(to, from);
     const len = dir.length();
     if (len < 0.1) return;
     dir.normalize();
     for (let i = 0; i < 6; i++) {
-      const tracer = new ME(new BX(.07, .07, len / 6), new MB({ color, transparent: true, opacity: .9, blending: AB }));
-      tracer.position.copy(from).addScaledVector(dir, len * (i + .5) / 6);
+      const tracer = new ME(new BX(0.07, 0.07, len / 6), new MB({ color, transparent: true, opacity: 0.9, blending: AB }));
+      tracer.position.copy(from).addScaledVector(dir, len * (i + 0.5) / 6);
       tracer.lookAt(to);
       game.scene.add(tracer);
       tracers.push({ mesh: tracer, life: 0.16 });
     }
   }
+
   function playerPunch() {
     const player = game.player;
     if (player.punchTimer > 0 || !player.onFoot) return;
@@ -198,6 +219,7 @@ export function createCombat(game) {
       game.hud.flash('You hit a pedestrian! The cops are coming.');
     }
   }
+
   function playerShoot() {
     const player = game.player;
     const weapon = WEAPONS[player.weapon];
@@ -252,8 +274,8 @@ export function createCombat(game) {
       }
     }
     const tg = bestEnemy || bestCar;
-    const end=game.aim||(tg?new V3(tg.pos.x,1.2,tg.pos.z):new V3(player.pos.x+fx*bestDist,1.2,player.pos.z+fz*bestDist));
-    const tf = player.weapon === 'rifle' && rf ? rf.localToWorld(new V3(0, .02, .93)) : muzzle;
+    const end = game.aim || (tg ? new V3(tg.pos.x, 1.2, tg.pos.z) : new V3(player.pos.x + fx * bestDist, 1.2, player.pos.z + fz * bestDist));
+    const tf = player.weapon === 'rifle' && rf ? rf.localToWorld(new V3(0, 0.02, 0.93)) : muzzle;
     spawnTracer(tf, end, game.player.weapon === 'rifle' ? 0xff9500 : 0xffe14d);
     spawnFlash(muzzle);
     spawnCasing(player.pos, player.heading);
@@ -275,6 +297,7 @@ export function createCombat(game) {
     }
     game.hud.update();
   }
+
   function reloadWeapon() {
     const player = game.player;
     const weapon = WEAPONS[player.weapon];
@@ -287,6 +310,7 @@ export function createCombat(game) {
     player.ammo -= taken;
     player.mag += taken;
   }
+
   function damageEnemy(enemy, amount) {
     enemy.health -= amount;
     enemy.flashT = 0.12;
@@ -304,6 +328,7 @@ export function createCombat(game) {
       game.hud.update();
     }
   }
+
   function update(dt) {
     for (const enemy of enemies) {
       if (!enemy.alive) {
@@ -371,7 +396,7 @@ export function createCombat(game) {
     for (let i = tracers.length - 1; i >= 0; i -= 1) {
       const tracer = tracers[i];
       tracer.life -= dt;
-      tracer.mesh.material.opacity = Math.max(0, Math.min(1, tracer.life / 0.16)) * .9;
+      tracer.mesh.material.opacity = Math.max(0, Math.min(1, tracer.life / 0.16)) * 0.9;
       if (tracer.life <= 0) {
         game.scene.remove(tracer.mesh);
         tracers.splice(i, 1);
@@ -391,5 +416,6 @@ export function createCombat(game) {
       if (part.mesh.material.transparent) part.mesh.material.opacity = Math.max(0, part.life / part.maxLife);
     }
   }
+
   return { enemies, spawnThug, spawnGunman, spawnExplosion, spawnCasing, spawnSparks, playerPunch, playerShoot, reloadWeapon, update };
 }

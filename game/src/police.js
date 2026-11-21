@@ -1,11 +1,15 @@
+// Police: wanted stars, chase cars that ram, roadblocks at 3 stars, the
+// helicopter at 4 stars, and the heat cooling off when the player lays low.
 import * as THREE from 'three';
-import{BX,CN,CI,MB,MS,ME,GP,PI}from'./geo.js';
+import { BX, CN, CI, MB, MS, ME, GP, PI } from './geo.js';
 import { POLICE, CAR } from './config.js';
-const B=(g,w,h,d,m,x=0,y=0,z=0)=>{const q=new ME(new BX(w,h,d),m);q.position.set(x,y,z);g.add(q);return q;};
-const mt=(c,r=0.9)=>new MS({color:c,roughness:r});
 import { spawnPoliceCar } from './vehicles.js';
 import { nearestNode } from './roads.js';
 import { resolveBuildingCollision } from './city.js';
+
+const B = (g, w, h, d, m, x = 0, y = 0, z = 0) => { const q = new ME(new BX(w, h, d), m); q.position.set(x, y, z); g.add(q); return q; };
+const mt = (c, r = 0.9) => new MS({ color: c, roughness: r });
+
 function rotatedAABB(x, z, halfLen, halfWid, angle) {
   const c = Math.abs(Math.cos(angle));
   const s = Math.abs(Math.sin(angle));
@@ -13,6 +17,9 @@ function rotatedAABB(x, z, halfLen, halfWid, angle) {
   const hz = halfLen * s + halfWid * c;
   return { minX: x - hx, maxX: x + hx, minZ: z - hz, maxZ: z + hz };
 }
+
+// The helicopter. CHILD ORDER is load-bearing: shots.js recolors
+// children[0] (the body) for the burning / sunset staging.
 function createHelicopterMesh() {
   const group = new GP();
   const bodyMat = mt(0xd8dce2, 0.5);
@@ -26,6 +33,9 @@ function createHelicopterMesh() {
   const rotor2 = B(group, 0.5, 0.08, 9, mt(0x222222, 0.5), 0, 1.1, 0);
   const skidMat = mt(0x333333, 0.8);
   for (const side of [-1, 1]) B(group, 0.15, 0.15, 3.5, skidMat, side * 1.1, -1.1, 0);
+  // Searchlight cone + bulb under the nose. The cone stays hidden in the
+  // screenshots (it rendered as hard triangles); the soft beam sprites
+  // in shots.js carry the light instead.
   const scrim = new ME(
     new CN(1.1, 3, 12, 1, true),
     new MB({ color: 0xfff8c0, transparent: true, opacity: 0.12, side: THREE.FrontSide }),
@@ -46,6 +56,7 @@ function createHelicopterMesh() {
   group.visible = false;
   return group;
 }
+
 export function createPolice(game) {
   const state = {
     wanted: 0,
@@ -57,18 +68,22 @@ export function createPolice(game) {
   };
   const heli = createHelicopterMesh();
   game.scene.add(heli);
+
   function commitCrime(stars) {
     if (state.wanted >= 5) return;
     state.wanted = Math.min(5, state.wanted + stars);
     state.decayTimer = 0;
     game.hud.flash(`Wanted ${state.wanted} — the PD is on you!`);
   }
+
   function keepCars() {
     const max = state.wanted >= 4 ? POLICE.maxActiveCarsHigh : POLICE.maxActiveCars;
     const want = Math.min(state.wanted, max);
     while (state.cars.length < want) {
       const car = spawnPoliceCar(game);
       if (state.cars.length % 2 === 1) {
+        // Every second car spawns ahead of the player, so the chase
+        // closes in from the front as well as from behind.
         const playerPos = game.player.car ? game.player.car.pos : game.player.pos;
         const heading = game.player.car ? game.player.car.heading : game.player.heading;
         const ax = playerPos.x + Math.cos(heading) * 70;
@@ -84,6 +99,7 @@ export function createPolice(game) {
       game.scene.remove(car.mesh);
     }
   }
+
   function spawnRoadblock() {
     const playerPos = game.player.car ? game.player.car.pos : game.player.pos;
     const heading = game.player.car ? game.player.car.heading : game.player.heading;
@@ -114,6 +130,7 @@ export function createPolice(game) {
     state.roadblock = { node, barriers, colliders };
     game.hud.flash('Roadblock ahead!');
   }
+
   function removeRoadblock() {
     if (!state.roadblock) return;
     for (const barrier of state.roadblock.barriers) game.scene.remove(barrier);
@@ -123,6 +140,7 @@ export function createPolice(game) {
     }
     state.roadblock = null;
   }
+
   function update(dt) {
     keepCars();
     state.ramCooldown = Math.max(0, state.ramCooldown - dt);
@@ -201,5 +219,6 @@ export function createPolice(game) {
     }
     game.audio.updateSiren(dt, state.wanted);
   }
+
   return { state, commitCrime, update, heli };
 }

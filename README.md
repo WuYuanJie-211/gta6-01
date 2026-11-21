@@ -4,10 +4,10 @@
 
 # Solara Bay — an original open-world crime game
 
-A sunny coastal city, one wheelman, seven jobs. **Solara Bay** is my entry for
-[make.fun's gta6-01](https://make.fun/c/gta6-01) ("Make GTA 6"): a complete
-open-world crime game that plays in a desktop browser from static files, with
-no network request at all.
+A sunset coastal city, one wheelman, seven jobs. **Solara Bay** is my entry
+for [make.fun's gta6-01](https://make.fun/c/gta6-01) ("Make GTA 6"): a
+complete open-world crime game that plays in a desktop browser from static
+files, with no network request at all.
 
 Everything is original: the city, the names, the story, the cars and the art.
 No Rockstar names, characters, maps, art or music anywhere.
@@ -46,7 +46,7 @@ helicopter, and watch the wanted stars cool off when you lay low.
   stucco, asphalt, sidewalk, grass, sand, container steel), generated on a
   GPU with SDXL and shipped as local files under `game/textures/` — no
   network, and a flat-colour fallback if a file is ever missing.
-- **On foot and by car** — walk, run, drive, and steal parked cars (E). Nine
+- **On foot and by car** — walk, run, drive, and steal parked cars (E). Ten
   car models with their own shapes, speeds and prices — sedan, compact, taxi,
   van, pickup, truck, bus, muscle, the Comet GT sports car, and the armored
   van — plus damage and repair. Cars have hub-capped wheels, grilles,
@@ -54,8 +54,9 @@ helicopter, and watch the wanted stars cool off when you lay low.
   throws you out, and the garage is the only way back.
 - **Traffic and pedestrians** — 20 cars drive the grid (easing off at
   intersections); 36 people stroll the sidewalks, wait at bus stops, chat in
-  groups, and scatter when a car comes at them. People have arms that swing,
-  hair, necks, hats and bags; thugs and gunmen too.
+  groups, stop to check their phones, and scatter when a car comes at them.
+  People have arms that swing, hair, necks, hats and bags; thugs and gunmen
+  too.
 - **Wanted level and police** — crimes earn stars; police cars chase, ram and
   cut you off from ahead; at 3 stars a roadblock goes up in front of you; at
   4 stars a police helicopter joins and the heat never cools off while it is
@@ -80,6 +81,19 @@ helicopter, and watch the wanted stars cool off when you lay low.
   siren joins at 4 stars), a looping music track (M toggles it), and effects
   for gunshots, crashes, pickups, payouts and reloads (WebAudio, no audio
   files).
+
+## The look
+
+The city is dressed, not just built: one 1024-pixel facade atlas gives every
+tower a window grid, sill, lit panes, parapet, rooftop AC boxes and water
+tanks; twelve big signs (HOTEL, CAFE, BODEGA, MARINE, GARAGE, SUITES, PALACE,
+CANTINA, FARMACIA, PENSION, MERCADO, TALLER) give the buildings names; the
+roads carry double yellow lines, lane dashes, zebras and stop lines; palms,
+streetlights, hydrants, benches, umbrellas and bins fill the sidewalks. The
+sky is a dithered sunset gradient with a soft sun, sea and far skyline, and
+every grounded object sits on a soft blob shadow. The renderer uses ACES
+filmic tone mapping with sRGB output, so the sunset reads warm instead of
+blown-out white.
 
 ## Controls
 
@@ -108,7 +122,7 @@ node serve.ts
 Screenshot scenes (deterministic, same seed gives the same frame):
 
 ```sh
-# ?shot=chase | gunfight | downtown | race, with &seed=N
+# ?shot=chase | gunfight | downtown | sunset, with &seed=N
 http://localhost:8080/?shot=chase&seed=7
 ```
 
@@ -124,12 +138,12 @@ mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts
 
 three.js r160 is vendored as `game/vendor/three.module.min.js` (MIT).
 
-## v3 re-witness (fast pass)
+## v4 — fresh rewrite
 
-Small real fixes on top of the modeling upgrade: Comet GT rear detail
-(full-width tail-light bar, rear diffuser, spoiler struts), trees with
-staggered canopies, heli searchlight that tilts toward the player, wrecked-car
-hint pointing at the Garage, clearer M7 escape text, smoother walk-cycle
-fade, rifle tracers in orange, pedestrians who stop to check their phone,
-a short horn when stealing a car, save version 3, chop-shop payout scaled
-by car condition, and speed bumps on the main avenues.
+The whole game rewritten from scratch in one session: same city, same seven
+missions, same four screenshot scenes, rebuilt line by line. The modeling
+lessons from the earlier versions are in from the start — the facade atlas,
+the twelve-sign system, the dithered sunset sky, blob shadows with a
+render-order fix so the gunman shadow survives the road markings, the
+traffic-light halo ring, framed van glass, the TAXI roof sign, and the
+helicopter kept fully in frame.

@@ -1,8 +1,1 @@
-{
-  "shots": [
-    {"name": "1-chase", "file": "screenshots/1-chase.jpg", "note": "Armored van heist, 4 stars, 3 police cars + helicopter (1.5x, searchlight), sunset-warm sun, clean HUD"},
-    {"name": "2-gunfight", "file": "screenshots/2-gunfight.jpg", "note": "Rifle gunfight behind concrete barrier, big muzzle flash + thick orange tracer, police car left, spent casings, 4 stars + ammo only"},
-    {"name": "3-downtown", "file": "screenshots/3-downtown.jpg", "note": "Taxi stopped at red light (0 km/h), brake lights on, 4 pedestrians, neon signs, traffic stopped"},
-    {"name": "4-sunset-heist", "file": "screenshots/4-sunset-heist.jpg", "note": "Sunset Heist highlight: red Comet GT on highway at sunset, 2 police cars behind, 1 police car exploding right, helicopter upper-left, WANTED 5 + $2,000,000"}
-  ]
-}
+{"shots":[{"file":"screenshots/1-chase.jpg","name":"chase","note":"Armored van heist, 4 stars, 2 police cruisers + helicopter (1.5x, soft searchlight), sunset-warm sun, clean HUD"},{"file":"screenshots/2-gunfight.jpg","name":"gunfight","note":"Rifle gunfight at the downtown intersection, big muzzle flash + thick orange tracer into the duellist, 4 stars + ammo only"},{"file":"screenshots/3-downtown.jpg","name":"downtown","note":"Taxi stopped at red light (0 km/h), brake glow, TAXI roof sign, 6 pedestrians, neon signs, traffic queued"},{"file":"screenshots/4-sunset-heist.jpg","name":"sunset","note":"Sunset Heist highlight: red Comet GT, gunman on the yellow stripe with a soft shadow, burning police car, helicopter in frame, WANTED 5 + $2,000,000"}]}

@@ -1,5 +1,14 @@
+// The Game: renderer, scene, camera, the fixed-step loop, menu wiring,
+// and the ?shot= staging entry point.
+//
+// Rendering pipeline (the clarity fixes that took the game from "480p"
+// to readable): ACES filmic tone mapping + sRGB output — the old linear
+// pipeline clamped everything over 1.0 to pure white and washed the
+// detail out. Fog pushed out to 300/900 so the midground is not washed
+// into sky colour. No shadow map — it cast hard shadow triangles on
+// facades; blob shadows are the contact shadows now.
 import * as THREE from 'three';
-import{V3,PI}from'./geo.js';
+import { V3, PI } from './geo.js';
 import { STEP, WORLD, PLAYER, WEAPONS } from './config.js';
 import { createRandom } from './random.js';
 import { buildRoads } from './roads.js';
@@ -17,10 +26,12 @@ import { saveGame, loadSave, hasSave } from './save.js';
 import { createAudio } from './audio.js';
 import { stageShot } from './shots.js';
 import { makeSkyDome, makeSunBillboard, updateTrafficLights } from './v31.js';
+
 const params = new URLSearchParams(window.location.search);
 const shot = params.get('shot');
 const seedParam = Number.parseInt(params.get('seed') ?? '', 10);
 const seed = Number.isInteger(seedParam) ? seedParam : 7;
+
 class Game {
   constructor(textures = {}) {
     this.time = 0;
@@ -36,26 +47,22 @@ class Game {
     this.canvas = document.getElementById('game');
     this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, preserveDrawingBuffer: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    // v32 (Superbot Q3): ACES tone mapping + sRGB output recover the detail
-    // the old linear pipeline clamped to pure white (the "480p" washout).
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.textures = textures;
     this.scene = new THREE.Scene();
-    // v31: dithered sunset-gradient sky dome (no banding) replaces the flat
+    // Dithered sunset-gradient sky dome (no banding) replaces the flat
     // blue background. Fallback background is the warm horizon colour.
     this.scene.background = new THREE.Color(0xFFB86B);
     this.skyDome = makeSkyDome();
     this.scene.add(this.skyDome);
     this.sunBillboard = makeSunBillboard();
     this.scene.add(this.sunBillboard);
-    // v32: warm haze, pushed out (300/900) so the midground is not washed
+    // Warm haze, pushed out (300/900) so the midground is not washed
     // into sky colour. The dome is unfogged.
     this.scene.fog = new THREE.Fog(0xD9A06B, 300, 900);
     this.camera = new THREE.PerspectiveCamera(60, 1, 0.1, 1500);
     const sun = new THREE.DirectionalLight(0xffd9a0, 3.0);
-    // v33: shadow map OFF — it cast hard shadow triangles on facades.
-    // Blob shadows are the contact shadows now.
     this.scene.add(sun);
     this.scene.add(new THREE.HemisphereLight(0xffe0b8, 0x8a7a5a, 0.9));
     this.sun = sun;
@@ -95,6 +102,7 @@ class Game {
     window.addEventListener('resize', () => this.resize());
     this.wireMenu();
   }
+
   resize() {
     const w = window.innerWidth;
     const h = window.innerHeight;
@@ -102,6 +110,7 @@ class Game {
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
   }
+
   wireMenu() {
     const on = (id, fn) => {
       const button = document.getElementById(id);
@@ -129,6 +138,7 @@ class Game {
     on('btn-retry', () => window.location.reload());
     on('btn-menu-title', () => window.location.reload());
   }
+
   startGame(save) {
     if (save) {
       this.cash = save.cash;
@@ -154,9 +164,10 @@ class Game {
       this.player.mesh.position.copy(this.player.pos);
     }
     this.setScreen('playing');
-    console.log('Solara Bay v3');
+    console.log('Solara Bay v4');
     this.hud.flash('Welcome to Solara Bay. Mara waits.');
   }
+
   setScreen(screen) {
     this.screen = screen;
     this.hud.showMenu(screen === 'title');
@@ -164,6 +175,7 @@ class Game {
     this.hud.showOver(screen === 'over', 'WASTED — Rook is down.');
     if (screen === 'playing') this.audio.unlock();
   }
+
   interact() {
     if (this.missions.interact()) return;
     if (this.shops.interact()) return;
@@ -189,6 +201,7 @@ class Game {
       exitCar(this);
     }
   }
+
   cycleWeapon() {
     const owned = this.player.ownedWeapons;
     if (!owned.length) {
@@ -201,6 +214,7 @@ class Game {
     const name = this.player.weapon === 'fists' ? 'Fists' : WEAPONS[this.player.weapon].name;
     this.hud.flash(`Weapon: ${name}.`);
   }
+
   refreshPrompt() {
     if (this.screen !== 'playing') {
       this.hud.setPrompt('');
@@ -261,9 +275,10 @@ class Game {
     }
     this.hud.setPrompt('WASD — walk · Shift — run · E — interact · F — punch · click — shoot · Q — weapon');
   }
+
   step(dt) {
     this.time += dt;
-    // v31: traffic-light state machine (exactly one lamp lit, always).
+    // Traffic-light state machine (exactly one lamp lit, always).
     if (this.city.trafficLights) updateTrafficLights(this.city.trafficLights, this.time);
     const playing = this.screen === 'playing';
     updateTraffic(this, dt);
@@ -307,6 +322,7 @@ class Game {
     this.refreshPrompt();
     this.hud.update();
   }
+
   updateCamera(dt) {
     const drag = this.input.takeDrag();
     if (drag.dx !== 0 || drag.dy !== 0) {
@@ -350,21 +366,24 @@ class Game {
     this.sun.target.position.set(target.x, 0, target.z);
     this.sun.target.updateMatrixWorld();
   }
+
   render() {
     this.renderer.render(this.scene, this.camera);
   }
 }
+
 const textures = await loadCityTextures();
 const game = new Game(textures);
 window.__game = game;
-// v32 debug: ?audit=1 logs the hero-zone sign count.
+// ?audit=1 logs the hero-zone sign count — a quick staging check.
 if (params.get('audit') === '1') {
   setTimeout(() => {
     const signs = [];
     game.scene.traverse((o) => { if (o.userData && o.userData.v31sign) signs.push(o.userData.v31sign); });
-    console.log('[v31-audit] signs=' + signs.length + ' ' + JSON.stringify(signs));
+    console.log('[audit] signs=' + signs.length + ' ' + JSON.stringify(signs));
   }, 2500);
 }
+
 function runShot(name) {
   stageShot(name, game);
   game.setScreen('playing');
@@ -379,6 +398,7 @@ function runShot(name) {
   }
   requestAnimationFrame(paint);
 }
+
 function runGame() {
   let accumulator = 0;
   let last = performance.now();
@@ -398,5 +418,6 @@ function runGame() {
   });
   requestAnimationFrame(frame);
 }
+
 if (shot) runShot(shot);
 else runGame();

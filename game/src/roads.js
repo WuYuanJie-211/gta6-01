@@ -1,4 +1,7 @@
+// The road graph: one node per avenue/street crossing, edges to the four
+// neighbours. Traffic, police spawns, fares and the race all drive on it.
 import { CITY } from './config.js';
+
 export function buildRoads() {
   const nodes = [];
   const byKey = new Map();
@@ -11,6 +14,7 @@ export function buildRoads() {
   }
   return { linesX: CITY.roadLinesX, linesZ: CITY.roadLinesZ, nodes, byKey };
 }
+
 export function nodeNeighbours(roads, node) {
   const out = [];
   const step = CITY.roadLinesX[1] - CITY.roadLinesX[0];
@@ -20,6 +24,7 @@ export function nodeNeighbours(roads, node) {
   }
   return out;
 }
+
 export function nearestNode(roads, x, z) {
   let best = roads.nodes[0];
   let bestD = Infinity;
@@ -32,12 +37,15 @@ export function nearestNode(roads, x, z) {
   }
   return best;
 }
+
 export function randomNode(roads, rng, bounds) {
   const pool = bounds
     ? roads.nodes.filter((n) => n.x >= bounds.minX && n.x <= bounds.maxX && n.z >= bounds.minZ && n.z <= bounds.maxZ)
     : roads.nodes;
   return rng.pick(pool.length ? pool : roads.nodes);
 }
+
+// Is the point on a road strip (either direction)?
 export function isOnRoad(x, z) {
   const half = CITY.roadWidth / 2;
   for (const line of CITY.roadLinesX) {
@@ -48,6 +56,8 @@ export function isOnRoad(x, z) {
   }
   return false;
 }
+
+// On both an avenue and a street — a crossing.
 export function isIntersection(x, z) {
   const half = CITY.roadWidth / 2;
   let onX = false;

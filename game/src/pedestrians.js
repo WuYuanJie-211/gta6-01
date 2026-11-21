@@ -1,12 +1,18 @@
-import{BX,CG,MS,SG,ME,V3,GP,PI}from'./geo.js';
+// Pedestrians: 36 people on the sidewalks. The first six wait at bus
+// stops (the taxi fares), the next six chat in groups, the rest stroll
+// and occasionally stop to check their phones. They flee a fast car and
+// scatter — and the game notices if you run one over.
+import { BX, CG, MS, SG, ME, V3, GP, PI } from './geo.js';
 import { CITY } from './config.js';
 import { isOnRoad } from './roads.js';
 import { addBlobShadow } from './v31.js';
-const B=(g,w,h,d,m,x=0,y=0,z=0)=>{const q=new ME(new BX(w,h,d),m);q.position.set(x,y,z);g.add(q);return q;};
-const mt=(c,r=0.9)=>new MS({color:c,roughness:r});
+
+const B = (g, w, h, d, m, x = 0, y = 0, z = 0) => { const q = new ME(new BX(w, h, d), m); q.position.set(x, y, z); g.add(q); return q; };
+const mt = (c, r = 0.9) => new MS({ color: c, roughness: r });
 const SHIRTS = [0xe74c3c, 0x3498db, 0x2ecc71, 0xf39c12, 0x9b59b6, 0xecf0f1, 0x1abc9c, 0xe67e22];
 const PANTS = [0x333333, 0x2c3e50, 0x5a4a3a, 0x7f8c8d, 0x2e4053];
 const SKINS = [0xd9a066, 0xc98a5a, 0x8a5a3a, 0xe8b88a, 0xf0c8a0];
+
 function createPedestrianMesh(rng) {
   const group = new GP();
   const shirt = mt(rng.pick(SHIRTS));
@@ -45,12 +51,12 @@ function createPedestrianMesh(rng) {
   phone.visible = false;
   group.userData.phone = phone;
   group.scale.set(1, height, 1);
-  // v31: blob shadow so pedestrians stop floating (the shadow pass flagged
-  // every pedestrian's legs). A soft radial blob; the group's Y scale
-  // stretches it ≤12% in one axis, invisible on a soft blob.
+  // A blob shadow, so pedestrians stop floating. The group's Y scale
+  // stretches it up to 12% in one axis — invisible on a soft blob.
   addBlobShadow(group, 0, 0, 0.9, 0.9, 0.55);
   return group;
 }
+
 function randomSidewalkPoint(rng) {
   const line = rng.pick(CITY.roadLinesX);
   const along = rng.range(-360, 360);
@@ -58,6 +64,7 @@ function randomSidewalkPoint(rng) {
   if (rng.chance(0.5)) return { x: line + side, z: along };
   return { x: along, z: line + side };
 }
+
 export function spawnPedestrians(game, count) {
   const rng = game.rng;
   const stops = game.city.landmarks.busStops;
@@ -92,6 +99,7 @@ export function spawnPedestrians(game, count) {
     });
   }
 }
+
 export function updatePedestrians(game, dt) {
   for (const ped of game.peds) {
     if (!ped.alive) continue;

@@ -1,14 +1,30 @@
-import{BX,CG,MS,ME,V3,GP,PI,PG,SH}from'./geo.js';
-const _vm=new Map();
-function VM(c,r=1,e){const k=c+'|'+r+'|'+(e||0);let m=_vm.get(k);if(!m){m=new MS({color:c,roughness:r,...(e?{emissive:e}:{})});_vm.set(k,m)}return m}
+// Cars: meshes, spawning, traffic, the player's driving, stealing and
+// police spawns. A car is a state object {mesh, pos, heading, speed,
+// kind, model, ...} plus a mesh built by createCarMesh.
+//
+// CHILD ORDER in createCarMesh is load-bearing: shots.js indexes the
+// mesh children by number (the burning police car recolors children 1/7/8,
+// the gunfight hides gunmen children by number). Keep the add order.
+import { BX, CG, MS, ME, V3, GP, PI, PG, SH } from './geo.js';
 import { CAR, CAR_MODELS, COLOURS, DETAIL, WORLD } from './config.js';
 import { nodeNeighbours, nearestNode, isIntersection } from './roads.js';
 import { resolveBuildingCollision } from './city.js';
+
+// Cached standard materials: same colour/roughness/emissive reuses one.
+const _vm = new Map();
+function VM(c, r = 1, e) {
+  const k = c + '|' + r + '|' + (e || 0);
+  let m = _vm.get(k);
+  if (!m) { m = new MS({ color: c, roughness: r, ...(e ? { emissive: e } : {}) }); _vm.set(k, m); }
+  return m;
+}
+
 let carTextures = null;
 export function setCarTextures(t) { carTextures = t; }
+
 export function createCarMesh(color, kind = 'sedan') {
   const group = new GP();
-  const B=(w,h,d,m,x=0,y=0,z=0,s=false)=>{const q=new ME(new BX(w,h,d),m);q.position.set(x,y,z);if(s)q.castShadow=true;group.add(q);return q;};
+  const B = (w, h, d, m, x = 0, y = 0, z = 0, s = false) => { const q = new ME(new BX(w, h, d), m); q.position.set(x, y, z); if (s) q.castShadow = true; group.add(q); return q; };
   const paintMap = carTextures && kind === 'sport' ? carTextures.redPaint : carTextures && kind === 'taxi' ? carTextures.taxiPaint : null;
   const paint = new MS({ color: paintMap ? 0xffffff : color, roughness: paintMap ? 0.35 : 0.4, metalness: paintMap ? 0.6 : 0.4, ...(paintMap ? { map: paintMap } : {}) });
   const glass = new MS({ color: 0x1a2a3a, roughness: 0.2, metalness: 0.6 });
@@ -16,6 +32,7 @@ export function createCarMesh(color, kind = 'sedan') {
   const model = CAR_MODELS[kind] || CAR_MODELS.sedan;
   const len = model.len;
   const bodyH = model.height;
+
   if (kind === 'van' || kind === 'armored' || kind === 'truck' || kind === 'bus') {
     const body = B(len, bodyH, 2.1, paint, 0, 0.5 + bodyH / 2, 0, true);
     if (kind === 'truck') {
@@ -26,23 +43,22 @@ export function createCarMesh(color, kind = 'sedan') {
       group.add(stack);
     }
     if (kind === 'van' || kind === 'armored') {
-      B(0.08, 0.28, 1.9, VM(0xff2222,1,0x660000), -len / 2 - 0.02, 0.9, 0);
+      B(0.08, 0.28, 1.9, VM(0xff2222, 1, 0x660000), -len / 2 - 0.02, 0.9, 0);
       B(0.06, 0.8, 1.9, glass, -len / 2 - 0.03, bodyH - 0.1, 0);
-      // v33: side windows — the van read as a flat dark box with two
-      // small yellow squares and no readable glass from the side.
+      // Side windows — without them the van reads as a flat dark box.
       for (const side of [-1, 1]) B(len * 0.5, 0.55, 0.06, glass, -0.2, 1.55, side * 1.06);
-      for (const sz of [-0.6, 0.6]) B(0.05, bodyH * 0.7, 0.06, VM(0x1a1a1a,0.6), -len / 2 - 0.04, 0.5 + bodyH / 2, sz);
+      for (const sz of [-0.6, 0.6]) B(0.05, bodyH * 0.7, 0.06, VM(0x1a1a1a, 0.6), -len / 2 - 0.04, 0.5 + bodyH / 2, sz);
     }
     if (kind === 'bus') {
       for (const side of [-1, 1]) B(len - 1, 0.8, 0.05, glass, 0, 1.9, side * 1.06);
-      B(0.08, 0.4, 1.4, VM(0xff8800,1,0x664400), len / 2 + 0.02, 2.3, 0);
+      B(0.08, 0.4, 1.4, VM(0xff8800, 1, 0x664400), len / 2 + 0.02, 2.3, 0);
     }
     if (kind === 'armored') {
       B(len - 0.5, 0.8, 2.2, new MS({ color: 0x6a6f75, roughness: 0.5, metalness: 0.6 }), 0, 1.5, 0);
       const dm = VM(0x222222, 0.6);
       for (const s of [-0.55, 0.55]) B(0.08, 1.6, 0.1, dm, len / 2 + 0.04, 1.4, s);
-      // v34: real front — glass windshield (bars read as pillars), chrome
-      // grille slats over the dark recess; the blank panel + top bar go.
+      // Real front — glass windshield, chrome grille slats over the dark
+      // recess; a blank panel reads as a wall, not a van.
       B(0.05, 0.7, 1.7, glass, len / 2 + 0.05, 1.85, 0);
       for (const gy of [0.8, 1.05]) B(0.05, 0.06, 1.5, VM(0xaaaaaa, 0.4), len / 2 + 0.06, gy, 0);
       B(0.04, 0.3, 0.7, VM(0xf2f2f2, 0.5), len / 2 + 0.04, 0.55, 0);
@@ -56,51 +72,51 @@ export function createCarMesh(color, kind = 'sedan') {
     B(cabinL * 0.9, 0.08, 1.7, paint, -0.2, 0.85 + cabinH + 0.04, 0);
     B(len * 0.22, 0.3, 1.9, paint, len / 2 - len * 0.11, 0.42, 0);
     B(len * 0.2, 0.28, 1.9, paint, -len / 2 + len * 0.1, 0.41, 0);
-    const trimMat = VM(0x1a1a1a,0.6);
+    const trimMat = VM(0x1a1a1a, 0.6);
     for (const side of [-1, 1]) B(len * 0.9, 0.05, 0.03, trimMat, 0, 0.82, side * 1.01);
     if (kind === 'muscle') {
-      B(1.2, 0.25, 0.8, VM(0x222831,0.4), len / 2 - 1, 0.9, 0);
+      B(1.2, 0.25, 0.8, VM(0x222831, 0.4), len / 2 - 1, 0.9, 0);
     }
     if (kind === 'pickup') {
-      B(len * 0.45, 0.5, 1.9, VM(0x333333,0.9), -len / 2 + len * 0.225, 0.7, 0);
+      B(len * 0.45, 0.5, 1.9, VM(0x333333, 0.9), -len / 2 + len * 0.225, 0.7, 0);
     }
     if (kind === 'taxi') {
-      // v34: roof sign stands proud of the roof (was half-sunk, read as a
-      // flat decal); rear window is lighter glass, not pure black.
-      B(0.5, 0.25, 0.9, VM(0xffe14d,1,0x886600), -0.2, 1.65, 0);
-      for (const side of [-1, 1]) B(1.6, 0.4, 0.05, VM(0x222222,0.6), 0, 0.55, side * 1.02);
-      B(0.08, 0.16, DETAIL.ctb, VM(0xff2222,1,0x660000), -len / 2 - 0.02, 0.62, 0);
+      // Roof sign stands proud of the roof (half-sunk read as a decal);
+      // rear window is lighter glass, not pure black.
+      B(0.5, 0.25, 0.9, VM(0xffe14d, 1, 0x886600), -0.2, 1.65, 0);
+      for (const side of [-1, 1]) B(1.6, 0.4, 0.05, VM(0x222222, 0.6), 0, 0.55, side * 1.02);
+      B(0.08, 0.16, DETAIL.ctb, VM(0xff2222, 1, 0x660000), -len / 2 - 0.02, 0.62, 0);
       B(0.06, 0.45, 1.5, VM(0x5a7a9a, 0.25), -0.2 - cabinL / 2 - 0.03, 1.15, 0);
       B(0.03, 0.04, 1.6, VM(0x222222, 0.6), -len / 2 - 0.03, 0.95, 0);
       B(0.04, 0.2, 0.5, VM(0xf2f2f2, 0.5), -len / 2 - 0.14, 0.35, 0);
     }
     if (kind === 'sport') {
       B(0.3, 0.08, 1.8, paint, -len / 2 + 0.15, 1.15, 0);
-      B(len, 0.02, 0.5, VM(0xffd94d,0.4), 0, 0.84, 0);
+      B(len, 0.02, 0.5, VM(0xffd94d, 0.4), 0, 0.84, 0);
       for (const sz of [-0.6, 0.6]) B(0.12, 0.35, 0.12, paint, -len / 2 + 0.15, 0.95, sz);
-      B(0.08, 0.16, DETAIL.ctb, VM(0xff2222,1,0x660000), -len / 2 - 0.02, 0.62, 0);
-      B(0.25, 0.18, 1.8, VM(0x1a1a1a,0.8), -len / 2 - 0.02, 0.22, 0);
+      B(0.08, 0.16, DETAIL.ctb, VM(0xff2222, 1, 0x660000), -len / 2 - 0.02, 0.62, 0);
+      B(0.25, 0.18, 1.8, VM(0x1a1a1a, 0.8), -len / 2 - 0.02, 0.22, 0);
     }
   }
   if (kind === 'police') {
-    // v34: no roof plate (it overhung the front); lightbar flush on the
-    // roof panel; lighter side glass so the cabin reads as glass, not black.
-    B(len * 0.5, bodyH * 0.9, 2, VM(0x1a3a8f,0.4), 0, 0.55, 0);
+    // No roof plate (it overhung the front); lightbar flush on the roof
+    // panel; lighter side glass so the cabin reads as glass, not black.
+    B(len * 0.5, bodyH * 0.9, 2, VM(0x1a3a8f, 0.4), 0, 0.55, 0);
     for (const side of [-1, 1]) B(1.6, 0.45, 0.04, VM(0x5a7a9a, 0.25), -0.2, 1.15, side * 0.87);
-    const lightR = B(0.3, 0.2, 0.55, VM(0xff2222,1,0xaa0000), -0.1, 1.58, 0.3);
-    const lightB = B(0.3, 0.2, 0.55, VM(0x2244ff,1,0x0000aa), -0.1, 1.58, -0.3);
+    const lightR = B(0.3, 0.2, 0.55, VM(0xff2222, 1, 0xaa0000), -0.1, 1.58, 0.3);
+    const lightB = B(0.3, 0.2, 0.55, VM(0x2244ff, 1, 0x0000aa), -0.1, 1.58, -0.3);
     group.userData.lightR = lightR;
     group.userData.lightB = lightB;
   }
-  B(0.03, 0.18, 0.7, VM(0xf2f2f2,0.5), -len / 2 - 0.01, 0.42, 0);
+  B(0.03, 0.18, 0.7, VM(0xf2f2f2, 0.5), -len / 2 - 0.01, 0.42, 0);
   const tall = kind === 'van' || kind === 'armored' || kind === 'truck' || kind === 'bus' || kind === 'police';
-  B(0.08, tall ? 0.6 : 0.3, 1.4, VM(0x222222,0.6), len / 2 + 0.02, tall ? 0.9 : 0.45, 0);
-  const bumperMat = VM(0x333333,0.6);
+  B(0.08, tall ? 0.6 : 0.3, 1.4, VM(0x222222, 0.6), len / 2 + 0.02, tall ? 0.9 : 0.45, 0);
+  const bumperMat = VM(0x333333, 0.6);
   for (const bx of [len / 2 + 0.05, -len / 2 - 0.05]) B(0.15, 0.25, 2.3, bumperMat, bx, 0.35, 0);
-  const mirrorMat = VM(0x222222,0.5);
+  const mirrorMat = VM(0x222222, 0.5);
   for (const side of [-1, 1]) B(0.15, 0.12, 0.25, mirrorMat, tall ? len / 2 - 0.2 : 0.3, tall ? 1.5 : 1.05, side * (tall ? 1.18 : 1.05));
-  const headMat = VM(0xfff8c0,1,0x888866);
-  const tailMat = VM(0xff2222,1,0x660000);
+  const headMat = VM(0xfff8c0, 1, 0x888866);
+  const tailMat = VM(0xff2222, 1, 0x660000);
   for (const side of [-0.7, 0.7]) {
     B(0.1, 0.18, 0.35, headMat, len / 2, 0.6, side);
     B(0.1, 0.18, 0.35, tailMat, -len / 2, 0.6, side);
@@ -125,15 +141,16 @@ export function createCarMesh(color, kind = 'sedan') {
   group.userData.wheels = wheels;
   group.userData.bodyLen = len;
   if (carTextures && carTextures.shadow) {
-    const sh = new ME(new PG(len*1.3,2.8), SH(carTextures.shadow,.65));
+    const sh = new ME(new PG(len * 1.3, 2.8), SH(carTextures.shadow, 0.65));
     sh.rotation.x = -PI / 2;
     sh.position.set(0, 0.09, 0);
     group.add(sh);
   } else {
-    B(len+0.4,.02,2.6,VM(0,1),0,.09,0);
+    B(len + 0.4, 0.02, 2.6, VM(0, 1), 0, 0.09, 0);
   }
   return group;
 }
+
 export function makeCarState(mesh, x, z, heading, kind, topSpeed, model = 'sedan') {
   const modelDef = CAR_MODELS[model];
   return {
@@ -154,6 +171,7 @@ export function makeCarState(mesh, x, z, heading, kind, topSpeed, model = 'sedan
     stolen: false,
   };
 }
+
 function placeOnRoad(game, car, x, z, heading) {
   car.pos.set(x, 0, z);
   car.heading = heading;
@@ -161,6 +179,7 @@ function placeOnRoad(game, car, x, z, heading) {
   car.mesh.rotation.y = heading;
   game.scene.add(car.mesh);
 }
+
 export function spawnCars(game) {
   const rng = game.rng;
   const parkedSpots = [
@@ -198,6 +217,7 @@ export function spawnCars(game) {
   const armoredCar = makeCarState(armored, game.city.landmarks.armoredSpot.x, game.city.landmarks.armoredSpot.z, PI, 'armored', CAR_MODELS.armored.topSpeed, 'armored');
   placeOnRoad(game, armoredCar, armoredCar.pos.x, armoredCar.pos.z, armoredCar.heading);
   game.cars.armored = armoredCar;
+  // The dealer's for-sale row.
   const saleKinds = ['sport', 'muscle', 'van'];
   saleKinds.forEach((kind, i) => {
     const mesh = createCarMesh(rng.pick(COLOURS.car), kind);
@@ -208,6 +228,8 @@ export function spawnCars(game) {
     placeOnRoad(game, car, car.pos.x, car.pos.z, car.heading);
     game.cars.parked.push(car);
   });
+  // Moving traffic: a random node, a random kind, a random neighbour to
+  // drive toward, at traffic speed.
   const trafficKinds = ['sedan', 'compact', 'taxi', 'van', 'pickup', 'muscle', 'truck', 'bus', 'sedan', 'compact'];
   for (let i = 0; i < WORLD.trafficCars; i += 1) {
     const node = rng.pick(game.roads.nodes);
@@ -221,6 +243,7 @@ export function spawnCars(game) {
     game.cars.traffic.push(car);
   }
 }
+
 function steerToward(car, tx, tz, maxTurn) {
   const dx = tx - car.pos.x;
   const dz = tz - car.pos.z;
@@ -230,6 +253,7 @@ function steerToward(car, tx, tz, maxTurn) {
   while (diff < -PI) diff += PI * 2;
   return Math.max(-maxTurn, Math.min(maxTurn, diff * 2.2));
 }
+
 function wreckCar(game, car) {
   if (car.wrecked) return;
   car.wrecked = true;
@@ -240,6 +264,8 @@ function wreckCar(game, car) {
     exitCar(game);
   }
 }
+
+// Move a car one step, pushing it out of buildings. Returns true on a hit.
 function advanceCar(game, car, dt) {
   if (car.wrecked) {
     car.speed = 0;
@@ -263,12 +289,14 @@ function advanceCar(game, car, dt) {
   for (const wheel of car.mesh.userData.wheels) wheel.rotation.z -= spin;
   return hit;
 }
+
 export function updateTraffic(game, dt) {
   for (const car of game.cars.traffic) {
     if (!car.targetNode) continue;
     const dx = car.targetNode.x - car.prevNode.x;
     const dz = car.targetNode.z - car.prevNode.z;
     const len = Math.hypot(dx, dz) || 1;
+    // Drive on the right-hand lane, 2.5 m off the centre line.
     const laneX = car.targetNode.x + (-dz / len) * 2.5;
     const laneZ = car.targetNode.z + (dx / len) * 2.5;
     car.heading += steerToward(car, laneX, laneZ, 1.6 * dt);
@@ -282,6 +310,7 @@ export function updateTraffic(game, dt) {
     }
   }
 }
+
 export function updatePlayerCar(game, dt) {
   const car = game.player.car;
   if (!car) return;
@@ -333,6 +362,7 @@ export function updatePlayerCar(game, dt) {
     wreckCar(game, car);
     return;
   }
+  // Running over a pedestrian at speed is a crime.
   for (const ped of game.peds) {
     if (!ped.alive) continue;
     const d = Math.hypot(ped.pos.x - car.pos.x, ped.pos.z - car.pos.z);
@@ -345,6 +375,7 @@ export function updatePlayerCar(game, dt) {
   }
   game.audio.setEngine(Math.abs(car.speed) / car.topSpeed);
 }
+
 export function enterCar(game, car) {
   game.player.car = car;
   game.player.onFoot = false;
@@ -360,6 +391,7 @@ export function enterCar(game, car) {
     game.cars.armored = null;
   }
 }
+
 export function exitCar(game) {
   const car = game.player.car;
   if (!car) return;
@@ -376,6 +408,7 @@ export function exitCar(game) {
   if (car.kind === 'comet' && !game.cars.comet) game.cars.comet = car;
   if (car.kind === 'armored' && !game.cars.armored) game.cars.armored = car;
 }
+
 export function nearestStealableCar(game) {
   const p = game.player.pos;
   let best = null;
@@ -392,6 +425,7 @@ export function nearestStealableCar(game) {
   }
   return best;
 }
+
 export function spawnPoliceCar(game) {
   const node = nearestNode(game.roads, game.player.pos.x, game.player.pos.z);
   const mesh = createCarMesh(0xffffff, 'police');

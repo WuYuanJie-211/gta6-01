@@ -1,3 +1,7 @@
+// All sound is synthesized with WebAudio — no audio files. An engine hum
+// that follows speed, a two-tone siren (a second voice joins at 4 stars),
+// a looping bass-and-lead music track, and one-shot effects. The context
+// only starts after a user gesture (unlock), so the title screen is silent.
 export function createAudio() {
   let ctx = null;
   let engineOsc = null;
@@ -20,17 +24,20 @@ export function createAudio() {
     [175, 220, 262, 349],
     [262, 330, 392, 523],
   ];
+
   function mkOsc(type, freq) {
     const o = ctx.createOscillator();
     o.type = type;
     o.frequency.value = freq;
     return o;
   }
+
   function mkGain(v) {
     const g = ctx.createGain();
     g.gain.value = v;
     return g;
   }
+
   function ensure() {
     if (started) return true;
     try {
@@ -58,6 +65,7 @@ export function createAudio() {
       return false;
     }
   }
+
   function blip(freq, seconds, volume, when = 0) {
     if (!ensure()) return;
     const t = ctx.currentTime + when;
@@ -71,6 +79,7 @@ export function createAudio() {
     osc.start(t);
     osc.stop(t + seconds + 0.05);
   }
+
   function noise(seconds, volume, filterFreq) {
     if (!ensure()) return;
     const t = ctx.currentTime;
@@ -86,6 +95,7 @@ export function createAudio() {
     src.start(t);
     src.stop(t + seconds + 0.05);
   }
+
   function scheduleStep(step, t) {
     const bar = Math.floor(step / 8) % 3;
     const beat = step % 8;
@@ -112,6 +122,7 @@ export function createAudio() {
     osc.start(t);
     osc.stop(t + 0.28);
   }
+
   function startMusic() {
     if (musicTimerId !== null) return;
     nextNoteTime = ctx.currentTime + 0.1;
@@ -125,6 +136,7 @@ export function createAudio() {
       }
     }, 100);
   }
+
   return {
     unlock() {
       ensure();

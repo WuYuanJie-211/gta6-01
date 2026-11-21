@@ -3,60 +3,85 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Solara Bay</title>
+<title>Solara Bay — GTA 6</title>
 <style>
-html,body{margin:0;height:100%;overflow:hidden;background:#0b0e13;font-family:"Arial Narrow","Helvetica Neue Condensed",system-ui,-apple-system,"Segoe UI",sans-serif;color:#eef1f5;}#game{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;}.panel{position:fixed;background:rgba(10,14,20,0.72);border:1px solid rgba(255,255,255,0.14);border-radius:10px;padding:10px 14px;backdrop-filter:blur(2px);}#stats{top:12px;right:12px;left:auto;min-width:210px;text-align:right;}#stats .row{display:flex;align-items:center;gap:8px;margin:4px 0;font-weight:600;justify-content:flex-end;}#health-bar{flex:1;height:12px;background:#222a33;border-radius:6px;overflow:hidden;}#health-fill{height:100%;width:100%;background:#37c978;border-radius:6px;}#cash{color:#7ED957;font-size:18px;}#clock{color:#eef1f5;font-size:15px;font-weight:700;letter-spacing:1px;}#stars{font-size:20px;letter-spacing:2px;}#weapon{color:#ffd94d;font-size:14px;}#durability{color:#37c978;font-size:14px;}#district{color:#9fc4dd;font-size:13px;letter-spacing:1px;}#mission-list{top:168px;left:12px;min-width:210px;padding:8px 14px;}#mission-list .label{font-size:11px;letter-spacing:3px;color:#ffd94d;font-weight:700;margin-bottom:4px;}.mission-row{font-size:12px;color:#9aa7b5;line-height:1.7;}.mission-row.done{color:#37c978;text-decoration:line-through;}.mission-row.current{color:#ffd94d;font-weight:700;}#map-wrap{bottom:12px;left:12px;top:auto;right:auto;text-align:center;padding:0;background:transparent;border:none;backdrop-filter:none;}#map-wrap .label{display:none;}#minimap{display:block;width:140px;height:140px;border-radius:50%;}#objective{top:12px;left:50%;transform:translateX(-50%);max-width:46%;text-align:center;font-weight:600;font-size:15px;font-variant:small-caps;letter-spacing:3px;}#objective .tag{color:#ffd94d;font-size:11px;letter-spacing:2px;display:block;}#timer{color:#ffd94d;font-size:18px;font-weight:800;display:block;}#prompt{bottom:18px;left:50%;transform:translateX(-50%);font-size:15px;font-weight:600;padding:8px 16px;}#speed{bottom:170px;left:12px;font-size:20px;font-weight:700;color:#ffd94d;}#speed:empty{display:none;}#street-toast{bottom:64px;left:50%;transform:translateX(-50%);font-size:15px;font-weight:700;letter-spacing:2px;color:#9fc4dd;opacity:0;transition:opacity 0.5s;pointer-events:none;}#street-toast.show{opacity:1;}#weapon-bar{bottom:18px;right:12px;font-size:14px;font-weight:700;}#weapon-bar #weapon{color:#ffd94d;}#toast{top:34%;left:50%;transform:translate(-50%,-50%) scale(0.95);font-size:22px;font-weight:800;text-align:center;padding:12px 22px;opacity:0;transition:opacity 0.25s,transform 0.25s;pointer-events:none;text-shadow:0 2px 8px rgba(0,0,0,0.6);}#toast.show{opacity:1;transform:translate(-50%,-50%) scale(1);}#hitmarker{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);font-size:28px;font-weight:800;color:#fff;text-shadow:0 0 6px #000;opacity:0;pointer-events:none;z-index:5;}#hitmarker.show{opacity:1;}#mission-card{top:96px;left:50%;transform:translateX(-50%);width:480px;max-width:86vw;text-align:center;padding:16px 20px;opacity:0;transition:opacity 0.4s;pointer-events:none;border-color:rgba(255,217,77,0.5);}#mission-card.show{opacity:1;}#mission-title{font-size:26px;font-weight:800;color:#ffd94d;letter-spacing:1px;}#mission-story{font-size:14px;line-height:1.5;color:#dfe5ec;margin-top:6px;}.overlay{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(180deg,rgba(6,12,24,0.82),rgba(6,12,24,0.94));text-align:center;padding:20px;z-index:10;}.overlay h1{font-size:64px;margin:0;letter-spacing:4px;color:#ffd94d;}.overlay h2{font-size:18px;font-weight:400;color:#b9c4d0;margin:8px 0 4px;}.overlay p{max-width:560px;line-height:1.6;color:#dfe5ec;}.overlay .controls{font-size:13px;color:#9aa7b5;line-height:1.9;margin:10px 0 20px;}.overlay button{display:block;margin:8px auto;min-width:240px;padding:12px 20px;font-size:16px;font-weight:700;color:#10151c;background:#ffd94d;border:none;border-radius:8px;cursor:pointer;}.overlay button.secondary{background:rgba(255,255,255,0.14);color:#eef1f5;}.hidden{display:none !important;}.shot-mode #toast,.shot-mode #mission-list,.shot-mode #objective,.shot-mode #prompt,.shot-mode #mission-card{display:none !important;}.shot-mode:not(.shot-cash) #cash{display:none !important;}.shot-cash #stats .row{flex-wrap:wrap;}.shot-cash #cash{flex:1 1 100%;margin-bottom:2px;}.shot-mode #stats{background:#0a0e14;}</style>
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+  #game { display: block; width: 100vw; height: 100vh; }
+  .hidden { display: none !important; }
+  #hud { position: fixed; inset: 0; pointer-events: none; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.8); z-index: 5; }
+  #hud-health { position: absolute; top: 14px; left: 14px; font-size: 15px; font-weight: 700; }
+  #hud-cash { position: absolute; top: 14px; right: 14px; font-size: 20px; font-weight: 800; color: #7ed957; }
+  #hud-clock { position: absolute; top: 40px; right: 14px; font-size: 15px; font-weight: 700; }
+  #hud-stars { position: absolute; top: 40px; left: 14px; font-size: 18px; letter-spacing: 2px; color: #ffd75e; }
+  #hud-objective { position: absolute; top: 66px; left: 14px; font-size: 15px; font-weight: 600; max-width: 420px; }
+  #hud-mission-list { position: absolute; top: 92px; left: 14px; font-size: 13px; line-height: 1.5; opacity: .9; }
+  #hud-weapon { position: absolute; bottom: 16px; right: 16px; font-size: 15px; font-weight: 700; background: rgba(0,0,0,.45); padding: 6px 10px; border-radius: 6px; }
+  #hud-district { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); font-size: 15px; font-weight: 700; }
+  #hud-prompt { position: absolute; bottom: 64px; left: 50%; transform: translateX(-50%); font-size: 14px; background: rgba(0,0,0,.55); padding: 6px 12px; border-radius: 6px; }
+  #hud-toast { position: absolute; top: 46%; left: 50%; transform: translate(-50%,-50%); font-size: 22px; font-weight: 800; text-align: center; }
+  #hud-mission-card { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); font-size: 26px; font-weight: 800; text-align: center; background: rgba(0,0,0,.6); padding: 18px 28px; border-radius: 10px; }
+  #hud-speed { position: absolute; bottom: 64px; right: 16px; font-size: 13px; font-weight: 700; text-align: right; }
+  #hud-speed-number { font-size: 26px; }
+  #minimap { position: absolute; bottom: 16px; left: 16px; border-radius: 50%; border: 2px solid rgba(255,255,255,.7); background: rgba(0,0,0,.35); }
+  #hud-north { position: absolute; bottom: 162px; left: 76px; font-size: 13px; font-weight: 800; color: #ffd75e; }
+  #hud-wanted-flash { position: absolute; inset: 0; border: 4px solid rgba(255,40,40,.55); box-sizing: border-box; opacity: 0; }
+  #damage-flash { position: fixed; inset: 0; pointer-events: none; background: radial-gradient(ellipse at center, transparent 55%, rgba(255,0,0,.45)); opacity: 0; z-index: 6; }
+  .overlay { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(10,10,20,.72); color: #fff; z-index: 10; text-align: center; }
+  .overlay h1 { font-size: 54px; margin: 0 0 8px; letter-spacing: 4px; }
+  .overlay h2 { font-size: 30px; margin: 0 0 12px; }
+  .overlay p { font-size: 16px; opacity: .85; max-width: 520px; line-height: 1.6; }
+  .overlay button { pointer-events: auto; font-size: 18px; font-weight: 700; padding: 12px 28px; margin: 6px; border: none; border-radius: 8px; background: #f5a623; color: #1a1a1a; cursor: pointer; }
+  .overlay button:hover { background: #ffc95e; }
+  .overlay .keys { font-size: 13px; opacity: .7; margin-top: 14px; line-height: 1.7; }
+  /* Shot mode: hide the clutter (toast, mission list, objective, prompt,
+     mission card) and the cash except on the sunset shot, where the
+     $2,000,000 is part of the frame. */
+  .shot-mode #hud-toast, .shot-mode #hud-mission-list, .shot-mode #hud-objective, .shot-mode #hud-prompt, .shot-mode #hud-mission-card { display: none !important; }
+  .shot-mode:not(.shot-cash) #hud-cash { display: none !important; }
+</style>
 <script type="importmap">
 { "imports": { "three": "./vendor/three.module.min.js" } }
 </script>
 </head>
 <body>
 <canvas id="game"></canvas>
-<div id="stats" class="panel">
-<div class="row"><span id="cash">$50</span><span id="clock">17:31</span></div>
-<div class="row"><span id="stars">☆☆☆☆☆</span></div>
-<div class="row"><span>❤</span><div id="health-bar"><div id="health-fill"></div></div><span id="health-text">100</span></div>
+<div id="hud" class="hidden">
+  <div id="hud-health"></div>
+  <div id="hud-cash"></div>
+  <div id="hud-clock"></div>
+  <div id="hud-stars"></div>
+  <div id="hud-objective"></div>
+  <div id="hud-mission-list"></div>
+  <div id="hud-weapon"></div>
+  <div id="hud-district"></div>
+  <div id="hud-prompt"></div>
+  <div id="hud-toast"></div>
+  <div id="hud-mission-card" class="hidden"></div>
+  <div id="hud-speed"><span id="hud-speed-number">0</span> km/h</div>
+  <canvas id="minimap" width="140" height="140"></canvas>
+  <div id="hud-north">N</div>
+  <div id="hud-wanted-flash"></div>
 </div>
-<div id="mission-list" class="panel">
-<div class="label">JOBS</div>
-</div>
-<div id="map-wrap" class="panel">
-<div class="label">SOLARA BAY</div>
-<canvas id="minimap" width="200" height="200"></canvas>
-</div>
-<div id="objective" class="panel"><span class="tag">MISSION</span><span id="objective-text"></span><span id="timer"></span></div>
-<div id="prompt" class="panel"></div>
-<div id="speed" class="panel"></div>
-<div id="street-toast" class="panel"><span id="district">OLD TOWN</span></div>
-<div id="weapon-bar" class="panel"><span id="weapon">Fists</span><span id="durability"></span></div>
-<div id="toast" class="panel"></div>
-<div id="hitmarker">✕</div>
-<div id="mission-card" class="panel">
-<div id="mission-title"></div>
-<div id="mission-story"></div>
-</div>
+<div id="damage-flash"></div>
 <div id="menu" class="overlay">
-<h1>SOLARA BAY</h1>
-<p>You are Rook, a driver for hire. Run seven jobs — or cruise, buy a gun, sell a hot car, outrun the heat.</p>
-<div class="controls">
-WASD — walk &amp; drive &nbsp;·&nbsp; Shift — run &nbsp;·&nbsp; drag — look &nbsp;·&nbsp; wheel — zoom<br>
-E — enter / steal / shop &nbsp;·&nbsp; F — punch &nbsp;·&nbsp; click / G — shoot &nbsp;·&nbsp; Q — weapon &nbsp;·&nbsp; R — reload &nbsp;·&nbsp; H — horn &nbsp;·&nbsp; M — music &nbsp;·&nbsp; P / Esc — pause
+  <h1>SOLARA BAY</h1>
+  <p>A sunset city of four districts. Steal the Comet, run Mara's seven jobs, and stay ahead of five wanted stars.</p>
+  <button id="btn-start">New Game</button>
+  <button id="btn-continue">Continue</button>
+  <div class="keys">WASD move / drive &nbsp;·&nbsp; Shift run &nbsp;·&nbsp; E interact &nbsp;·&nbsp; F punch &nbsp;·&nbsp; Click shoot &nbsp;·&nbsp; Q weapon &nbsp;·&nbsp; R reload &nbsp;·&nbsp; M music &nbsp;·&nbsp; H horn &nbsp;·&nbsp; Esc pause &nbsp;·&nbsp; Drag mouse to look</div>
 </div>
-<button id="btn-start">START THE STORY</button>
-<button id="btn-continue" class="secondary">CONTINUE SAVED GAME</button>
+<div id="pause" class="overlay hidden">
+  <h2>PAUSED</h2>
+  <button id="btn-resume">Resume</button>
+  <button id="btn-save">Save</button>
+  <button id="btn-load">Load</button>
+  <button id="btn-restart">Restart</button>
 </div>
-<div id="pause-menu" class="overlay hidden">
-<h1 style="font-size:44px">PAUSED</h1>
-<button id="btn-resume">RESUME</button>
-<button id="btn-save" class="secondary">SAVE GAME</button>
-<button id="btn-load" class="secondary">LOAD SAVE</button>
-<button id="btn-restart" class="secondary">RESTART</button>
-</div>
-<div id="over-menu" class="overlay hidden">
-<h1 style="font-size:44px">WASTED</h1>
-<p id="over-text"></p>
-<button id="btn-retry">TRY AGAIN</button>
-<button id="btn-menu-title" class="secondary">BACK TO TITLE</button>
+<div id="over" class="overlay hidden">
+  <h1>WASTED</h1>
+  <p>Rook is down. The city keeps moving.</p>
+  <button id="btn-retry">Try Again</button>
+  <button id="btn-menu-title">Main Menu</button>
 </div>
 <script type="module" src="./src/main.js"></script>
 </body>

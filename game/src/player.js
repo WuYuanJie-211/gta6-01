@@ -1,8 +1,13 @@
-import{BX,CG,MS,SG,ME,GP,PI}from'./geo.js';
+// The player on foot: Rook, a driver in a dark jacket, with a pistol and
+// a rifle that appear when armed. Movement is camera-relative; the walk
+// cycle swings the limbs, and the swing fades in and out smoothly.
+import { BX, CG, MS, SG, ME, GP, PI } from './geo.js';
 import { PLAYER } from './config.js';
 import { resolveBuildingCollision } from './city.js';
-const B=(g,w,h,d,m,x=0,y=0,z=0)=>{const q=new ME(new BX(w,h,d),m);q.position.set(x,y,z);g.add(q);return q;};
-const mt=(c,r=0.9)=>new MS({color:c,roughness:r});
+
+const B = (g, w, h, d, m, x = 0, y = 0, z = 0) => { const q = new ME(new BX(w, h, d), m); q.position.set(x, y, z); g.add(q); return q; };
+const mt = (c, r = 0.9) => new MS({ color: c, roughness: r });
+
 export function createPlayerMesh() {
   const group = new GP();
   const jacket = mt(0x2e4053, 0.8);
@@ -11,7 +16,8 @@ export function createPlayerMesh() {
   const torso = B(group, 0.7, 0.9, 0.4, jacket, 0, 1.15, 0);
   torso.castShadow = true;
   const head = new ME(new SG(0.26, 14, 12), skin);
-  head.position.y = 1.85;head.scale.y=.8;
+  head.position.y = 1.85;
+  head.scale.y = 0.8;
   head.castShadow = true;
   group.add(head);
   const hair = new ME(new SG(0.27, 12, 8, 0, PI * 2, 0, PI / 2), mt(0x1a1a1a, 1));
@@ -29,9 +35,8 @@ export function createPlayerMesh() {
   group.add(shoeR);
   const armL = B(group, 0.2, 0.7, 0.22, jacket, -0.48, 1.2, 0);
   const armR = B(group, 0.2, 0.7, 0.22, jacket, 0.48, 1.2, 0);
-  // v31 defect (b): the old gunMat (metalness 0.5) threw a bright specular
-  // highlight that read as a WHITE gun stock in shot 2. Matte it down,
-  // and give the stock/grip a dead-matte dark wood finish.
+  // Matte gun metal + dead-matte dark wood stock: a shiny stock threw a
+  // bright specular highlight that read as a WHITE gun in the screenshots.
   const gunMat = new MS({ color: 0x1a1a1a, roughness: 0.6, metalness: 0.15 });
   const stockMat = new MS({ color: 0x1a1210, roughness: 1, metalness: 0 });
   const pistol = new GP();
@@ -61,6 +66,7 @@ export function createPlayerMesh() {
   group.userData.rifle = rifle;
   return group;
 }
+
 export function updatePlayerOnFoot(game, dt) {
   const player = game.player;
   const input = game.input;

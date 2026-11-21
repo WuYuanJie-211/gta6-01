@@ -1,8 +1,11 @@
-// v31 surface/staging upgrade (Superbot 9-system plan). Geometry + missions
-// unchanged from v30; adds facades, signs, ground, sky, shadows, traffic lights.
+// Visual upgrade: facades, signs, ground dressing, sky, shadows and
+// traffic lights. Geometry and missions live elsewhere; this module only
+// makes the city LOOK like a place — one 1024px facade atlas shared by
+// every tower, big unlit signs, blob shadows, a dithered sunset dome.
 import * as THREE from 'three';
 import { BX, CG, CN, PG, SG, MS, MB, ME, GP, V3, PI, CT, SC, RW, DS, AB } from './geo.js';
 
+// The 40x40 m hero zone all four screenshots are staged in.
 export const HERO_ZONE = { minX: 220, maxX: 260, minZ: -200, maxZ: -160, cx: 240, cz: -180 };
 export function inHeroZone(x, z, pad = 0) {
   return x >= HERO_ZONE.minX - pad && x <= HERO_ZONE.maxX + pad
@@ -10,7 +13,9 @@ export function inHeroZone(x, z, pad = 0) {
 }
 
 // ---------------------------------------------------------------------------
-// 1. Facade atlas: 1024 canvas, 16 cells of 256px.
+// Facade atlas: one 1024 canvas, 16 cells of 256px.
+// Cells 0-11 are tower facades (6 pastel palettes x 2 window styles);
+// cells 12-15 are ground-floor storefronts (glass + sign band + awning).
 // ---------------------------------------------------------------------------
 export const FACADE_PALETTES = ['#F2E3B3', '#F0C9C0', '#C9E6D8', '#CFE3F0', '#EDE4D3', '#E8A87C'];
 export const CELL_WORLD_W = 12;
@@ -24,8 +29,8 @@ function shade(hex, f) {
   return `rgb(${r},${g},${b})`;
 }
 
-// Deterministic pseudo-random from an integer (so the atlas is identical
-// on every load — no Math.random in texture generation).
+// Deterministic hash from an integer, so the atlas is identical on every
+// load — no Math.random in texture generation.
 function hash01(i) {
   const s = Math.sin(i * 127.1 + 311.7) * 43758.5453;
   return s - Math.floor(s);
@@ -34,10 +39,10 @@ function hash01(i) {
 function drawFacadeCell(ctx, ox, oy, palette, style, seedBase) {
   ctx.fillStyle = palette;
   ctx.fillRect(ox, oy, 256, 256);
-  // subtle vertical grime / variation so the facade is not a flat slab
+  // A subtle darker lower half so the facade is not one flat slab.
   ctx.fillStyle = 'rgba(0,0,0,0.05)';
   ctx.fillRect(ox, oy + 128, 256, 128);
-  // grid: 5 cols x 8 rows, pane 36x22, gaps so the sill fits.
+  // Window grid: 5 columns x 8 rows, 36x22 panes.
   const cols = 5, rows = 8;
   const pw = 36, ph = 22, gx = 4, gy = 8;
   const x0 = ox + 30, y0 = oy + 12;
@@ -48,15 +53,15 @@ function drawFacadeCell(ctx, ox, oy, palette, style, seedBase) {
       const lit = hash01(seedBase + r * cols + c) < 0.12;
       ctx.fillStyle = lit ? '#FFE9A8' : '#2B3A46';
       ctx.fillRect(x, y, pw, ph);
-      // 2px light edge on top of the pane (reflection)
+      // A 2px light edge on top of each pane — the reflection line.
       ctx.fillStyle = 'rgba(255,255,255,0.35)';
       ctx.fillRect(x, y, pw, 2);
       if (style === 0) {
-        // 6px lighter sill below the pane, inside the 8px row gap
+        // Lighter sill below the pane, inside the 8px row gap.
         ctx.fillStyle = shade(palette, 1.18);
         ctx.fillRect(x - 2, y + ph, pw + 4, 6);
       } else {
-        // style B: horizontal mid-bar, no sill
+        // Style B: horizontal mid-bar, no sill.
         ctx.fillStyle = shade(palette, 0.82);
         ctx.fillRect(x, y + ph / 2 - 1, pw, 2);
         ctx.fillStyle = shade(palette, 0.9);
@@ -69,10 +74,10 @@ function drawFacadeCell(ctx, ox, oy, palette, style, seedBase) {
 function drawStorefrontCell(ctx, ox, oy, palette, accent) {
   ctx.fillStyle = palette;
   ctx.fillRect(ox, oy, 256, 256);
-  // sign band at the top
+  // Sign band across the top.
   ctx.fillStyle = accent;
   ctx.fillRect(ox, oy, 256, 44);
-  // floor-to-ceiling glass panels
+  // Four floor-to-ceiling glass panels.
   const panels = 4;
   const pw = 52, gap = 8;
   const x0 = ox + 12, y0 = oy + 60;
@@ -83,18 +88,18 @@ function drawStorefrontCell(ctx, ox, oy, palette, accent) {
     ctx.fillStyle = 'rgba(255,255,255,0.30)';
     ctx.fillRect(x, y0, pw, 3);
     ctx.fillRect(x, y0, 3, 150);
-    // warm interior glow on one panel in three
+    // Warm interior glow on one panel in three.
     if (i % 3 === 0) {
       ctx.fillStyle = 'rgba(255,233,168,0.55)';
       ctx.fillRect(x + 4, y0 + 100, pw - 8, 46);
     }
   }
-  // awning stripe
+  // Striped awning.
   ctx.fillStyle = accent;
   ctx.fillRect(ox, y0 + 158, 256, 18);
   ctx.fillStyle = 'rgba(255,255,255,0.35)';
   for (let x = ox; x < ox + 256; x += 16) ctx.fillRect(x, y0 + 158, 8, 18);
-  // bulkhead below
+  // Bulkhead below.
   ctx.fillStyle = shade(palette, 0.85);
   ctx.fillRect(ox, oy + 232, 256, 24);
 }
@@ -124,17 +129,18 @@ export function makeFacadeAtlas() {
   return tex;
 }
 
-// Bake a cell + tiling into a BoxGeometry's UVs so all buildings can share
-// ONE atlas texture / ONE material (no per-building texture clones).
+// Bake one atlas cell + tiling into a BoxGeometry's UVs, so every building
+// can share ONE atlas texture and ONE material (no per-building clones).
 // cell: 0..15. w,h,d: building size in metres.
 export function applyFacadeUVs(geometry, cell, w, h, d) {
   const col = cell % 4, row = Math.floor(cell / 4);
   const ou = col * 0.25, ov = 1 - (row + 1) * 0.25;
-  // per-face repeat: px/nx faces are (d x h), pz/nz are (w x h), py/ny (w x d)
+  // Per-face repeat: +x/-x faces are (d x h), +z/-z are (w x h),
+  // +y/-y (roof) are (w x d). A cell covers 12x20 m of wall.
   const reps = [
     [(d / CELL_WORLD_W) * 0.25, (h / CELL_WORLD_H) * 0.25], // +x
     [(d / CELL_WORLD_W) * 0.25, (h / CELL_WORLD_H) * 0.25], // -x
-    [(w / CELL_WORLD_W) * 0.25, (d / CELL_WORLD_H) * 0.25], // +y (roof, covered)
+    [(w / CELL_WORLD_W) * 0.25, (d / CELL_WORLD_H) * 0.25], // +y
     [(w / CELL_WORLD_W) * 0.25, (d / CELL_WORLD_H) * 0.25], // -y
     [(w / CELL_WORLD_W) * 0.25, (h / CELL_WORLD_H) * 0.25], // +z
     [(w / CELL_WORLD_W) * 0.25, (h / CELL_WORLD_H) * 0.25], // -z
@@ -151,7 +157,7 @@ export function applyFacadeUVs(geometry, cell, w, h, d) {
 }
 
 // ---------------------------------------------------------------------------
-// 2. Sign system: 12 names, unlit so they read at dusk.
+// Signs: 12 names, unlit materials so they read at dusk.
 // ---------------------------------------------------------------------------
 export const SIGN_NAMES = [
   'HOTEL', 'CAFE', 'BODEGA', 'MARINE',
@@ -159,6 +165,7 @@ export const SIGN_NAMES = [
   'FARMACIA', 'PENSION', 'MERCADO', 'TALLER',
 ];
 export const SIGN_COLORS = ['#C0392B', '#1F6F8B', '#E67E22', '#2C3E50'];
+
 const _signCache = new Map();
 export function makeV31Sign(text, bg, fg = '#FFFFFF', w = 10, h = 2.5) {
   const key = `${text}|${bg}|${fg}`;
@@ -171,8 +178,8 @@ export function makeV31Sign(text, bg, fg = '#FFFFFF', w = 10, h = 2.5) {
     ctx.fillStyle = bg;
     ctx.fillRect(0, 0, 512, 128);
     ctx.fillStyle = fg;
-    // bold condensed sans, all caps. v32: auto-fit — shrink the font
-    // until the whole word fits the 512px panel.
+    // Bold condensed sans, all caps. Auto-fit: shrink the font until the
+    // whole word fits the 512px panel.
     const chars = [...text];
     let size = 58;
     let widths = [];
@@ -187,7 +194,7 @@ export function makeV31Sign(text, bg, fg = '#FFFFFF', w = 10, h = 2.5) {
     }
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    // manual letter-spacing (canvas has no letterSpacing in all browsers)
+    // Manual letter-spacing (canvas has no letterSpacing in all browsers).
     const spacing = size * 0.05;
     let x = 256 - total / 2;
     chars.forEach((ch, i) => {
@@ -207,9 +214,8 @@ export function makeV31Sign(text, bg, fg = '#FFFFFF', w = 10, h = 2.5) {
 }
 
 // ---------------------------------------------------------------------------
-// 6. Ground shadow pass. One 128px radial-gradient alpha texture, reused.
-//    Blob shadow: plane at y=0.01, 1.15x footprint, 0.32-0.4 opacity.
-//    AO skirt: plane (footprint + 0.8m) at y=0.012, 0.14 opacity.
+// Ground shadows. One 128px radial-gradient alpha texture, reused for
+// every blob shadow and AO skirt in the game.
 // ---------------------------------------------------------------------------
 let _blobTex = null;
 export function blobShadowTexture() {
@@ -218,8 +224,8 @@ export function blobShadowTexture() {
   canvas.width = 128;
   canvas.height = 128;
   const ctx = canvas.getContext('2d');
-  // v32: much darker + wider dark core so the blob reads on dark asphalt
-  // (the old 0.85/0.45 falloff was invisible on the road).
+  // Dark, wide core so the blob reads even on dark asphalt; soft falloff
+  // so it never reads as a hard black disc.
   const gr = ctx.createRadialGradient(64, 64, 4, 64, 64, 62);
   gr.addColorStop(0, 'rgba(0,0,0,0.95)');
   gr.addColorStop(0.5, 'rgba(0,0,0,0.7)');
@@ -231,6 +237,7 @@ export function blobShadowTexture() {
   return _blobTex;
 }
 
+// Soft contact shadow under a grounded object: 1.3x its footprint.
 export function addBlobShadow(parent, x, z, w, d, opacity = 0.55, y = 0.08) {
   const tex = blobShadowTexture();
   const m = new ME(
@@ -243,6 +250,7 @@ export function addBlobShadow(parent, x, z, w, d, opacity = 0.55, y = 0.08) {
   return m;
 }
 
+// Ambient-occlusion skirt where a building meets the ground.
 export function addAOSkirt(parent, x, z, w, d, opacity = 0.25) {
   const tex = blobShadowTexture();
   const m = new ME(
@@ -256,7 +264,7 @@ export function addAOSkirt(parent, x, z, w, d, opacity = 0.25) {
 }
 
 // ---------------------------------------------------------------------------
-// 5. Skyline + sky. Dithered gradient dome, sun, sea, hills, skyline.
+// Skyline + sky. Dithered gradient dome, sun glow, sea, far skyline.
 // ---------------------------------------------------------------------------
 export function makeSkyDome() {
   const canvas = document.createElement('canvas');
@@ -270,7 +278,7 @@ export function makeSkyDome() {
   for (const [p, c] of stops) gr.addColorStop(p, c);
   ctx.fillStyle = gr;
   ctx.fillRect(0, 0, 1024, 1024);
-  // v35: 0.6% dither — 1% still grained in the purple sky at this res.
+  // 0.6% dither noise — without it the gradient bands visibly at this size.
   const img = ctx.getImageData(0, 0, 1024, 1024);
   const data = img.data;
   for (let y = 0; y < 1024; y += 1) {
@@ -287,15 +295,13 @@ export function makeSkyDome() {
   tex.colorSpace = SC;
   const mat = new MB({ map: tex, side: THREE.BackSide });
   mat.fog = false;
-  const dome = new ME(new THREE.SphereGeometry(800, 32, 16), mat);
-  return dome;
+  return new ME(new THREE.SphereGeometry(800, 32, 16), mat);
 }
 
 export function makeSunBillboard() {
   const g = new GP();
-  // v32: ONE wide soft glow with a long gradual falloff (no separate hard
-  // disc) + a small dim core. The old 26m core used the same texture as
-  // the 60m glow, so it read as a hard-edged disc sitting on the horizon.
+  // One wide soft glow with a long gradual falloff, plus a small dim core.
+  // No hard disc: a hard sun reads as a flat circle pasted on the sky.
   const canvas = document.createElement('canvas');
   canvas.width = 256;
   canvas.height = 256;
@@ -317,7 +323,7 @@ export function makeSunBillboard() {
   const coreMat = new MB({ map: tex, transparent: true, blending: AB, depthWrite: false, opacity: 0.55 });
   coreMat.fog = false;
   const core = new ME(new PG(11, 11), coreMat);
-  // place toward the west-northwest horizon (sunset), 8 deg elevation.
+  // West-northwest horizon, 8 degrees up — the sunset direction.
   const az = Math.PI * 0.78, el = (8 * PI) / 180, r = 760;
   const px = Math.cos(az) * Math.cos(el) * r;
   const py = Math.sin(el) * r;
@@ -346,14 +352,13 @@ export function makeSeaGradient() {
 }
 
 export function makeFarSkyline(atlas) {
-  // 24 boxes at 450-550m, north/east/west (not over the sea), sharing 4
-  // baked facade cells. No window geometry — the texture does the work.
+  // 24 boxes at 450-550 m, north/east/west (never over the sea), sharing
+  // 4 baked facade cells. No window geometry — the texture does the work.
   const g = new GP();
   const mat = new MS({ map: atlas, roughness: 0.9 });
   for (let i = 0; i < 24; i += 1) {
     const ang = (i / 24) * PI * 2 + hash01(i * 3.1) * 0.2;
-    // skip the southern sea sector (angle near +z)
-    if (Math.sin(ang) > 0.55) continue;
+    if (Math.sin(ang) > 0.55) continue; // skip the southern sea sector
     const r = 450 + hash01(i * 7.7) * 100;
     const x = Math.cos(ang) * r;
     const z = Math.sin(ang) * r;
@@ -380,8 +385,8 @@ export function makeRidge(color, x, z, radius, height) {
 }
 
 // ---------------------------------------------------------------------------
-// 3. Ground dressing: v31 palm (8 frond planes on one alpha texture),
-//    road-marking textures (double yellow + white dashes), zebra, stop line.
+// Ground dressing: palms (8 frond planes on one alpha texture) and the
+// road-marking texture (double yellow + white dashes, one tile per road).
 // ---------------------------------------------------------------------------
 let _frondTex = null;
 export function frondTexture() {
@@ -391,7 +396,7 @@ export function frondTexture() {
   canvas.height = 128;
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, 128, 128);
-  // one frond: a tapered leaf blade with a centre rib
+  // One frond: two tapered leaf blades with a centre rib.
   ctx.strokeStyle = '#2E8B57';
   ctx.fillStyle = '#2E8B57';
   ctx.beginPath();
@@ -413,7 +418,7 @@ export function frondTexture() {
   ctx.lineTo(64, 10);
   ctx.stroke();
   _frondTex = new CT(canvas);
-  // v33: sRGB so the fronds render green, not the teal the linear
+  // sRGB so the fronds render green, not the teal the linear
   // interpretation produced under the sunset light.
   _frondTex.colorSpace = SC;
   return _frondTex;
@@ -435,9 +440,8 @@ export function makeV31Palm() {
     const a = (i / 8) * PI * 2;
     frond.position.set(Math.cos(a) * 0.9, 5.2, Math.sin(a) * 0.9);
     frond.rotation.y = -a + PI / 2;
-    // v31 fix: tilt OUTWARD (+x) so fronds arc out and droop like a palm
-    // crown; alternate the angle so the crown is layered, not a flat ring.
-    // (The old -0.5 tipped the tops inward, which read as a spiky ball.)
+    // Tilt OUTWARD so the fronds arc out and droop like a palm crown;
+    // alternate the angle so the crown is layered, not a flat ring.
     frond.rotation.x = 0.7 + (i % 2) * 0.35;
     group.add(frond);
   }
@@ -445,20 +449,19 @@ export function makeV31Palm() {
   return group;
 }
 
-// Road-marking strip: double yellow centre line + white lane dashes,
-// baked into ONE texture for the whole road plane.
+// Double yellow centre line + white lane dashes, baked into one tile.
+// Deep olive + mid-grey: survives the sunset grade and reads as paint,
+// not as light shafts or curb bleed.
 export function makeRoadMarkingTexture() {
   const canvas = document.createElement('canvas');
   canvas.width = 256;
   canvas.height = 64;
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, 256, 64);
-  // v34: deep olive + mid-grey, dashes inset from the curb — survives the
-  // sunset grade and reads as paint, not light shafts / curb bleed.
   ctx.fillStyle = '#4a3510';
   ctx.fillRect(0, 26, 256, 4);
   ctx.fillRect(0, 34, 256, 4);
-  // white lane dashes: 2m on / 2m off (half the tile is dash)
+  // White lane dashes: 2 m on / 2 m off (half the tile is dash).
   ctx.fillStyle = '#707070';
   ctx.fillRect(0, 14, 128, 3);
   ctx.fillRect(0, 47, 128, 3);
@@ -468,14 +471,34 @@ export function makeRoadMarkingTexture() {
   return tex;
 }
 
-// Traffic light: exactly ONE lamp lit. R 8s -> G 6s -> Y 2s, phase offset.
+// ---------------------------------------------------------------------------
+// Traffic lights: exactly ONE lamp lit. R 8s -> G 6s -> Y 2s, phase offset.
+// The red lamp carries a halo RING (transparent centre so the orb shows
+// through, bright ring band fading outside) — a soft blob hid behind the
+// lamp sphere and read as nothing, the ring reads from any angle.
+// ---------------------------------------------------------------------------
 const LIGHT_COLORS = [0xff2a1e, 0xffcc00, 0x33cc33]; // R, Y, G
-// v38: halo RING texture — transparent centre (orb shows through), bright
-// ring band, fading outside. The v37 soft blob's bright core hid behind
-// the lamp sphere, so only faint falloff showed and no ring read. White
-// so the sprite material colour tints it (red for R).
-let _ringTex=null;
-function haloRingTexture(){if(_ringTex)return _ringTex;const c=document.createElement('canvas');c.width=c.height=256;const x=c.getContext('2d');const g=x.createRadialGradient(128,128,0,128,128,128);g.addColorStop(0,'rgba(255,255,255,0)');g.addColorStop(.42,'rgba(255,255,255,0)');g.addColorStop(.52,'rgba(255,255,255,.95)');g.addColorStop(.68,'rgba(255,255,255,.85)');g.addColorStop(.85,'rgba(255,255,255,.25)');g.addColorStop(1,'rgba(255,255,255,0)');x.fillStyle=g;x.fillRect(0,0,256,256);_ringTex=new CT(c);return _ringTex;}
+
+let _ringTex = null;
+function haloRingTexture() {
+  if (_ringTex) return _ringTex;
+  const c = document.createElement('canvas');
+  c.width = 256;
+  c.height = 256;
+  const x = c.getContext('2d');
+  const g = x.createRadialGradient(128, 128, 0, 128, 128, 128);
+  g.addColorStop(0, 'rgba(255,255,255,0)');
+  g.addColorStop(0.42, 'rgba(255,255,255,0)');
+  g.addColorStop(0.52, 'rgba(255,255,255,0.95)');
+  g.addColorStop(0.68, 'rgba(255,255,255,0.85)');
+  g.addColorStop(0.85, 'rgba(255,255,255,0.25)');
+  g.addColorStop(1, 'rgba(255,255,255,0)');
+  x.fillStyle = g;
+  x.fillRect(0, 0, 256, 256);
+  _ringTex = new CT(c);
+  return _ringTex;
+}
+
 export function makeTrafficLightV31(initialState = 'R', phase = 0) {
   const g = new GP();
   const poleMat = new MS({ color: 0x2c3e50, roughness: 0.7 });
@@ -487,26 +510,24 @@ export function makeTrafficLightV31(initialState = 'R', phase = 0) {
   arm.rotation.x = PI / 2;
   arm.position.set(0, 5.4, 1.8);
   g.add(arm);
+  // Near-black housing so the red orb pops by contrast.
   const housing = new ME(new BX(0.9, 2.3, 0.3), new MS({ color: 0x140404, roughness: 0.6 }));
   housing.position.set(0, 4.9, 3.6);
   g.add(housing);
   const lamps = [];
   for (let i = 0; i < 3; i += 1) {
-    // v37: unlit basic mat — lit lamp reads saturated red on any bg.
+    // Unlit basic material — a lit lamp reads saturated red on any bg.
     const mat = new MB({ color: 0x330a06 });
-    // v33: one sphere/lamp, centred — reads from any angle.
-    // v38: radius 0.45 (was 0.4) — bigger orb; housing near-black (was
-    // 0x4a0f0a) so the red orb pops by contrast.
     const lamp = new ME(new SG(0.45, 12, 10), mat);
     lamp.position.set(0, 5.7 - i * 0.8, 3.6);
     g.add(lamp);
     lamps.push(mat);
   }
-  // v38: RING halo 2.2/0.85 — a distinct red ring around the orb, not a
-  // soft blob. Scale 2.2 puts the ring band just outside the 0.45 orb.
+  // Ring halo, 2.2 m across — the band sits just outside the 0.45 orb.
   const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloRingTexture(), transparent: true, opacity: 0.85, depthWrite: false }));
   glow.scale.set(2.2, 2.2, 1);
   g.add(glow);
+
   function setState(s) {
     // s: 'R' (lamp 0), 'Y' (lamp 1), 'G' (lamp 2). Exactly one on.
     const on = s === 'G' ? 2 : s === 'Y' ? 1 : 0;
@@ -517,6 +538,7 @@ export function makeTrafficLightV31(initialState = 'R', phase = 0) {
     glow.material.color.setHex(LIGHT_COLORS[on]);
     g.userData.state = s;
   }
+
   g.userData.lamps = lamps;
   g.userData.setState = setState;
   g.userData.phase = phase;
@@ -526,7 +548,7 @@ export function makeTrafficLightV31(initialState = 'R', phase = 0) {
 }
 
 export function updateTrafficLights(lights, time) {
-  // 16s cycle: R 0-8, G 8-14, Y 14-16.
+  // 16 s cycle: R 0-8, G 8-14, Y 14-16.
   for (const l of lights) {
     const t = (time + (l.userData.phase || 0)) % 16;
     const s = t < 8 ? 'R' : t < 14 ? 'G' : 'Y';
@@ -534,9 +556,11 @@ export function updateTrafficLights(lights, time) {
   }
 }
 
-// Soft beam: camera-facing Sprite, soft radial glow, NO silhouette edge
-// (a cone's boundary reads as a hard triangle). Wide dim glow + narrow
-// brighter core, both additive, fading to transparent at every edge.
+// ---------------------------------------------------------------------------
+// Soft beam: camera-facing sprites, soft radial glow, NO silhouette edge.
+// A cone's boundary reads as a hard triangle; two additive sprites (a wide
+// dim shaft + a narrow brighter core) fade to transparent at every edge.
+// ---------------------------------------------------------------------------
 let _beamGlowTex = null;
 export function beamGlowTexture() {
   if (_beamGlowTex) return _beamGlowTex;
@@ -560,9 +584,9 @@ export function makeSoftBeam(scene, a, b, rt, rb, opacity) {
   const tex = beamGlowTexture();
   const g = new GP();
   const mid = new V3((a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2);
-  // The beam is foreshortened (it runs mostly along the view direction),
-  // so the sprite is scaled to its vertical drop, not its 3D length:
-  // a tall soft shaft from the heli down to the target, no hard edges.
+  // The beam runs mostly along the view direction, so the sprite is
+  // scaled to its vertical drop, not its 3D length: a tall soft shaft
+  // from the helicopter down to the target, no hard edges.
   const drop = Math.max(2, Math.abs(a.y - b.y));
   const wide = new THREE.Sprite(new THREE.SpriteMaterial({
     map: tex, transparent: true, opacity: opacity * 0.9,

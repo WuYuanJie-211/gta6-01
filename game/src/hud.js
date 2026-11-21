@@ -1,261 +1,202 @@
-import { CITY, districtAt } from './config.js';
+// The HUD: stats, mission list, objective, prompt, street/district,
+// circular minimap, speed, weapon bar, toasts, the mission card, and the
+// title / pause / wasted overlays. All DOM — the 3D scene never draws UI.
+// Element IDs match game/index.html exactly.
+import { districtAt } from './config.js';
 import { MISSIONS } from './missions.js';
+
 export function createHud(game) {
   const el = (id) => document.getElementById(id);
-  const [healthFill, healthText, cashText, starsBox, objectiveText, missionList, weaponText, durabilityText, districtText, timerText, promptText, toast, missionCard, missionTitle, missionStory, menu, pauseMenu, overMenu, overText, minimap, speedText, clockText, streetToast] = ['health-fill', 'health-text', 'cash', 'stars', 'objective-text', 'mission-list', 'weapon', 'durability', 'district', 'timer', 'prompt', 'toast', 'mission-card', 'mission-title', 'mission-story', 'menu', 'pause-menu', 'over-menu', 'over-text', 'minimap', 'speed', 'clock', 'street-toast'].map(el);
-  const c = minimap.getContext('2d');
+  const hud = el('hud');
+  const healthEl = el('hud-health');
+  const cashEl = el('hud-cash');
+  const clockEl = el('hud-clock');
+  const starsEl = el('hud-stars');
+  const objectiveEl = el('hud-objective');
+  const missionListEl = el('hud-mission-list');
+  const weaponEl = el('hud-weapon');
+  const districtEl = el('hud-district');
+  const promptEl = el('hud-prompt');
+  const toastEl = el('hud-toast');
+  const missionCardEl = el('hud-mission-card');
+  const speedEl = el('hud-speed');
+  const speedNumEl = el('hud-speed-number');
+  const wantedFlashEl = el('hud-wanted-flash');
+  const damageFlashEl = el('damage-flash');
+  const menuEl = el('menu');
+  const pauseEl = el('pause');
+  const overEl = el('over');
+  const minimap = el('minimap');
+  const ctx = minimap.getContext('2d');
   let toastTimer = null;
-  let streetTimer = null;
-  let lastDistrict = '';
+  let cardTimer = null;
   let shakeTime = 0;
+  let hitAt = -10;
+  let lastDistrict = '';
+
   const missionRows = MISSIONS.map((m, i) => {
     const row = document.createElement('div');
-    row.className = 'mission-row';
     row.textContent = `${i + 1}. ${m.title}`;
-    missionList.appendChild(row);
+    missionListEl.appendChild(row);
     return row;
   });
+
   function flash(message) {
-    toast.textContent = message;
-    toast.classList.add('show');
+    toastEl.textContent = message;
     if (toastTimer) clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => toast.classList.remove('show'), 3500);
+    toastTimer = setTimeout(() => { toastEl.textContent = ''; }, 3500);
   }
+
   function showMissionCard(title, story) {
-    missionTitle.textContent = title;
-    missionStory.textContent = story;
-    missionCard.classList.add('show');
-    setTimeout(() => missionCard.classList.remove('show'), 6000);
+    missionCardEl.textContent = `${title} — ${story}`;
+    missionCardEl.classList.remove('hidden');
+    if (cardTimer) clearTimeout(cardTimer);
+    cardTimer = setTimeout(() => missionCardEl.classList.add('hidden'), 6000);
   }
+
   function shake() {
     shakeTime = 0.35;
   }
-  let hitTimer = null;
+
   function hitmark() {
-    const mark = el('hitmarker');
-    if (!mark) return;
-    mark.classList.add('show');
-    if (hitTimer) clearTimeout(hitTimer);
-    hitTimer = setTimeout(() => mark.classList.remove('show'), 120);
+    hitAt = game.time;
   }
+
   function takeShake(dt) {
     if (shakeTime <= 0) return 0;
     shakeTime -= dt;
-    return (Math.random() - 0.5) * 0.6;
+    return (Math.random() - 0.5) * 0.35;
   }
+
+  function showMenu(show) {
+    menuEl.classList.toggle('hidden', !show);
+    hud.classList.toggle('hidden', show);
+  }
+
+  function showPause(show) {
+    pauseEl.classList.toggle('hidden', !show);
+  }
+
+  function showOver(show) {
+    overEl.classList.toggle('hidden', !show);
+  }
+
+  function setPrompt(text) {
+    promptEl.textContent = text;
+  }
+
+  function setShotMode(shot, showCash) {
+    document.body.classList.toggle('shot-mode', shot);
+    document.body.classList.toggle('shot-cash', showCash);
+  }
+
   function drawMinimap() {
-    const size = minimap.width;
-    const p0 = game.player.car ? game.player.car.pos : game.player.pos;
-    // v32: clip to a true circle INSIDE the canvas (the CSS border-radius
-    // only masked a square canvas, which read as a faceted ring), and in
-    // shot mode zoom to the 240m around the player so each shot's minimap
-    // reflects its own location instead of the whole-city grid.
-    c.save();
-    c.beginPath();
-    c.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
-    c.clip();
-    const span = game.shotMode ? 240 : (CITY.halfSize * 2 + 80);
-    const cx = game.shotMode ? p0.x : 0;
-    const cz = game.shotMode ? p0.z : 0;
-    const scale = size / span;
-    const toMap = (x, z) => [(x - cx + span / 2) * scale, (z - cz + span / 2) * scale];
-    c.fillStyle = '#0e2a3a';
-    c.fillRect(0, 0, size, size);
-    const [, seaY] = toMap(0, CITY.seaStart);
-    c.fillStyle = '#2e7fb8';
-    c.fillRect(0, seaY, size, size - seaY);
-    const [, beachY] = toMap(0, CITY.beachStart);
-    c.fillStyle = '#e8d49a';
-    c.fillRect(0, beachY, size, seaY - beachY);
-    c.fillStyle = '#3a3f45';
-    const [gx, gy] = toMap(-CITY.halfSize, -CITY.halfSize);
-    c.fillRect(gx, gy, CITY.halfSize * 2 * scale, (CITY.halfSize + 270) * scale);
-    c.fillStyle = '#3e8f4f';
-    for (const [bx, bz] of [[-150, -150], [150, -150], [-150, 150], [270, 150]]) {
-      const [x, y] = toMap(bx - 23, bz - 23);
-      c.fillRect(x, y, 46 * scale, 46 * scale);
+    const size = 140;
+    const scale = size / 840;
+    const cx = size / 2;
+    const cy = size / 2;
+    ctx.clearRect(0, 0, size, size);
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx, cy, size / 2, 0, Math.PI * 2);
+    ctx.clip();
+    ctx.fillStyle = '#1a2a1a';
+    ctx.fillRect(0, 0, size, size);
+    // Sea to the south (bottom), beach band above it.
+    ctx.fillStyle = '#1f6f8b';
+    ctx.fillRect(0, cy + 300 * scale, size, size);
+    ctx.fillStyle = '#d9c48a';
+    ctx.fillRect(0, cy + 240 * scale, size, 60 * scale);
+    // Roads as a faint grid.
+    ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+    ctx.lineWidth = 1;
+    for (const x of [-360, -300, -240, -180, -120, -60, 0, 60, 120, 180, 240, 300, 360]) {
+      ctx.beginPath();
+      ctx.moveTo(cx + x * scale, 0);
+      ctx.lineTo(cx + x * scale, size);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(0, cy + x * scale);
+      ctx.lineTo(size, cy + x * scale);
+      ctx.stroke();
     }
-    c.strokeStyle = '#565d66';
-    c.lineWidth = Math.max(2, CITY.roadWidth * scale);
-    for (const line of CITY.roadLinesX) {
-      const [x1, y1] = toMap(line, -CITY.halfSize);
-      const [, y2] = toMap(line, 270);
-      c.beginPath();
-      c.moveTo(x1, y1);
-      c.lineTo(x1, y2);
-      c.stroke();
-    }
-    for (const line of CITY.roadLinesZ) {
-      const [x1, y1] = toMap(-CITY.halfSize, line);
-      const [x2] = toMap(CITY.halfSize, line);
-      c.beginPath();
-      c.moveTo(x1, y1);
-      c.lineTo(x2, y1);
-      c.stroke();
-    }
-    c.fillStyle = 'rgba(255,255,255,0.35)';
-    c.font = 'bold 8px system-ui, sans-serif';
-    c.textAlign = 'center';
-    for (const [name, x, z] of [['DOWNTOWN', 225, -225], ['PORT', -315, -315], ['SUBURBS', 315, 105], ['OLD TOWN', -60, 105], ['BEACH', 0, 258]]) {
-      const [mx, my] = toMap(x, z);
-      c.fillText(name, mx, my);
-    }
-    const L = game.city.landmarks;
+    const dot = (x, z, color, r = 3) => {
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(cx + x * scale, cy + z * scale, r, 0, Math.PI * 2);
+      ctx.fill();
+    };
     const shops = [
-      [L.dealer, '#4a90d9'], [L.gunShop, '#e74c3c'], [L.garage, '#95a5a6'],
-      [L.diner, '#e67e22'], [L.bank, '#9b59b6'], [L.chopShop, '#f1c40f'],
+      [game.city.landmarks.dealer, '#f5a623'],
+      [game.city.landmarks.gunShop, '#e74c3c'],
+      [game.city.landmarks.garage, '#3498db'],
+      [game.city.landmarks.diner, '#2ecc71'],
+      [game.city.landmarks.chopShop, '#9b59b6'],
     ];
-    for (const [spot, color] of shops) {
-      const [x, y] = toMap(spot.x, spot.z);
-      c.fillStyle = color;
-      c.fillRect(x - 3, y - 3, 6, 6);
-    }
-    c.fillStyle = '#33dd66';
-    L.collectibles.forEach((spot, i) => {
-      if (game.missions.state.collected[i]) return;
-      const [x, y] = toMap(spot.x, spot.z);
-      c.beginPath();
-      c.arc(x, y, 3, 0, Math.PI * 2);
-      c.fill();
-    });
-    c.strokeStyle = '#ff8800';
-    c.lineWidth = 2;
-    for (const cp of L.race) {
-      const [x, y] = toMap(cp.x, cp.z);
-      c.beginPath();
-      c.arc(x, y, 4, 0, Math.PI * 2);
-      c.stroke();
-    }
-    c.fillStyle = '#8b98a1';
-    for (const car of game.cars.traffic) {
-      const [x, y] = toMap(car.pos.x, car.pos.z);
-      c.fillRect(x - 1.5, y - 1.5, 3, 3);
-    }
-    c.fillStyle = '#ff3333';
-    for (const car of game.police.state.cars) {
-      const [x, y] = toMap(car.pos.x, car.pos.z);
-      c.beginPath();
-      c.arc(x, y, 3.5, 0, Math.PI * 2);
-      c.fill();
-    }
-    if (game.police.heli && game.police.heli.visible) {
-      const [x, y] = toMap(game.police.heli.position.x, game.police.heli.position.z);
-      c.strokeStyle = '#ff3333';
-      c.lineWidth = 2;
-      c.beginPath();
-      c.arc(x, y, 6, 0, Math.PI * 2);
-      c.stroke();
+    for (const [spot, color] of shops) dot(spot.x, spot.z, color);
+    for (const gem of game.city.collectibleMeshes) {
+      if (gem.visible) dot(gem.position.x, gem.position.z, '#2eff5e', 2);
     }
     const marker = game.missions.state.marker;
-    if (marker) {
-      const [x, y] = toMap(marker.x, marker.z);
-      c.fillStyle = '#ffe14d';
-      c.beginPath();
-      c.moveTo(x, y - 6);
-      c.lineTo(x + 6, y);
-      c.lineTo(x, y + 6);
-      c.lineTo(x - 6, y);
-      c.closePath();
-      c.fill();
-    }
-    const [px, py] = toMap(p0.x, p0.z);
-    let fx;
-    let fz;
-    if (game.player.car) {
-      fx = Math.cos(game.player.car.heading);
-      fz = -Math.sin(game.player.car.heading);
-    } else {
-      fx = Math.sin(game.player.heading);
-      fz = Math.cos(game.player.heading);
-    }
-    c.fillStyle = '#ffffff';
-    c.beginPath();
-    c.moveTo(px + fx * 7, py + fz * 7);
-    c.lineTo(px - fz * 5 - fx * 4, py + fx * 5 - fz * 4);
-    c.lineTo(px + fz * 5 - fx * 4, py - fx * 5 - fz * 4);
-    c.closePath();
-    c.fill();
-    c.restore();
+    if (marker) dot(marker.x, marker.z, '#ffd94d', 5);
+    for (const car of game.police.state.cars) dot(car.pos.x, car.pos.z, '#ff4444', 2.5);
+    if (game.police.heli?.visible) dot(game.police.heli.position.x, game.police.heli.position.z, '#ff8800', 3);
+    const p = game.player.car ? game.player.car.pos : game.player.pos;
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(cx + p.x * scale, cy + p.z * scale, 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(cx, cy, size / 2 - 1, 0, Math.PI * 2);
+    ctx.stroke();
   }
+
   function update() {
-    const health = Math.max(0, Math.round(game.player.health));
-    healthFill.style.width = `${health}%`;
-    healthFill.style.background = health > 50 ? '#37c978' : health > 25 ? '#f1c40f' : '#e74c3c';
-    healthText.textContent = `${health}`;
-    cashText.textContent = `$${game.cash.toLocaleString('en-US')}`;
+    const player = game.player;
+    healthEl.textContent = `♥ ${Math.max(0, Math.ceil(player.health))}`;
+    cashEl.textContent = `$${game.cash.toLocaleString('en-US')}`;
+    const baseMin = game.shotClockMin ?? (17 * 60 + 31);
+    const mins = (baseMin + Math.floor(game.time / 60)) % (24 * 60);
+    clockEl.textContent = `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
     const wanted = game.police.state.wanted;
-    starsBox.textContent = '★'.repeat(wanted) + '☆'.repeat(5 - wanted);
-    starsBox.style.color = wanted > 0 ? '#ff4444' : '#888888';
-    objectiveText.textContent = game.missions.state.objectiveText;
-    const idx = game.missions.state.index;
-    const done = game.missions.state.done;
+    starsEl.textContent = wanted > 0 ? '★'.repeat(wanted) + '☆'.repeat(5 - wanted) : '';
+    wantedFlashEl.style.opacity = wanted > 0 ? String(0.35 + 0.25 * Math.sin(game.time * 6)) : '0';
+    const sinceHit = game.time - player.lastHitAt;
+    damageFlashEl.style.opacity = sinceHit < 0.4 ? String(Math.max(0, 0.9 - sinceHit)) : '0';
+    const state = game.missions.state;
+    objectiveEl.textContent = state.objectiveText + (state.timerText ? `  ${state.timerText}` : '');
     missionRows.forEach((row, i) => {
-      row.classList.toggle('done', done || i < idx);
-      row.classList.toggle('current', !done && i === idx);
+      row.style.color = i < state.index || state.done ? '#37c978' : i === state.index ? '#ffd94d' : '#9aa7b5';
+      row.style.fontWeight = i === state.index ? '700' : '400';
+      row.style.textDecoration = i < state.index || state.done ? 'line-through' : 'none';
     });
-    const weapon = game.player.weapon || 'fists';
-    if (weapon === 'fists') {
-      weaponText.textContent = game.shotMode ? '' : 'Fists';
-    } else {
-      const name = weapon === 'pistol' ? 'Pistol' : 'Rifle';
-      weaponText.textContent = `${name} ${game.player.mag}/${game.player.ammo}`;
-    }
-    const car = game.player.car;
-    if (car) {
-      const hp = Math.max(0, Math.round(car.health));
-      if (car.wrecked || hp <= 0) {
-        durabilityText.textContent = 'WRECKED — Garage repairs $60';
-        durabilityText.style.color = '#e74c3c';
-      } else {
-        durabilityText.textContent = `Car ${hp}%`;
-        durabilityText.style.color = hp > 50 ? '#37c978' : hp > 25 ? '#f1c40f' : '#e74c3c';
-      }
-    } else {
-      durabilityText.textContent = '';
-    }
-    const p = car ? car.pos : game.player.pos;
-    // v31: clock (in-game time, starts 17:31) + street-name toast that
-    // shows when the district changes and fades after 4s.
-    // v33: shot mode uses the per-shot base time set by stageShot
-    // (sunset is later than the dusk shots), so the clock matches the sky.
-    const base = game.shotClockMin != null ? game.shotClockMin : 17 * 60 + 31;
-    const totalMin = base + Math.floor(game.time / 60);
-    const hh = String(Math.floor(totalMin / 60) % 24).padStart(2, '0');
-    const mm = String(totalMin % 60).padStart(2, '0');
-    clockText.textContent = `${hh}:${mm}`;
-    const district = districtAt(p.x, p.z);
-    districtText.textContent = district;
-    if (game.shotMode) {
-      // v32: in shot mode the toast must be on screen when the frame is
-      // taken — show it and cancel any fade scheduled before shot mode
-      // (a game.step during staging schedules one while shotMode is off,
-      // which is why shots 1-2 lost the toast).
+    const w = player.weapon;
+    let weaponText = 'Fists';
+    if (w === 'pistol') weaponText = `Pistol ${player.mag}/${player.ammo}`;
+    else if (w === 'rifle') weaponText = `Rifle ${player.mag}/${player.ammo}`;
+    if (player.car) weaponText += `  ·  Car ${Math.max(0, Math.ceil(player.car.health))}%`;
+    if (game.time - hitAt < 0.2) weaponText += '  ✕';
+    weaponEl.textContent = weaponText;
+    const pos = player.car ? player.car.pos : player.pos;
+    const district = districtAt(pos.x, pos.z);
+    if (district !== lastDistrict) {
       lastDistrict = district;
-      streetToast.classList.add('show');
-      if (streetTimer) { clearTimeout(streetTimer); streetTimer = null; }
-    } else if (district !== lastDistrict) {
-      lastDistrict = district;
-      streetToast.classList.add('show');
-      if (streetTimer) clearTimeout(streetTimer);
-      streetTimer = setTimeout(() => streetToast.classList.remove('show'), 4000);
+      districtEl.textContent = district;
     }
-    timerText.textContent = game.missions.state.timerText || '';
-    speedText.textContent = car ? `${Math.round(Math.abs(car.speed) * 3.6)} km/h` : '';
+    if (player.car) {
+      speedEl.classList.remove('hidden');
+      speedNumEl.textContent = String(Math.round(Math.abs(player.car.speed) * 3.6));
+    } else {
+      speedEl.classList.add('hidden');
+    }
     drawMinimap();
   }
-  function setPrompt(text) {
-    promptText.textContent = text;
-  }
-  function showMenu(show) {
-    menu.classList.toggle('hidden', !show);
-  }
-  function showPause(show) {
-    pauseMenu.classList.toggle('hidden', !show);
-  }
-  function showOver(show, text) {
-    overText.textContent = text;
-    overMenu.classList.toggle('hidden', !show);
-  }
-  function setShotMode(on, showCash = false) { game.shotMode = on; document.body.classList.toggle('shot-mode', on); document.body.classList.toggle('shot-cash', on && showCash); }
-  return { flash, showMissionCard, shake, takeShake, hitmark, update, setPrompt, showMenu, showPause, showOver, setShotMode };
+
+  return {
+    flash, showMissionCard, shake, hitmark, takeShake,
+    showMenu, showPause, showOver, setPrompt, setShotMode, update,
+  };
 }

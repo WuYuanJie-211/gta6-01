@@ -1,5 +1,10 @@
+// Shops: the five places money moves. Walk (or drive) within 6 m of a
+// shop and press E: buy a car at the dealer, buy a gun (then ammo) at the
+// gun shop, repair at the garage, eat at the diner, sell a hot car at the
+// chop shop. Each shop is one function; interact() picks by proximity.
 import { WEAPONS, ECONOMY, CAR_MODELS } from './config.js';
 import { enterCar } from './vehicles.js';
+
 export function createShops(game) {
   const SHOPS = [
     { key: 'dealer', name: 'Auto Dealer' },
@@ -8,6 +13,7 @@ export function createShops(game) {
     { key: 'diner', name: 'Diner' },
     { key: 'chopShop', name: 'Chop Shop' },
   ];
+
   function nearShop() {
     const p = game.player.car ? game.player.car.pos : game.player.pos;
     for (const shop of SHOPS) {
@@ -16,6 +22,7 @@ export function createShops(game) {
     }
     return null;
   }
+
   function nearestSaleCar() {
     const p = game.player.pos;
     let best = null;
@@ -30,6 +37,7 @@ export function createShops(game) {
     }
     return best;
   }
+
   function buyCar() {
     const car = nearestSaleCar();
     if (!car) {
@@ -48,6 +56,7 @@ export function createShops(game) {
     game.audio.payout();
     return true;
   }
+
   function buyGun() {
     const player = game.player;
     if (!player.ownedWeapons.includes('pistol')) {
@@ -89,6 +98,7 @@ export function createShops(game) {
     game.audio.pickup();
     return true;
   }
+
   function repair() {
     const car = game.player.car;
     if (!car) {
@@ -110,6 +120,7 @@ export function createShops(game) {
     game.audio.pickup();
     return true;
   }
+
   function heal() {
     if (game.player.health >= 100) {
       game.hud.flash('You feel fine already.');
@@ -125,6 +136,7 @@ export function createShops(game) {
     game.audio.pickup();
     return true;
   }
+
   function sellCar() {
     const car = game.player.car;
     if (!car) {
@@ -153,6 +165,7 @@ export function createShops(game) {
     game.audio.payout();
     return true;
   }
+
   function interact() {
     const shop = nearShop();
     if (!shop) return false;
@@ -163,5 +176,6 @@ export function createShops(game) {
     if (shop.key === 'chopShop') return sellCar();
     return false;
   }
+
   return { nearShop, interact };
 }

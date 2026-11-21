@@ -1,9 +1,15 @@
-import{BX,CG,MB,MS,SG,ME,GP,PI,OG,DS}from'./geo.js';
+// Missions: seven chained jobs with stages, a 3D beacon over the current
+// target, payouts and a story card per job. The state machine is data:
+// MISSIONS lists the stages; the update loop only knows the stage keys
+// (pickup / steal / deliver / fare / collect / race / escape).
+import { BX, CG, MB, MS, SG, ME, GP, PI, OG, DS } from './geo.js';
 import { WORLD, ECONOMY } from './config.js';
 import { enterCar } from './vehicles.js';
 import { randomNode } from './roads.js';
-const B=(g,w,h,d,m,x=0,y=0,z=0)=>{const q=new ME(new BX(w,h,d),m);q.position.set(x,y,z);g.add(q);return q;};
-const mt=(c,r=0.9)=>new MS({color:c,roughness:r});
+
+const B = (g, w, h, d, m, x = 0, y = 0, z = 0) => { const q = new ME(new BX(w, h, d), m); q.position.set(x, y, z); g.add(q); return q; };
+const mt = (c, r = 0.9) => new MS({ color: c, roughness: r });
+
 export const MISSIONS = [
   {
     title: 'First Fare',
@@ -61,6 +67,9 @@ export const MISSIONS = [
     ],
   },
 ];
+
+// The beacon: a translucent yellow pillar + a spinning diamond, parked
+// over the current objective.
 function createBeacon() {
   const group = new GP();
   const pillar = new ME(
@@ -77,10 +86,13 @@ function createBeacon() {
   group.userData.diamond = diamond;
   return group;
 }
+
 export function createMissions(game) {
   const beacon = createBeacon();
   beacon.visible = false;
   game.scene.add(beacon);
+
+  // Mara, the first client, waiting at the plaza.
   const clientMesh = new GP();
   {
     const jacket = mt(0xf1c40f);
@@ -103,6 +115,7 @@ export function createMissions(game) {
     clientMesh.position.set(game.city.landmarks.clientSpot.x, 0, game.city.landmarks.clientSpot.z);
     game.scene.add(clientMesh);
   }
+
   const state = {
     index: 0,
     stage: 0,
@@ -121,9 +134,11 @@ export function createMissions(game) {
     bestRaceTime: null,
     spawnedForStage: '',
   };
+
   function mission() {
     return MISSIONS[state.index];
   }
+
   function nearestWaitingPed() {
     const p = game.player.car ? game.player.car.pos : game.player.pos;
     let best = null;
@@ -138,6 +153,7 @@ export function createMissions(game) {
     }
     return best;
   }
+
   function nearestPackage() {
     const p = game.player.pos;
     let best = null;
@@ -152,6 +168,7 @@ export function createMissions(game) {
     });
     return best;
   }
+
   function stageTarget() {
     const L = game.city.landmarks;
     const stage = mission().stages[state.stage];
@@ -167,6 +184,7 @@ export function createMissions(game) {
     if (key === 'race') return L.race[state.raceCp];
     return null;
   }
+
   function refreshObjective() {
     if (state.done) {
       state.objectiveText = 'Solara Bay is yours. Free roam.';
@@ -187,6 +205,7 @@ export function createMissions(game) {
       beacon.visible = false;
     }
   }
+
   function startMission(index) {
     state.index = index;
     state.stage = 0;
@@ -204,6 +223,7 @@ export function createMissions(game) {
     refreshObjective();
     game.hud.showMissionCard(mission().title, mission().story);
   }
+
   function completeStage() {
     game.audio.pickup();
     state.stage += 1;
@@ -225,6 +245,8 @@ export function createMissions(game) {
     }
     refreshObjective();
   }
+
+  // E pressed near the current target. Returns true if it did something.
   function interact() {
     if (state.done) return false;
     const stage = mission().stages[state.stage];
@@ -297,6 +319,7 @@ export function createMissions(game) {
     }
     return false;
   }
+
   function update(dt) {
     clientMesh.visible = state.index === 0 && state.stage === 0;
     if (state.done) return;
@@ -393,10 +416,12 @@ export function createMissions(game) {
       }
     }
   }
+
   function stageKey() {
     if (state.done) return '';
     return mission().stages[state.stage].key;
   }
+
   function setProgress(index, stage) {
     state.index = Math.min(index, MISSIONS.length - 1);
     state.stage = Math.min(stage, MISSIONS[state.index].stages.length - 1);
@@ -414,6 +439,7 @@ export function createMissions(game) {
     }
     refreshObjective();
   }
+
   startMission(0);
   return { state, interact, update, startMission, setProgress, stageKey };
 }

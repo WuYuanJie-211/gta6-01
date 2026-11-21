@@ -1,4 +1,8 @@
+// Save / load through localStorage. One flat object: cash, health,
+// mission progress, weapons, cars bought, packages found, best race lap
+// and where the player stood. Anything unreadable is treated as no save.
 import { SAVE_KEY } from './config.js';
+
 export function saveGame(game) {
   try {
     const data = {
@@ -24,6 +28,7 @@ export function saveGame(game) {
     return false;
   }
 }
+
 export function loadSave() {
   try {
     const raw = window.localStorage.getItem(SAVE_KEY);
@@ -36,6 +41,7 @@ export function loadSave() {
     return null;
   }
 }
+
 export function hasSave() {
   return loadSave() !== null;
 }
