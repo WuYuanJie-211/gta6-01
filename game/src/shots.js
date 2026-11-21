@@ -355,15 +355,18 @@ function stageSunset(game) {
   if (game.skyDome) game.skyDome.visible = false;
   if (game.sunBillboard) game.sunBillboard.visible = false;
   game.sun.color.set(0xff7733);
-  const r = game.combat.spawnGunman(243, -180);
+  const r = game.combat.spawnGunman(243, -179.5);
   r.mesh.children[8].visible = r.mesh.children[9].visible = false;
   r.mesh.rotation.y = -PI / 2;
-  // v37: ONE soft radial blob (same texture + value as the cars'
-  // under-shadows, 0.65) at y=0.12, above the zebra (0.09). Replaces the
-  // v35 blob (coplanar with the zebra, invisible) and the v36 hard disc
-  // (read as a black oil stain). Soft falloff, value matching the nearby
-  // asphalt shadow, not darker than the car's shadow.
-  blob(game, 243.5, -179.5, 2.8, 2.2, 0.65, 0.12);
+  // v38: gunman 0.5m south (was -180) + BIGGER blob 4.2x3.6/0.8 (was
+  // 2.8x2.2/0.65). Root cause (pixel-verified): the gunman stood on dark
+  // asphalt just EAST of the zebra (bars end x=242.25), so the v37 dark
+  // blob had no contrast and was invisible; the bright thing Gemini read
+  // as a "white disc" was the white zebra dash + bright yellow stripes
+  // flanking his feet. The bigger blob now reaches the light zebra bars
+  // (x=241.0, 241.7) and the yellow stripe (z=-179), so the darkening
+  // reads on light ground; the gunman himself sits closer to the stripe.
+  blob(game, 243, -179.5, 4.2, 3.6, 0.8, 0.12);
   const p = game.player;
   p.pos.set(243, 0, -180);
   p.heading = PI;

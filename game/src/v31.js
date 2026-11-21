@@ -468,11 +468,14 @@ export function makeRoadMarkingTexture() {
   return tex;
 }
 
-// ---------------------------------------------------------------------------
-// Traffic light state machine: exactly ONE lamp lit, always.
-// States cycle R (8s) -> G (6s) -> Y (2s). Phase offset per light.
-// ---------------------------------------------------------------------------
+// Traffic light: exactly ONE lamp lit. R 8s -> G 6s -> Y 2s, phase offset.
 const LIGHT_COLORS = [0xff2a1e, 0xffcc00, 0x33cc33]; // R, Y, G
+// v38: halo RING texture — transparent centre (orb shows through), bright
+// ring band, fading outside. The v37 soft blob's bright core hid behind
+// the lamp sphere, so only faint falloff showed and no ring read. White
+// so the sprite material colour tints it (red for R).
+let _ringTex=null;
+function haloRingTexture(){if(_ringTex)return _ringTex;const c=document.createElement('canvas');c.width=c.height=256;const x=c.getContext('2d');const g=x.createRadialGradient(128,128,0,128,128,128);g.addColorStop(0,'rgba(255,255,255,0)');g.addColorStop(.42,'rgba(255,255,255,0)');g.addColorStop(.52,'rgba(255,255,255,.95)');g.addColorStop(.68,'rgba(255,255,255,.85)');g.addColorStop(.85,'rgba(255,255,255,.25)');g.addColorStop(1,'rgba(255,255,255,0)');x.fillStyle=g;x.fillRect(0,0,256,256);_ringTex=new CT(c);return _ringTex;}
 export function makeTrafficLightV31(initialState = 'R', phase = 0) {
   const g = new GP();
   const poleMat = new MS({ color: 0x2c3e50, roughness: 0.7 });
@@ -484,27 +487,25 @@ export function makeTrafficLightV31(initialState = 'R', phase = 0) {
   arm.rotation.x = PI / 2;
   arm.position.set(0, 5.4, 1.8);
   g.add(arm);
-  const housing = new ME(new BX(0.9, 2.3, 0.3), new MS({ color: 0x4a0f0a, roughness: 0.6 }));
+  const housing = new ME(new BX(0.9, 2.3, 0.3), new MS({ color: 0x140404, roughness: 0.6 }));
   housing.position.set(0, 4.9, 3.6);
   g.add(housing);
   const lamps = [];
   for (let i = 0; i < 3; i += 1) {
-    // v37: unlit basic material — the lit lamp must read as a saturated
-    // red orb against ANY background. A lit standard material + additive
-    // halo washed to peach over the bright facade (v36).
+    // v37: unlit basic mat — lit lamp reads saturated red on any bg.
     const mat = new MB({ color: 0x330a06 });
-    // v33: ONE sphere per lamp, centred in the housing — the lit lamp
-    // reads from ANY angle. Flat discs were edge-on/invisible sideways.
-    const lamp = new ME(new SG(0.4, 12, 10), mat);
+    // v33: one sphere/lamp, centred — reads from any angle.
+    // v38: radius 0.45 (was 0.4) — bigger orb; housing near-black (was
+    // 0x4a0f0a) so the red orb pops by contrast.
+    const lamp = new ME(new SG(0.45, 12, 10), mat);
     lamp.position.set(0, 5.7 - i * 0.8, 3.6);
     g.add(lamp);
     lamps.push(mat);
   }
-  // v37: halo 2.0/0.7, NORMAL blending — additive washed to peach over
-  // the bright facade; normal blending reads as a red ring. Smaller so
-  // the lamp sphere itself shows as the bright core.
-  const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: beamGlowTexture(), transparent: true, opacity: 0.7, depthWrite: false }));
-  glow.scale.set(2.0, 2.0, 1);
+  // v38: RING halo 2.2/0.85 — a distinct red ring around the orb, not a
+  // soft blob. Scale 2.2 puts the ring band just outside the 0.45 orb.
+  const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloRingTexture(), transparent: true, opacity: 0.85, depthWrite: false }));
+  glow.scale.set(2.2, 2.2, 1);
   g.add(glow);
   function setState(s) {
     // s: 'R' (lamp 0), 'Y' (lamp 1), 'G' (lamp 2). Exactly one on.
@@ -533,12 +534,9 @@ export function updateTrafficLights(lights, time) {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Soft beam (replaces the hard-edged cone in shots.js): a camera-facing
-// Sprite with a soft radial glow. A Sprite has NO silhouette edge at all
-// (unlike a cone, whose geometric boundary always reads as a hard triangle),
-// so the shaft is pure falloff. One wide dim glow + one narrow brighter
-// core, both additive, both fading to transparent at every edge.
+// Soft beam: camera-facing Sprite, soft radial glow, NO silhouette edge
+// (a cone's boundary reads as a hard triangle). Wide dim glow + narrow
+// brighter core, both additive, fading to transparent at every edge.
 let _beamGlowTex = null;
 export function beamGlowTexture() {
   if (_beamGlowTex) return _beamGlowTex;
