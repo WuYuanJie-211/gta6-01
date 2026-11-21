@@ -393,9 +393,9 @@ export function makeSkyDome() {
 export function makeSunBillboard() {
   const [c, x] = canvas(256, 256);
   const g = x.createRadialGradient(128, 128, 4, 128, 128, 128);
-  g.addColorStop(0, 'rgba(255,240,200,1)');
-  g.addColorStop(0.25, 'rgba(255,200,120,0.85)');
-  g.addColorStop(0.6, 'rgba(255,140,80,0.25)');
+  g.addColorStop(0, 'rgba(255,240,200,0.4)');
+  g.addColorStop(0.25, 'rgba(255,200,120,0.34)');
+  g.addColorStop(0.6, 'rgba(255,140,80,0.1)');
   g.addColorStop(1, 'rgba(255,140,80,0)');
   x.fillStyle = g;
   x.fillRect(0, 0, 256, 256);
@@ -403,7 +403,7 @@ export function makeSunBillboard() {
   t.colorSpace = SC;
   const s = new SP(new THREE.SpriteMaterial({ map: t, transparent: true, depthWrite: false, fog: false }));
   s.position.set(-560, 110, -260);
-  s.scale.set(150, 150, 1);
+  s.scale.set(75, 75, 1);
   return s;
 }
 
@@ -604,7 +604,7 @@ export function makeBench() {
 
 export function makeTree(rng) {
   const g = new GP();
-  const trunk = new ME(new CG(0.14, 0.2, 2.1, 8), new MS({ color: 0x6a4a2a, roughness: 1 }));
+  const trunk = new ME(new CG(0.28, 0.4, 2.1, 8), new MS({ color: 0x6a4a2a, roughness: 1 }));
   trunk.position.y = 1.05;
   g.add(trunk);
   const greens = [0x2e7d32, 0x388e3c, 0x43a047];

@@ -229,8 +229,8 @@ export function buildCity(scene, rng, textures) {
     const x0 = CITY.roadLinesX[i] + 6;
     const x1 = CITY.roadLinesX[i + 1] - 6;
     const cx = (x0 + x1) / 2;
-    box(scene, 48, 0.45, 0.5, medianMat, cx, 0.225, -180);
-    box(scene, 48, 0.1, 0.3, medianTop, cx, 0.5, -180);
+    box(scene, 48, 0.3, 0.5, medianMat, cx, 0.15, -180);
+    box(scene, 48, 0.1, 0.3, medianTop, cx, 0.35, -180);
     col.push({ minX: x0, maxX: x1, minZ: -180.25, maxZ: -179.75 });
   }
   // Zebra crossings: opaque planes on the hero-zone intersections, so
@@ -359,7 +359,7 @@ export function buildCity(scene, rng, textures) {
           cont.position.set(cx, 1.3 + s * 2.6, cz);
           cont.rotation.y = rng.chance(0.5) ? 0 : PI / 2;
           cont.castShadow = true;
-          scene.add(cont);
+          if (Math.hypot(cx - 237, cz + 160) >= 5) scene.add(cont);
         }
         col.push({ minX: cx - 3.2, maxX: cx + 3.2, minZ: cz - 3.2, maxZ: cz + 3.2 });
       }
@@ -541,7 +541,7 @@ export function buildCity(scene, rng, textures) {
         const floors = Math.min(4, Math.floor(h / 7));
         for (let f = 0; f < floors; f += 1) {
           box(scene, w * 0.4, 0.25, 1.4, M(0x6a5a4a), x, 4 + f * 7, z + d / 2 + 0.7, true);
-          box(scene, w * 0.4, 0.7, 0.06, M(0x2c3e50, 0.7), x, 4 + f * 7 + 0.45, z + d / 2 + 1.35);
+          box(scene, w * 0.4, 0.7, 0.35, M(0x6a5a48, 0.7), x, 4 + f * 7 + 0.45, z + d / 2 + 1.35);
           for (const s of [-1, 1]) box(scene, 0.06, 0.7, d * 0.4, M(0x2c3e50, 0.7), x + s * (w / 2 + 1.35), 4 + f * 7 + 0.45, z);
         }
       }
@@ -578,15 +578,15 @@ export function buildCity(scene, rng, textures) {
   // so their crowns stay well below the heli's 8.5 m flight band.
   const heroPalmSpots = [
     [232.5, -195, 9, 1.5, 2.1], [247.5, -195, 9, 1.1, 0.9],
-    [232.5, -185, 7, 1.0, 0.4], [248.8, -211.5, 10, 1.6, 3.3],
-    [232.5, -168, 7, 0.8, 4.0], [247.5, -158, 8, 1.2, 5.5],
+    [232.5, -185, 7, 1.0, 0.4], [250.1, -213.0, 10, 1.6, 3.3],
+    [232.5, -168.5, 7, 0.8, 4.0], [247.5, -158, 8, 1.2, 5.5],
     [232.5, -155, 9, 1.8, 1.2], [246.3, -163.4, 9, 0.9, 2.8],
   ];
   for (let i = 0; i < heroPalmSpots.length; i += 1) {
     const [px, pz, ph, pl, pd] = heroPalmSpots[i];
     const palm = makeV31Palm(ph, pl, pd);
     palm.position.set(px, 0, pz);
-    if (i === 3 || i === 7) palm.scale.setScalar(0.8); // v47: cut-top palms down
+    if (i === 3 || i === 7) palm.scale.setScalar(0.78); // v47: cut-top palms down
     scene.add(palm);
   }
   // 4 streetlights in the hero zone. The (232.5,-170) lamp stood on the
@@ -628,7 +628,7 @@ export function buildCity(scene, rng, textures) {
   // shop read as the same brick box. The panel/glass sit on the same
   // face as the tower's sign (east for odd i, south for even i).
   const SHOP_PALETTE = [0x8c4a3a, 0xd8c9a8, 0xa8bfae, 0xc9a878, 0x7d8b96, 0x4a4a4a];
-  const SHOP_GLASS = [0xffd98a, 0x9fd8ff, 0xa8e6a0, 0xd8a8b0, 0xd8c9a8, 0x8ecae6];
+  const SHOP_GLASS = [0xffd98a, 0x9fd8ff, 0xa8e6a0, 0xd8a8b0, 0x8a7a62, 0x8ecae6];
   const SHOP_AWN = [0xc0392b, 0x1e8449, 0xe67e22, 0x6e5a6e, 0x2c3e50, 0x0066aa];
   heroTowers.forEach((t, i) => {
     const east = i % 2 === 1;

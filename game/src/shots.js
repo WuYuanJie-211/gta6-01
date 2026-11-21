@@ -279,12 +279,15 @@ function stageChase(game) {
   // under c2 is asphalted (a dark plane at y=0.06, v45 below), so
   // the cruiser reads as on the road. c2 moves 3 m south so it sits
   // at screen y360-450.
-  // v47: c2 into the lane — x +2.6 m, z -0.4 m (was x=230, on the
-  // beige plaza with an asphalt patch under it; now x=232.6, four
-  // wheels on the road itself). The patch follows c2.pos, so it
-  // moves with the cruiser.
+  // v48: c2 into the lane — x +2.4 m, z -0.4 m (was x=232.6, still
+  // west of the road on the beige plaza; now x=235.0, four wheels
+  // in the lane). The plan's +4 m (x=236.6) put c2 directly behind
+  // the van (same x=237) — its centre projected to (499,347),
+  // inside the van's silhouette, fully hidden. At x=235.0 the west
+  // wheels sit at 234.05 (just inside the road edge) and the car
+  // peeks out left of the van. y stays 0 (see above).
   const c1 = pc(game, vx + 6, vz - 1, -PI / 2 + 0.4, 24);
-  const c2 = pc(game, vx - 4.4, vz - 8.4, -PI / 2, 24);
+  const c2 = pc(game, vx - 2.0, vz - 8.8, -PI / 2, 24);
   for (const c of [c1, c2]) {
     if (c.mesh.userData.lightR) {
       c.mesh.userData.lightR.material.emissive.setHex(0xff0000);
@@ -324,7 +327,13 @@ function stageChase(game) {
   // transparent overlay here. Removed; the soft blobs stay. The van
   // shadow is present and crosses both dashes visually, but the dash
   // pixels read ~197, not ≤150 — a partial on P0.8's pixel test.
-  blob(game, vx, vz, 7.5, 5.0, 0.6, 0.08);
+  // v48 P0-4: the v45 asphalt patch (opaque 0x333333 plane) read as
+  // a hard-edged black rectangle — a hole in the ground. DELETED.
+  // The cruiser's shadow is now a radial-alpha ellipse REUSING the
+  // van blob's material instance (same texture + material, zero new
+  // material; opacity 0.6 from the van blob, plan's 0.5 is the same
+  // soft edge). 5x5 m on the ground reads ~340x90 on screen.
+  const vanBlob = blob(game, vx, vz, 7.5, 5.0, 0.6, 0.08);
   blob(game, 240, -198, 12.0, 8.0, 0.7, 0.08);
   blob(game, 237.8, -203.7, 4.3, 1.8, 0.7, 0.09);
   blob(game, 236.2, -206.3, 4.3, 1.8, 0.7, 0.09);
@@ -342,14 +351,13 @@ function stageChase(game) {
     game.scene.add(core);
   }
   blob(game, c1.pos.x, c1.pos.z, 7.5, 5.0, 0.6, 0.08);
-  blob(game, c2.pos.x, c2.pos.z, 7.5, 5.0, 0.6, 0.08);
-  // v45: asphalt patch under c2 — the beige plaza under the left
-  // cruiser read as a car parked on a sidewalk. A dark asphalt plane
-  // (10x7 m, y=0.06) under it makes the cruiser read as on the road.
-  const patch = new ME(new PG(10, 7), new MS({ color: 0x333333, roughness: 0.95 }));
-  patch.rotation.x = -PI / 2;
-  patch.position.set(c2.pos.x, 0.06, c2.pos.z);
-  game.scene.add(patch);
+  // v48 P0-4: c2's shadow is the ellipse below (van's material), not
+  // a second blob — one soft shadow per car, no double darkening.
+  const c2Shadow = new ME(new PG(5.0, 5.0), vanBlob.material);
+  c2Shadow.rotation.x = -PI / 2;
+  c2Shadow.position.set(c2.pos.x, 0.12, c2.pos.z);
+  c2Shadow.renderOrder = 2;
+  game.scene.add(c2Shadow);
   // Layout plan (v43): camera 1.4 m, pitch ~level, FOV 48 (NOT 60) —
   // narrowing compresses the three cars into a layered diagonal.
   // camPitch 0.11 puts the camera at ~2.8 m — just above the tall
@@ -648,10 +656,15 @@ function stageDowntown(game) {
   // (armored, first spot) still read with its wheel on the sidewalk
   // edge — moved 1.5 m west into the lane centre (x=243) and 2 m
   // north (z=-194) so all four wheels sit clearly on asphalt.
-  // v47: the dark van (armored, second spot) moved right 70 px — 0.84 m
-  // north (z -168 -> -168.84) so its right front wheel sits back on
-  // asphalt, clear of the curb. (v46 moved the wrong spot's van.)
-  const parkedSpots = [[243, -194], [244.5, -168.84], [244.5, -204]];
+  // v48: the dark van (armored, second spot) WEST 2.2 m (x 244.5 ->
+  // 242.3). The plan says "right 2.2 m", but the pixel evidence is
+  // unambiguous: the east wheels (x=245.35) sit on BEIGE sidewalk
+  // (asphalt/beige boundary at x≈245.3), the west wheels on asphalt.
+  // A north/south ("right" on screen) move cannot change the
+  // wheel-to-edge distance — the boundary runs north-south. West
+  // puts all four wheels on asphalt (east wheels to x=243.15).
+  // Only one armored van exists in this scene; no second to move.
+  const parkedSpots = [[243, -194], [242.3, -168.84], [244.5, -204]];
   const others = game.cars.parked.filter((c) => c !== taxi);
   others.slice(0, 3).forEach((c, i) => place(c, parkedSpots[i][0], parkedSpots[i][1], PI / 2));
   others.slice(3).forEach((c) => { place(c, 0, 300, 0); });
@@ -708,8 +721,12 @@ function stageDowntown(game) {
   // 0.65 m north (z -0.65) shifts it ~45 px right on screen and
   // clears both ends. The palm leaf tip pressing its right end is
   // handled by the palm move in city.js.
+  // v48: SUITES sign face 0.25 m forward along its normal (east, +x)
+  // — the left S's vertical stroke merges with the facade's dark
+  // edge and reads as "...ITES". Standing the face proud of the
+  // wall gives the S >=10 px clear space on its left.
   for (const o of game.scene.children) {
-    if (o.userData && o.userData.v31sign === 'SUITES') o.position.z -= 0.65;
+    if (o.userData && o.userData.v31sign === 'SUITES') { o.position.z -= 0.65; o.position.x += 0.25; }
   }
   // v45: shorten the hero-street median (Jersey barrier) so its near
   // end stops at screen y=520 with a rounded cap instead of running
@@ -721,21 +738,20 @@ function stageDowntown(game) {
   // edge (y~680) — ending it at x=246 (18.6 m away) lifts the near
   // end to ~y520.
   for (const o of [...game.scene.children]) {
-    if (o.isMesh && o.geometry && o.geometry.type === 'BoxGeometry' && o.position.z === -180 && (o.position.y === 0.35 || o.position.y === 0.75) && Math.abs(o.position.x - 270) < 0.5) o.visible = false;
+    if (o.isMesh && o.geometry && o.geometry.type === 'BoxGeometry' && o.position.z === -180 && (o.position.y === 0.15 || o.position.y === 0.35) && Math.abs(o.position.x - 270) < 0.5) o.visible = false;
   }
   const medMat = new MS({ color: 0x5e564b, roughness: 0.9 });
   const medTop = new MS({ color: 0x3a3a3a, roughness: 0.7 });
-  // v46: darker (0x5E564B, was pale 0xb8b8b0) and lower (0.5 m, was
-  // 0.7 m) — the pale tall barrier cut diagonally across the frame
-  // and read as a bright beige slab; now it sits <=34 px tall.
-  const med = new ME(new BX(12, 0.5, 0.5), medMat);
-  med.position.set(240, 0.25, -180);
+  // v48 P1-6: 0.30 m tall (was 0.5 m), matching the lowered city
+  // median — the tall barrier cut diagonally across the foreground.
+  const med = new ME(new BX(12, 0.3, 0.5), medMat);
+  med.position.set(240, 0.15, -180);
   game.scene.add(med);
   const medT = new ME(new BX(12, 0.1, 0.3), medTop);
-  medT.position.set(240, 0.55, -180);
+  medT.position.set(240, 0.35, -180);
   game.scene.add(medT);
-  const medCap = new ME(new CG(0.25, 0.25, 0.5, 12), medMat);
-  medCap.position.set(246, 0.25, -180);
+  const medCap = new ME(new CG(0.25, 0.25, 0.3, 12), medMat);
+  medCap.position.set(246, 0.15, -180);
   game.scene.add(medCap);
 }
 
@@ -807,13 +823,16 @@ function stageSunset(game) {
   const bc = pc(game, 233, -177, PI / 2, 0);
   // Char the burning car — clone the materials first, they are shared
   // across every car of the same colour (recolouring the shared white
-  // would char the second cruiser too). The char is MEDIUM (0x3a2a22),
-  // not near-black: at 0x241a14 the car read as a dark pickup truck,
-  // not a police car (v44). The light bar stays UNCHARRED so the car
-  // still reads as a cruiser.
+  // would char the second cruiser too). v48 P0-1: the char is now a
+  // hot ember brown (0x7a2a18, was 0x3a2a22) WITH an emissive
+  // (0x1e0a04, intensity 1) — the v47 car body received NONE of the
+  // fire light (ratio 1.00x), so the fire must light it from the
+  // material side, not by adding another point light (light cap).
   const bm = bc.mesh.userData;
   bm.body.material = bm.body.material.clone();
-  bm.body.material.color.setHex(0x3a2a22);
+  bm.body.material.color.setHex(0x7a2a18);
+  bm.body.material.emissive.setHex(0x1e0a04);
+  bm.body.material.emissiveIntensity = 1;
   bm.cabin.material = bm.cabin.material.clone();
   bm.cabin.material.color.setHex(0x2a2226);
   bc.mesh.position.y = -0.05;
@@ -852,6 +871,14 @@ function stageSunset(game) {
     glow.position.set(0.3, 1.2, 0);
     glow.scale.set(2.4, 2.0, 1);
     bc.mesh.add(glow);
+    // v48 P0-1: warm patch ON the car roof (screen 390-480, 358-388)
+    // — an additive warm quad reusing the fire texture, so the roof
+    // reads lit by the fire even though no point light reaches it.
+    // Sits just above the roof skin (y=1.7), wide along the car.
+    const warm = new THREE.Sprite(new THREE.SpriteMaterial({ map: fireTex, color: 0xff6a20, transparent: true, opacity: 0.35, blending: AB, depthWrite: false }));
+    warm.position.set(0, 1.7, 0);
+    warm.scale.set(3.0, 1.8, 1);
+    bc.mesh.add(warm);
   }
   // Second cruiser, on the south lane (z=-188) — at -184 it stood
   // between the camera and the comet and hid it; here it frames the
@@ -915,7 +942,11 @@ function stageSunset(game) {
   fgGun.mesh.children[8].visible = fgGun.mesh.children[9].visible = false;
   fgGun.mesh.rotation.y = PI / 2 + PI + 0.7;
   fgGun.mesh.scale.setScalar(0.75);
-  blob(game, 247.8, -181.2, 5.0, 4.0, 0.5, 0.12);
+  // v48 P1-5: shadow centre 0.5 m north (screen-right 25 px) and
+  // 0.5 m larger each way (radius +15 px), so it covers the white
+  // dash under his feet (900-1010, 625-655) instead of stopping
+  // short of it.
+  blob(game, 247.8, -181.7, 5.5, 4.5, 0.5, 0.12);
   // Rifle: in his RIGHT hand (local +x, the camera side after the
   // torso turn), longer (1.6 m) and angled up-right so the barrel
   // sticks out past the torso — >=60 px exposed, stock to shoulder.
@@ -989,10 +1020,30 @@ function stageSunset(game) {
   if (bm.lightB) bm.lightB.material.emissive.setHex(0x0000ff);
   // v45: move the (226.5,-190) streetlamp north so its pole stops
   // cutting shot 4 in half — from screen x875-935 to x960-990.
-  // v46: a further 1 m north (z=-194) to x980-1006, clear of BODEGA.
+  // v48 P2-5: a further 0.7 m north (z=-194.7) to move the pole
+  // right ~20 px on screen, clear of BODEGA's right edge.
   for (const o of [...game.scene.children]) {
-    if (o.isGroup && Math.abs(o.position.x - 226.5) < 0.5 && Math.abs(o.position.z + 190) < 0.5) o.position.z = -194;
+    if (o.isGroup && Math.abs(o.position.x - 226.5) < 0.5 && Math.abs(o.position.z + 190) < 0.5) o.position.z = -194.7;
   }
+  // v48 P1-6: shorten the hero-street median for shot 4 — hide the
+  // 48 m city segment at cx=270 (x246-294) and replace it with a
+  // 36 m one (x246-282), so its near (east) end pulls back to
+  // screen x≈1010 instead of running to the right edge. Height
+  // 0.30 m, matching the lowered city median.
+  for (const o of [...game.scene.children]) {
+    if (o.isMesh && o.geometry && o.geometry.type === 'BoxGeometry' && o.position.z === -180 && (o.position.y === 0.15 || o.position.y === 0.35) && Math.abs(o.position.x - 270) < 0.5) o.visible = false;
+  }
+  const med4Mat = new MS({ color: 0x5e564b, roughness: 0.9 });
+  const med4Top = new MS({ color: 0x3a3a3a, roughness: 0.7 });
+  const med4 = new ME(new BX(36, 0.3, 0.5), med4Mat);
+  med4.position.set(264, 0.15, -180);
+  game.scene.add(med4);
+  const med4T = new ME(new BX(36, 0.1, 0.3), med4Top);
+  med4T.position.set(264, 0.35, -180);
+  game.scene.add(med4T);
+  const med4Cap = new ME(new CG(0.25, 0.25, 0.3, 12), med4Mat);
+  med4Cap.position.set(282, 0.15, -180);
+  game.scene.add(med4Cap);
   // v46: the palm at (247.5,-158) presses its fronds over BODEGA's
   // right end — shift it 0.5 m north so the leaves clear the sign.
   for (const o of [...game.scene.children]) {
