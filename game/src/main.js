@@ -69,7 +69,7 @@ class Game {
     this.camera = new THREE.PerspectiveCamera(60, 1, 0.1, 1500);
     const sun = new THREE.DirectionalLight(0xffd9a0, 3.0);
     this.scene.add(sun);
-    this.scene.add(new THREE.HemisphereLight(0xffe0b8, 0x8a7a5a, 0.9));
+    this.scene.add(new THREE.HemisphereLight(0xffe0b8, 0x8a7a5a, 1.15));
     this.sun = sun;
     this.roads = buildRoads();
     this.city = buildCity(this.scene, this.rng, textures);

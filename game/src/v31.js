@@ -38,9 +38,11 @@ let _blobTex = null;
 export function blobShadowTexture() {
   if (_blobTex) return _blobTex;
   const [c, x] = canvas(256, 256);
+  // Power-2.0 falloff: dark solid core, soft edge, no hard ring.
   const g = x.createRadialGradient(128, 128, 8, 128, 128, 128);
   g.addColorStop(0, 'rgba(0,0,0,0.95)');
-  g.addColorStop(0.55, 'rgba(0,0,0,0.55)');
+  g.addColorStop(0.45, 'rgba(0,0,0,0.6)');
+  g.addColorStop(0.75, 'rgba(0,0,0,0.18)');
   g.addColorStop(1, 'rgba(0,0,0,0)');
   x.fillStyle = g;
   x.fillRect(0, 0, 256, 256);
@@ -123,16 +125,18 @@ export function makeRoadTexture(aniso) {
       x.restore();
     }
   };
-  // Base asphalt: mid-dark grey, light enough that the grain reads.
-  x.fillStyle = '#4b4e53';
+  // Base asphalt: mid grey (sRGB ~0.33) so a pure-black shadow has
+  // room to drop visibly — on near-black asphalt no shadow can read.
+  x.fillStyle = '#54585d';
   x.fillRect(0, 0, 1024, 1024);
-  // Large soft tonal patches (repairs, wear).
+  // Large soft tonal patches (repairs, wear) — faint, so they never
+  // read as blurry white polygons at a grazing angle.
   for (let i = 0; i < 14; i += 1) {
     const px = rnd() * 1024;
     const py = rnd() * 1024;
     const pw = 90 + rnd() * 220;
     const ph = 70 + rnd() * 180;
-    const shade = rnd() < 0.5 ? 'rgba(0,0,0,0.10)' : 'rgba(255,255,255,0.05)';
+    const shade = rnd() < 0.5 ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.03)';
     wrap(() => {
       x.fillStyle = shade;
       x.beginPath();
@@ -153,26 +157,9 @@ export function makeRoadTexture(aniso) {
       x.fill();
     });
   }
-  // Cracks — kept faint (0.35 alpha, 1-2 px): at a grazing angle near
-  // the camera the old 0.55-alpha cracks stretched into black streaks.
-  x.strokeStyle = 'rgba(20,20,24,0.35)';
-  for (let i = 0; i < 9; i += 1) {
-    const px = rnd() * 1024;
-    const py = rnd() * 1024;
-    wrap(() => {
-      x.beginPath();
-      x.moveTo(px, py);
-      let qx = px;
-      let qy = py;
-      for (let s = 0; s < 6; s += 1) {
-        qx += (rnd() - 0.5) * 130;
-        qy += (rnd() - 0.5) * 130;
-        x.lineTo(qx, qy);
-      }
-      x.lineWidth = 1 + rnd() * 1;
-      x.stroke();
-    });
-  }
+  // No cracks: at a grazing angle near the camera the crack strokes
+  // stretched into hard-edge polygon blocks and one read as a regular
+  // "Λ" decal (v42). Speckle alone carries the grain.
   // --- Markings, hard edges, no blur. Across: 1024 px = 12 m (85.3
   // px/m). Along: 1024 px = 8 m (128 px/m).
   const m = 1024 / 12; // px per metre across
@@ -377,15 +364,20 @@ export function applyFacadeUVs(geo, cell, w, h, d) {
   const norm = geo.attributes.normal;
   const col = cell % 4;
   const row = Math.floor(cell / 4);
-  const u0 = col * 0.25;
-  const v0 = 1 - (row + 1) * 0.25;
+  // Inset 4 px (0.004 UV) on every side: the atlas cells have no
+  // padding, so bilinear sampling at a cell edge pulled the neighbour
+  // cell's colour in as purple/green vertical bands (v42 GYM).
+  const ins = 0.004;
+  const span = (0.25 - ins * 2) / 0.25;
+  const u0 = col * 0.25 + ins;
+  const v0 = 1 - (row + 1) * 0.25 + ins;
   for (let i = 0; i < uv.count; i += 1) {
     const nx = Math.abs(norm.getX(i));
     const ny = Math.abs(norm.getY(i));
     let fw;
     let fh;
     if (nx > 0.5) { fw = d; fh = h; } else if (ny > 0.5) { fw = w; fh = d; } else { fw = w; fh = h; }
-    uv.setXY(i, u0 + uv.getX(i) * (fw / 16), v0 + uv.getY(i) * (fh / 16));
+    uv.setXY(i, u0 + uv.getX(i) * (fw / 16) * span, v0 + uv.getY(i) * (fh / 16) * span);
   }
   uv.needsUpdate = true;
 }
@@ -514,21 +506,28 @@ export function makeSoftBeam(scene, a, b, rt, rb, o) {
 // ---------------------------------------------------------------- signs
 
 function signTexture(text, fg, bg, w, h) {
-  const [c, x] = canvas(512, Math.max(64, Math.round(512 * (h / w))));
+  // 1024 px wide, letter height ~55% of the panel with a dark outline:
+  // the old 512 px / 800-weight letters melted into a white blur at
+  // distance (v42 GYM). Anisotropy 16 keeps them sharp at an angle.
+  const [c, x] = canvas(1024, Math.max(128, Math.round(1024 * (h / w))));
   x.fillStyle = bg;
   x.fillRect(0, 0, c.width, c.height);
-  x.fillStyle = fg;
   x.textAlign = 'center';
   x.textBaseline = 'middle';
-  let size = Math.floor(c.height * 0.52);
-  x.font = `800 ${size}px system-ui,sans-serif`;
-  while (x.measureText(text).width > c.width * 0.92 && size > 12) {
-    size -= 4;
-    x.font = `800 ${size}px system-ui,sans-serif`;
+  let size = Math.floor(c.height * 0.55);
+  x.font = `900 ${size}px system-ui,sans-serif`;
+  while (x.measureText(text).width > c.width * 0.9 && size > 24) {
+    size -= 6;
+    x.font = `900 ${size}px system-ui,sans-serif`;
   }
+  x.lineWidth = Math.max(3, Math.round(size * 0.06));
+  x.strokeStyle = 'rgba(0,0,0,0.85)';
+  x.strokeText(text, c.width / 2, c.height / 2 + 2);
+  x.fillStyle = fg;
   x.fillText(text, c.width / 2, c.height / 2 + 2);
   const t = new CT(c);
   t.colorSpace = SC;
+  t.anisotropy = 16;
   return t;
 }
 
@@ -650,7 +649,10 @@ export function makeTree(rng) {
 // nested group (yaw, then pitch) so the droop is radial — the old flat
 // fronds pitched around the world X axis, so half of them pointed up.
 function makePalmCrown(g, x, y, z, scale, rnd) {
-  const greens = [0x2f4a26, 0x3f6b30, 0x6f8f3a];
+  // Leaf greens in 3 grades — the lightest is a muted olive, never a
+  // bright yellow-green: one sunlit blade read as a huge light-yellow
+  // triangular broken face on the shot-4 palm (v42).
+  const greens = [0x2f4a26, 0x3f6b30, 0x55702e];
   const leaves = 11;
   for (let i = 0; i < leaves; i += 1) {
     const a = (i / leaves) * PI * 2 + (rnd ? rnd() * 0.4 : i * 0.13);
@@ -664,12 +666,14 @@ function makePalmCrown(g, x, y, z, scale, rnd) {
     pitch.rotation.x = droop;
     yaw.add(pitch);
     for (const s of [-1, 1]) {
+      // Narrower blade (0.38) with a stronger V-fold (0.6) — the old
+      // flat 0.5-wide blades read as thin fan blades, not palm leaves.
       const blade = new ME(
-        new BX(0.5, 0.03, len),
+        new BX(0.38, 0.03, len),
         new MS({ color: greens[(i + (s > 0 ? 1 : 0)) % 3], roughness: 1, side: DS }),
       );
-      blade.position.set(s * 0.18, 0, len / 2);
-      blade.rotation.z = -s * 0.45;
+      blade.position.set(s * 0.15, 0, len / 2);
+      blade.rotation.z = -s * 0.6;
       pitch.add(blade);
     }
     g.add(yaw);

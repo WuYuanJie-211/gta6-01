@@ -159,7 +159,9 @@ export function buildCity(scene, rng, textures) {
   const roadMatA = new MS({ map: roadTexA, roughness: 0.95 });
   const roadMatS = new MS({ map: roadTexS, roughness: 0.95 });
   for (const x of CITY.roadLinesX) {
-    const geo = new PG(12, 600);
+    // Subdivided into 4 m quads (3 x 150): one big triangle per road
+    // stretched the texture into blurry patches at a grazing angle.
+    const geo = new PG(12, 600, 3, 150);
     geo.rotateX(-PI / 2);
     const road = new ME(geo, roadMatA);
     road.position.set(x, 0.04, -60);
@@ -167,7 +169,7 @@ export function buildCity(scene, rng, textures) {
     scene.add(road);
   }
   for (const z of CITY.roadLinesZ) {
-    const geo = new PG(12, 720);
+    const geo = new PG(12, 720, 3, 180);
     geo.rotateX(-PI / 2);
     geo.rotateY(PI / 2);
     const road = new ME(geo, roadMatS);
@@ -379,8 +381,16 @@ export function buildCity(scene, rng, textures) {
       const x = bx + rng.range(-6, 6);
       const z = bz + rng.range(-6, 6);
       // Facade atlas (one material, UVs baked per building) instead of
-      // a flat glass texture. Cell = palette x window style.
-      const cell = Math.floor(rng.range(0, 12));
+      // a flat glass texture. Cell = palette x window style. The rng
+      // call always runs (keeps the stream aligned); near the gunfight
+      // the cell is forced to vary by grid position, so the shot-2
+      // street is not one repeated orange brick (v42).
+      let cell = Math.floor(rng.range(0, 12));
+      if (Math.hypot(bx + 177, bz - 190) < 90) {
+        const gx = Math.round(bx / 60);
+        const gz = Math.round(bz / 60);
+        cell = ((gx + gz) % 6 + 6) % 6 * 2 + (Math.abs(gx) % 2);
+      }
       const towerGeo = new BX(w, h, d);
       applyFacadeUVs(towerGeo, cell, w, h, d);
       const tower = new ME(towerGeo, facadeMat);
@@ -619,11 +629,20 @@ export function buildCity(scene, rng, textures) {
     if (east) {
       box(scene, 0.12, 4.5, pd, M(panelCol, 0.9), t.x + pw / 2 + 0.08, 2.25, t.z);
       box(scene, 0.08, 2.2, pd * 0.6, M(glassCol, 0.3, { emissive: glassCol }), t.x + pw / 2 + 0.18, 1.6, t.z);
-      if (i % 4 < 2) box(scene, 1.4, 0.12, pd * 0.6, M(SHOP_AWN[i % SHOP_AWN.length], 0.85), t.x + pw / 2 + 0.7, 3.3, t.z);
+      // Awning with a valance lip: a 0.2-thick slab plus a hanging front
+      // strip, so it reads as a real awning, not a pure black flat
+      // plate (v42).
+      if (i % 4 < 2) {
+        box(scene, 1.4, 0.2, pd * 0.6, M(SHOP_AWN[i % SHOP_AWN.length], 0.85), t.x + pw / 2 + 0.7, 3.3, t.z);
+        box(scene, 0.08, 0.5, pd * 0.6, M(SHOP_AWN[i % SHOP_AWN.length], 0.85), t.x + pw / 2 + 1.36, 3.05, t.z);
+      }
     } else {
       box(scene, pw, 4.5, 0.12, M(panelCol, 0.9), t.x, 2.25, t.z + pd / 2 + 0.08);
       box(scene, pw * 0.6, 2.2, 0.08, M(glassCol, 0.3, { emissive: glassCol }), t.x, 1.6, t.z + pd / 2 + 0.18);
-      if (i % 4 < 2) box(scene, pw * 0.6, 0.12, 1.4, M(SHOP_AWN[i % SHOP_AWN.length], 0.85), t.x, 3.3, t.z + pd / 2 + 0.7);
+      if (i % 4 < 2) {
+        box(scene, pw * 0.6, 0.2, 1.4, M(SHOP_AWN[i % SHOP_AWN.length], 0.85), t.x, 3.3, t.z + pd / 2 + 0.7);
+        box(scene, pw * 0.6, 0.5, 0.08, M(SHOP_AWN[i % SHOP_AWN.length], 0.85), t.x, 3.05, t.z + pd / 2 + 1.36);
+      }
     }
     // A prop out front (crate / bin / potted plant, cycling).
     const px = east ? t.x + pw / 2 + 1.8 : t.x + (i % 3 - 1) * 3;
@@ -799,7 +818,7 @@ export function buildCity(scene, rng, textures) {
     const bench = makeBench();
     bench.position.set(stop.x, 0, stop.z);
     scene.add(bench);
-    const sign = makeSign('BUS', '#ffffff', '#2a6a3a', 2.4, 1.2);
+    const sign = makeSign('BUS', '#ffffff', '#2a6a3a', 3.0, 1.5);
     sign.position.set(stop.x, 2.2, stop.z);
     scene.add(sign);
     const shelterMat = M(0x2a6a3a, 0.8);
@@ -812,8 +831,10 @@ export function buildCity(scene, rng, textures) {
     shelterRoof.position.set(stop.x, 2.7, stop.z - 0.5);
     shelterRoof.castShadow = true;
     scene.add(shelterRoof);
-    const rb = makeSign('1路 5路 12路', '#ffffff', '#1a3a5f', 2.2, 1);
-    rb.position.set(stop.x, 1.6, stop.z - 1.2);
+    // Route board, bigger (3.2x1.4) so it reads at distance, not a
+    // clipped tiny blue sign (v42 shot 4).
+    const rb = makeSign('1路 5路 12路', '#ffffff', '#1a3a5f', 3.2, 1.4);
+    rb.position.set(stop.x, 1.7, stop.z - 1.2);
     scene.add(rb);
   }
   // The five green collectible packages.

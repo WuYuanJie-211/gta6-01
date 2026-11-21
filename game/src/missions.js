@@ -446,5 +446,11 @@ export function createMissions(game) {
   }
 
   startMission(0);
-  return { state, interact, update, startMission, setProgress, stageKey };
+  // Shots hide the objective beacon — its gold diamond floats in the
+  // middle of the road and reads as a stray object (v42 shot 4).
+  function hideBeacon() {
+    beacon.visible = false;
+  }
+
+  return { state, interact, update, startMission, setProgress, stageKey, hideBeacon };
 }

@@ -144,36 +144,44 @@ export function createHud(game) {
       ctx.stroke();
     }
     const dot = (x, z, color, r = 3) => {
+      // Skip NaN or out-of-radius coords — never clamp them to an edge,
+      // or they pool into a stray white spot in a corner.
+      if (!Number.isFinite(x) || !Number.isFinite(z)) return;
+      if (Math.abs(x) > 420 || Math.abs(z) > 420) return;
       ctx.fillStyle = color;
       ctx.beginPath();
       ctx.arc(cx + x * scale, cy + z * scale, r, 0, Math.PI * 2);
       ctx.fill();
     };
-    const shops = [
-      [game.city.landmarks.dealer, '#f5a623'],
-      [game.city.landmarks.gunShop, '#e74c3c'],
-      [game.city.landmarks.garage, '#3498db'],
-      [game.city.landmarks.diner, '#2ecc71'],
-      [game.city.landmarks.chopShop, '#9b59b6'],
-    ];
-    for (const [spot, color] of shops) dot(spot.x, spot.z, color);
-    for (const gem of game.city.collectibleMeshes) {
-      if (gem.visible) dot(gem.position.x, gem.position.z, '#2eff5e', 2);
-    }
+    // Whitelist ONLY: mission target, police cars, heli, player.
+    // The shop + collectible dots were extra icons that read as stray
+    // white spots at 140 px (v42).
     const marker = game.missions.state.marker;
     if (marker) dot(marker.x, marker.z, '#ffd94d', 5);
     for (const car of game.police.state.cars) dot(car.pos.x, car.pos.z, '#ff4444', 2.5);
     if (game.police.heli?.visible) dot(game.police.heli.position.x, game.police.heli.position.z, '#ff8800', 3);
     const p = game.player.car ? game.player.car.pos : game.player.pos;
-    // Player dot — small (r=3) with a dark outline, so it reads as a
-    // marker instead of a stray white spot.
-    ctx.fillStyle = '#ffffff';
-    ctx.beginPath();
-    ctx.arc(cx + p.x * scale, cy + p.z * scale, 3, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(20,20,24,0.9)';
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
+    // Player marker: a white TRIANGLE (arrow) with a black outline, not
+    // a white circle — a circle shrinks into a stray white dot.
+    if (Number.isFinite(p.x) && Number.isFinite(p.z) && Math.abs(p.x) <= 420 && Math.abs(p.z) <= 420) {
+      const px = cx + p.x * scale;
+      const py = cy + p.z * scale;
+      const h = game.player.heading ?? 0;
+      ctx.save();
+      ctx.translate(px, py);
+      ctx.rotate(-h);
+      ctx.beginPath();
+      ctx.moveTo(0, -6);
+      ctx.lineTo(4.5, 5);
+      ctx.lineTo(-4.5, 5);
+      ctx.closePath();
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
+      ctx.strokeStyle = '#111111';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.restore();
+    }
     ctx.restore();
     ctx.strokeStyle = 'rgba(255,255,255,0.7)';
     ctx.lineWidth = 2;

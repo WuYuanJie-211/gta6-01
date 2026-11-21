@@ -6,7 +6,7 @@
 // health bars (children 8-9) and the gunmen's rifles (children 12-14)
 // by number. Keep the add order.
 import * as THREE from 'three';
-import { BX, CG, MB, MS, SG, ME, V3, GP, PI, AB, SP, PG, SH } from './geo.js';
+import { BX, CG, CN, MB, MS, SG, ME, V3, GP, PI, AB, SP, PG, SH } from './geo.js';
 import { PLAYER, WEAPONS, ECONOMY, EFFECTS } from './config.js';
 import { blobShadowTexture, poolTexture } from './v31.js';
 
@@ -46,8 +46,9 @@ function createEnemyMesh(kind) {
   barFg.position.set(0, 2.35, 0.31);
   group.add(barFg);
   group.userData.barFg = barFg;
-  // 10 ground blob.
-  const blob = new ME(new PG(1.1, 0.9), SH(blobShadowTexture(), 0.65));
+  // 10 ground blob (pedestrian category, fixed 0.5 — one shared
+  // shadow system, no per-enemy tuning).
+  const blob = new ME(new PG(1.1, 0.9), SH(blobShadowTexture(), 0.5));
   blob.rotation.x = -PI / 2;
   blob.position.set(0, 0.07, 0);
   blob.renderOrder = 2;
@@ -114,34 +115,50 @@ export function createCombat(game) {
   function addTracer(from, to, color = 0xffa040) {
     const dir = new V3().subVectors(to, from);
     const len = dir.length();
-    // The box's long axis is Z: lookAt points +Z at the target, so the
-    // tracer runs from muzzle to target. The old X-axis box rendered as
-    // a horizontal yellow band across the whole frame in shot 2.
+    // Thin (0.02 m) and dim — the old 0.08 m rod read as a yellow bar
+    // from the waist. Never shares a mesh with the flash.
     const m = new ME(
-      new BX(0.08, 0.08, len),
-      new MB({ color, transparent: true, opacity: 0.95, blending: AB, depthWrite: false }),
+      new BX(0.02, 0.02, len),
+      new MB({ color, transparent: true, opacity: 0.6, blending: AB, depthWrite: false }),
     );
     m.position.copy(from).addScaledVector(dir, 0.5);
     m.lookAt(to);
     game.scene.add(m);
-    tracers.push({ mesh: m, life: EFFECTS.fl });
+    tracers.push({ mesh: m, life: 0.03 });
     return m;
   }
 
-  function addFlash(pos, scale = 1) {
-    const s = new SP(new THREE.SpriteMaterial({
-      map: poolTexture(), color: 0xffa040, transparent: true, opacity: 0.95,
+  // Muzzle flash: a SHORT cone (0.25 m max) + a small glow sprite,
+  // both AT the muzzle anchor, along the barrel axis, lasting 2 frames.
+  // The old 1.6 m sprite lasted 8 frames and read as a permanent light
+  // pillar / yellow rod from the belly (v42).
+  function addFlash(pos, dir, scale = 1) {
+    const d = dir.clone().normalize();
+    const up = new V3(0, 1, 0);
+    const q = new THREE.Quaternion().setFromUnitVectors(up, d);
+    const outer = new ME(new CN(0.11 * scale, 0.35 * scale, 8), new MB({ color: 0xff9a2e, transparent: true, opacity: 0.95, blending: AB, depthWrite: false }));
+    outer.quaternion.copy(q);
+    outer.position.copy(pos).addScaledVector(d, 0.17 * scale);
+    game.scene.add(outer);
+    const inner = new ME(new CN(0.06 * scale, 0.25 * scale, 8), new MB({ color: 0xfff2c0, transparent: true, opacity: 0.95, blending: AB, depthWrite: false }));
+    inner.quaternion.copy(q);
+    inner.position.copy(pos).addScaledVector(d, 0.12 * scale);
+    game.scene.add(inner);
+    const glow = new SP(new THREE.SpriteMaterial({
+      map: poolTexture(), color: 0xffa040, transparent: true, opacity: 0.8,
       blending: AB, depthWrite: false,
     }));
-    s.position.copy(pos);
-    s.scale.set(1.6 * scale, 1.6 * scale, 1);
-    game.scene.add(s);
-    flashes.push({ sprite: s, life: EFFECTS.fl });
-    const light = new THREE.PointLight(0xffa040, 2, 8);
+    glow.position.copy(pos).addScaledVector(d, 0.12 * scale);
+    glow.scale.set(0.85 * scale, 0.85 * scale, 1);
+    game.scene.add(glow);
+    flashes.push({ sprite: glow, life: 0.033 });
+    flashes.push({ mesh: outer, life: 0.033 });
+    flashes.push({ mesh: inner, life: 0.033 });
+    const light = new THREE.PointLight(0xffa040, 3, 4);
     light.position.copy(pos);
     game.scene.add(light);
-    flashes.push({ sprite: null, light, life: EFFECTS.fl });
-    return s;
+    flashes.push({ sprite: null, light, life: 0.033 });
+    return glow;
   }
 
   function spawnCasing(pos) {
@@ -172,7 +189,7 @@ export function createCombat(game) {
       blending: AB, depthWrite: false,
     }));
     fire.position.set(pos.x, 1.2 * scale, pos.z);
-    fire.scale.set(3.2 * scale, 3.2 * scale, 1);
+    fire.scale.set(2.4 * scale, 2.4 * scale, 1);
     game.scene.add(fire);
     const smokeTex = game.textures.smoke;
     const smoke = smokeTex ? new SP(new THREE.SpriteMaterial({
@@ -204,18 +221,16 @@ export function createCombat(game) {
 
   function muzzleWorld() {
     const p = game.player;
+    // The muzzle anchor on the rifle (local z=0.95, the barrel tip) —
+    // its world position IS the muzzle, no forward offset guess.
+    const rifle = p.mesh.userData.rifle;
+    if (rifle && rifle.userData.muzzle) {
+      const wp = new V3();
+      rifle.userData.muzzle.getWorldPosition(wp);
+      return wp;
+    }
     const fx = Math.sin(p.heading);
     const fz = Math.cos(p.heading);
-    // The muzzle is the rifle's world position plus the barrel tip
-    // (~0.95 m ahead of the rifle origin). The old fixed 0.8 m
-    // forward from the player's centre put the flash directly behind
-    // his torso from the chase camera, so it was invisible.
-    const rifle = p.mesh.userData.rifle;
-    if (rifle) {
-      const wp = new V3();
-      rifle.getWorldPosition(wp);
-      return new V3(wp.x + fx * 0.95, 1.55, wp.z + fz * 0.95);
-    }
     return new V3(p.pos.x + fx * 0.8, 1.55, p.pos.z + fz * 0.8);
   }
 
@@ -284,7 +299,8 @@ export function createCombat(game) {
     const from = muzzleWorld();
     const to = aimPoint();
     addTracer(from, to);
-    addFlash(from, p.weapon === 'rifle' ? 1.2 : 0.8);
+    const dir = new V3().subVectors(to, from);
+    addFlash(from, dir, p.weapon === 'rifle' ? 1.2 : 0.8);
     spawnCasing(from);
     game.audio.gunshot();
     game.hud.shake();

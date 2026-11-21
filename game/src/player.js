@@ -34,11 +34,20 @@ export function createPlayerMesh() {
   const armR = B(group, 0.18, 0.65, 0.2, jacket, 0.44, 1.15, 0);
   // Rifle: barrel along local +z (the player's forward). Shots stage
   // it precisely; here it just needs to exist and point forward.
+  // The barrel is mid-grey, not near-black, so it reads against the
+  // dark road and the muzzle tip does not float detached (v42).
   const rifle = new GP();
-  B(rifle, 0.06, 0.06, 0.9, mt(0x222222, 0.4), 0, 0, 0.45);
+  B(rifle, 0.06, 0.06, 0.9, mt(0x3a3a3a, 0.4), 0, 0, 0.45);
   B(rifle, 0.09, 0.14, 0.5, mt(0x3a2a1a, 0.8), 0, 0, 0.1);
   B(rifle, 0.07, 0.12, 0.28, mt(0x3a2a1a, 0.8), 0, 0, -0.28);
-  B(rifle, 0.05, 0.2, 0.06, mt(0x222222, 0.4), 0, -0.12, 0.15);
+  B(rifle, 0.05, 0.2, 0.06, mt(0x3a3a3a, 0.4), 0, -0.12, 0.15);
+  // Muzzle anchor: an empty group at the barrel tip. The flash, its
+  // light and the tracer all anchor here, so the fire provably comes
+  // from the muzzle, never from the waist (v42).
+  const muzzle = new GP();
+  muzzle.position.set(0, 0, 0.95);
+  rifle.add(muzzle);
+  rifle.userData.muzzle = muzzle;
   rifle.position.set(0.3, 1.5, 0.3);
   rifle.visible = false;
   group.add(rifle);

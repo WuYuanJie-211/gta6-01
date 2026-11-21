@@ -45,7 +45,6 @@ export function createCarMesh(model, color, police = false) {
   const glass = VM(0x14181c, 0.2);
   const dark = VM(0x1a1a1a, 0.9);
   const tyre = VM(0x111111, 1);
-  const steel = VM(0x888888, 0.4);
   let paint = VM(color, 0.4);
   if (_paint) {
     if (model === 'sport' && _paint.redPaint) paint = new MS({ color, roughness: 0.35, metalness: 0.4, map: _paint.redPaint });
@@ -56,14 +55,15 @@ export function createCarMesh(model, color, police = false) {
   body.castShadow = true;
   g.userData.body = body;
   g.userData.bodyLen = len;
-  // Wheels.
+  // Wheels: black tyre + SMALL dark hub. A big light-steel hub read as
+  // a huge beige donut disc on the wheels (v42 shot 4).
   const wheelGeo = new CG(0.34, 0.34, 0.24, 12);
   for (const [wx, wz] of [[len * 0.32, 0.85], [len * 0.32, -0.85], [-len * 0.32, 0.85], [-len * 0.32, -0.85]]) {
     const wheel = new ME(wheelGeo, tyre);
     wheel.rotation.x = PI / 2;
     wheel.position.set(wx, 0.34, wz);
     g.add(wheel);
-    const hub = new ME(new CG(0.16, 0.16, 0.26, 8), steel);
+    const hub = new ME(new CG(0.1, 0.1, 0.26, 8), VM(0x2a2a2a, 0.6));
     hub.rotation.x = PI / 2;
     hub.position.set(wx, 0.34, wz);
     g.add(hub);
@@ -84,6 +84,9 @@ export function createCarMesh(model, color, police = false) {
     g.userData.frame = frame;
     const shield = B(g, 0.05, 0.7, 1.7, glass, len / 2 + 0.04, wy, 0);
     g.userData.windshield = shield;
+    // Rear door panel — a slightly lighter slab on the rear face so the
+    // tailgate reads as a door, not a flat black slab with a slit (v42).
+    B(g, 0.04, h - 0.25, 1.7, VM(0x3a4048, 0.6), -len / 2 - 0.01, 0.5 + h / 2, 0);
     if (model === 'bus') {
       // Side glass strip.
       B(g, len * 0.7, 0.5, 0.04, glass, -0.2, 1.9, 0.96);
@@ -121,17 +124,22 @@ export function createCarMesh(model, color, police = false) {
     g.userData.roofSign = sign;
   }
   if (police) {
-    // Light bar: red left, blue right, hot emissive.
-    const bar = B(g, 1.1, 0.1, 0.34, dark, -0.2, 0.5 + h + 0.52, 0);
+    // Light bar: LOW profile (0.12 tall, not a tall black box), dark
+    // grey bar with the red/blue lenses sitting ON it, a visible gap
+    // between the two lenses so they read as two lights, not flat
+    // squares on a box (v42).
+    const bar = B(g, 1.25, 0.12, 0.38, VM(0x2a2a2e, 0.6), -0.2, 0.5 + h + 0.44, 0);
     g.userData.lightBar = bar;
-    const lr = B(g, 0.45, 0.14, 0.3, VM(0xff0000, 0.3, 0xff0000), -0.2, 0.5 + h + 0.6, 0.28);
-    const lb = B(g, 0.45, 0.14, 0.3, VM(0x0000ff, 0.3, 0x0000ff), -0.2, 0.5 + h + 0.6, -0.28);
+    const lr = B(g, 0.52, 0.16, 0.34, VM(0xff0000, 0.3, 0xff0000), -0.2, 0.5 + h + 0.54, 0.33);
+    const lb = B(g, 0.52, 0.16, 0.34, VM(0x0000ff, 0.3, 0x0000ff), -0.2, 0.5 + h + 0.54, -0.33);
     g.userData.lightR = lr;
     g.userData.lightB = lb;
   }
   // Under-car shadow: wider than the body on every side, dark, drawn
-  // after the road paint so it is never covered up.
-  const shadow = new ME(new PG(len + 1.4, 3.4), SH(blobShadowTexture(), 0.85));
+  // after the road paint so it is never covered up. Opacity is FIXED
+  // by category (car 0.6) — one shared shadow system, no per-car
+  // tuning, so no car reads lighter or darker than the rest (v42).
+  const shadow = new ME(new PG(len + 1.4, 3.4), SH(blobShadowTexture(), 0.6));
   shadow.rotation.x = -PI / 2;
   shadow.position.set(0, 0.06, 0);
   shadow.renderOrder = 2;

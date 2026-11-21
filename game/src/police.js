@@ -50,62 +50,88 @@ function createHeli() {
     ex.position.set(s, 1.35, -1.0);
     g.add(ex);
   }
-  // Tail boom: hexagonal tapered column, wide at the body, narrow at
-  // the fin, tilted up 3 deg. White ring band around it.
-  const boom = new ME(new CG(0.14, 0.36, 3.8, 6), bodyMat);
+  // Tail boom: thick tapered column, NAVY (not light grey — a white
+  // boom vanishes against the bright sky and the fin reads as a blank
+  // plate). White ring band around it.
+  const boomMat = mt(0x1b2430, 0.6);
+  const boom = new ME(new CG(0.2, 0.45, 3.8, 6), boomMat);
   boom.rotation.x = -PI / 2 + 0.05;
   boom.position.set(0, 0.3, -3.9);
   g.add(boom);
-  const ring = new ME(new CG(0.34, 0.34, 0.35, 6), mt(0xffffff, 0.5));
+  const ring = new ME(new CG(0.42, 0.42, 0.35, 6), mt(0xffffff, 0.5));
   ring.rotation.x = -PI / 2 + 0.05;
   ring.position.set(0, 0.32, -3.0);
   g.add(ring);
-  // Vertical fin (swept plate) + bright yellow tip + red strobe on top.
-  B(g, 0.12, 1.5, 1.1, bodyMat, 0, 0.75, -5.6);
-  B(g, 0.14, 0.3, 0.9, mt(0xffd94d, 0.5), 0, 1.6, -5.6);
-  B(g, 0.1, 0.12, 0.1, new MS({ color: 0xff2222, emissive: 0xff0000, emissiveIntensity: 2 }), 0, 1.78, -5.6);
-  // Tail rotor: 2-blade cross on the LEFT side of the fin, spins in update().
+  // Vertical fin (swept plate, NAVY) + thin yellow tip stripe + red
+  // strobe on top. A light-grey fin made the black tail rotor read as
+  // a Red Cross sign (v42).
+  B(g, 0.12, 1.5, 1.1, boomMat, 0, 0.75, -5.6);
+  B(g, 0.14, 0.12, 0.9, mt(0xffd94d, 0.5), 0, 1.52, -5.6);
+  B(g, 0.1, 0.12, 0.1, new MS({ color: 0xff2222, emissive: 0xff0000, emissiveIntensity: 2 }), 0, 1.66, -5.6);
+  // Tail rotor: 4-blade X on the LEFT side of the fin, with a hub disc
+  // and light-grey tips — never a bare black cross on a plate.
   const rearRotor = new GP();
   rearRotor.position.set(-0.4, 0.7, -5.6);
   const rrMat = mt(0x16181a, 0.6);
-  const rr1 = new ME(new BX(0.06, 1.5, 0.28), rrMat);
-  const rr2 = new ME(new BX(0.06, 0.28, 1.5), rrMat);
-  rearRotor.add(rr1, rr2);
-  for (const [tx, ty, tz] of [[0, 0.7, 0], [0, -0.7, 0], [0, 0, 0.7], [0, 0, -0.7]]) {
-    const tip = new ME(new BX(0.07, 0.18, 0.3), mt(0xcccccc, 0.5));
-    tip.position.set(tx, ty, tz);
-    rearRotor.add(tip);
+  const rrHub = new ME(new CG(0.16, 0.16, 0.1, 10), mt(0x555555, 0.5));
+  rrHub.rotation.z = PI / 2;
+  rearRotor.add(rrHub);
+  for (const a of [0, PI / 4, PI / 2, (3 * PI) / 4]) {
+    const bl = new ME(new BX(0.06, 1.5, 0.24), rrMat);
+    bl.rotation.x = a;
+    rearRotor.add(bl);
+    for (const s of [-1, 1]) {
+      // Tip position rotated with the blade (rotation about X).
+      const tip = new ME(new BX(0.07, 0.2, 0.26), mt(0xcccccc, 0.5));
+      tip.position.set(0, s * 0.68 * Math.cos(a), s * 0.68 * Math.sin(a));
+      tip.rotation.x = a;
+      rearRotor.add(tip);
+    }
   }
   g.add(rearRotor);
   g.userData.rearRotor = rearRotor;
-  // Main rotor: mast + hub + 4 wide blades (two crossed boxes, chord
-  // 0.85 m = 8% of the 10.8 m diameter) with light-grey tips. Spins in
-  // update() — a cross reads as a rotor from any angle, never a stick.
+  // Mirror on the other side of the fin — the camera sees the heli
+  // from either side, and a rotor hidden behind the fin reads as no
+  // tail rotor at all (v42 shot 4).
+  const rearRotor2 = rearRotor.clone();
+  rearRotor2.position.x = 0.4;
+  g.add(rearRotor2);
+  g.userData.rearRotor2 = rearRotor2;
+  // Main rotor: mast + hub + FOUR blades at 45 deg (two crossed boxes
+  // read as one rod + one slanted plate from a low camera — v42).
+  // Each blade is 10.8 m long, 0.9 m chord, with light-grey tips, and
+  // the whole rotor is parked diagonal in the shots. The translucent
+  // disc sits BELOW the blades (y=1.22 vs blades 1.35) as ONE closed
+  // circle — coplanar disc + blades rendered as two blurry unclosed
+  // ellipses (v42).
   const rotor = new GP();
   rotor.position.y = 1.15;
   const mast = new ME(new CG(0.14, 0.14, 0.55, 8), mt(0x2e3338, 0.6));
   mast.position.y = -0.15;
   rotor.add(mast);
-  const hub = new ME(new CG(0.32, 0.32, 0.18, 12), mt(0x1a1a1a, 0.6));
+  const hub = new ME(new CG(0.5, 0.5, 0.2, 12), mt(0x1a1a1a, 0.6));
   hub.position.y = 0.1;
   rotor.add(hub);
   const bladeMat = mt(0x16181a, 0.6);
-  const bA = new ME(new BX(10.8, 0.07, 0.85), bladeMat);
-  bA.position.y = 0.2;
-  const bB = new ME(new BX(0.85, 0.07, 10.8), bladeMat);
-  bB.position.y = 0.2;
-  rotor.add(bA, bB);
-  for (const [tx, tz] of [[4.85, 0], [-4.85, 0], [0, 4.85], [0, -4.85]]) {
-    const tip = new ME(new BX(1.1, 0.08, 0.87), mt(0xcccccc, 0.5));
-    tip.position.set(tx, 0.2, tz);
-    rotor.add(tip);
+  for (const a of [0, PI / 4, PI / 2, (3 * PI) / 4]) {
+    const bl = new ME(new BX(10.8, 0.07, 0.9), bladeMat);
+    bl.rotation.y = a;
+    bl.position.y = 0.2;
+    rotor.add(bl);
+    for (const s of [-1, 1]) {
+      const tip = new ME(new BX(1.1, 0.08, 0.92), mt(0xcccccc, 0.5));
+      const tx = s * 4.85 * Math.cos(a);
+      const tz = -s * 4.85 * Math.sin(a);
+      tip.position.set(tx, 0.2, tz);
+      tip.rotation.y = a;
+      rotor.add(tip);
+    }
   }
   g.add(rotor);
   g.userData.rotor = rotor;
-  // Translucent rotor disc — at speed the eye reads a disc, not a stick.
-  const disc = new ME(new CI(5.4, 32), new MB({ color: 0x1a1a1a, transparent: true, opacity: 0.15, side: DS, depthWrite: false }));
+  const disc = new ME(new CI(5.4, 40), new MB({ color: 0x1a1a1a, transparent: true, opacity: 0.22, side: DS, depthWrite: false }));
   disc.rotation.x = -PI / 2;
-  disc.position.y = 1.32;
+  disc.position.y = 1.22;
   g.add(disc);
   // Skids: 2 long tubes + 4 struts.
   for (const s of [-0.95, 0.95]) {
@@ -206,6 +232,7 @@ export function createPolice(game) {
       heli.rotation.y += dt * 0.15;
       heli.userData.rotor.rotation.y += dt * 18;
       heli.userData.rearRotor.rotation.x += dt * 18;
+      if (heli.userData.rearRotor2) heli.userData.rearRotor2.rotation.x += dt * 18;
     } else {
       heli.visible = false;
     }
