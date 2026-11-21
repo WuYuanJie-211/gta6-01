@@ -398,6 +398,10 @@ function runShot(name) {
   stageShot(name, game);
   game.setScreen('playing');
   game.hud.showMenu(false);
+  // The traffic-light state machine lives in game.step(), which shot
+  // mode never calls — so the halos stayed white at their default spot
+  // and the lamps stayed dim. Initialise them once here.
+  updateTrafficLights(game.city.trafficLights, game.time);
   let painted = 0;
   function paint() {
     game.updateCamera(1 / 60);

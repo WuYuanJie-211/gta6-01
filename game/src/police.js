@@ -1,7 +1,7 @@
 // Police: wanted stars, chase cars that ram, roadblocks at 3 stars, the
 // helicopter at 4 stars, and the heat cooling off when the player lays low.
 import * as THREE from 'three';
-import { BX, CN, CI, MB, MS, ME, GP, PI } from './geo.js';
+import { BX, CG, CN, CI, MB, MS, ME, GP, PI, DS } from './geo.js';
 import { POLICE, CAR } from './config.js';
 import { spawnPoliceCar } from './vehicles.js';
 import { nearestNode } from './roads.js';
@@ -25,22 +25,100 @@ function rotatedAABB(x, z, halfLen, halfWid, angle) {
 
 function createHeli() {
   const g = new GP();
-  const bodyMat = mt(0x2a2f36, 0.5);
-  // Child 0 is the body — shots.js recolors it.
-  const body = B(g, 2.4, 1.6, 4.5, bodyMat, 0, 0, 0);
+  // v42: rebuilt to Superbot's proportions — silhouette is long body +
+  // a main rotor disc 2.4x the body length + tail boom with tail rotor.
+  // Body L=4.5 m, rotor diameter 10.8 m. Light police-white body with a
+  // navy belly and a red waist stripe, so it reads against both the sky
+  // and the towers. Child 0 is the body — shots.js recolors it.
+  const bodyMat = mt(0xdde3e8, 0.5);
+  const body = B(g, 2.2, 1.5, 4.2, bodyMat, 0, 0, 0);
   body.castShadow = true;
-  const glass = B(g, 2.0, 0.9, 1.4, mt(0x14181c, 0.2), 0, 0.3, 1.6);
-  glass.castShadow = true;
-  // Tail boom to z=-5.8, tail fin and rear rotor.
-  B(g, 0.45, 0.45, 4.0, bodyMat, 0, 0.2, -4.0);
-  B(g, 0.1, 1.3, 0.9, mt(0xd21f2b, 0.6), 0, 0.6, -5.7);
-  const rearRotor = B(g, 0.08, 1.7, 0.3, mt(0x222222, 0.6), 0.3, 0.5, -5.7);
-  // Main rotor: 9 m across, spins in update().
-  const rotor = B(g, 9, 0.08, 0.5, mt(0x222222, 0.6), 0, 1.15, 0);
-  g.userData.rotor = rotor;
+  // Navy belly band + red waist stripe (police livery, reads from any side).
+  B(g, 2.24, 0.4, 4.0, mt(0x1b2430, 0.6), 0, -0.55, 0);
+  B(g, 2.24, 0.3, 3.8, mt(0xd21f2b, 0.5), 0, 0.1, 0);
+  // Sloped windshield (front-lower) + two side windows, dark glass.
+  const glassMat = new MS({ color: 0x223a4a, roughness: 0.15, metalness: 0.4 });
+  const shield = new ME(new BX(1.9, 1.0, 1.4), glassMat);
+  shield.position.set(0, 0.15, 1.85);
+  shield.rotation.x = -0.12;
+  g.add(shield);
+  for (const s of [-1, 1]) B(g, 0.06, 0.65, 1.5, glassMat, s * 1.11, 0.3, 0.7);
+  // Engine deck + two exhaust pipes on the top-rear.
+  B(g, 1.5, 0.45, 1.3, mt(0x2e3338, 0.6), 0, 0.95, -0.7);
+  for (const s of [-0.4, 0.4]) {
+    const ex = new ME(new CG(0.09, 0.09, 0.5, 8), mt(0x1a1a1a, 0.6));
+    ex.position.set(s, 1.35, -1.0);
+    g.add(ex);
+  }
+  // Tail boom: hexagonal tapered column, wide at the body, narrow at
+  // the fin, tilted up 3 deg. White ring band around it.
+  const boom = new ME(new CG(0.14, 0.36, 3.8, 6), bodyMat);
+  boom.rotation.x = -PI / 2 + 0.05;
+  boom.position.set(0, 0.3, -3.9);
+  g.add(boom);
+  const ring = new ME(new CG(0.34, 0.34, 0.35, 6), mt(0xffffff, 0.5));
+  ring.rotation.x = -PI / 2 + 0.05;
+  ring.position.set(0, 0.32, -3.0);
+  g.add(ring);
+  // Vertical fin (swept plate) + bright yellow tip + red strobe on top.
+  B(g, 0.12, 1.5, 1.1, bodyMat, 0, 0.75, -5.6);
+  B(g, 0.14, 0.3, 0.9, mt(0xffd94d, 0.5), 0, 1.6, -5.6);
+  B(g, 0.1, 0.12, 0.1, new MS({ color: 0xff2222, emissive: 0xff0000, emissiveIntensity: 2 }), 0, 1.78, -5.6);
+  // Tail rotor: 2-blade cross on the LEFT side of the fin, spins in update().
+  const rearRotor = new GP();
+  rearRotor.position.set(-0.4, 0.7, -5.6);
+  const rrMat = mt(0x16181a, 0.6);
+  const rr1 = new ME(new BX(0.06, 1.5, 0.28), rrMat);
+  const rr2 = new ME(new BX(0.06, 0.28, 1.5), rrMat);
+  rearRotor.add(rr1, rr2);
+  for (const [tx, ty, tz] of [[0, 0.7, 0], [0, -0.7, 0], [0, 0, 0.7], [0, 0, -0.7]]) {
+    const tip = new ME(new BX(0.07, 0.18, 0.3), mt(0xcccccc, 0.5));
+    tip.position.set(tx, ty, tz);
+    rearRotor.add(tip);
+  }
+  g.add(rearRotor);
   g.userData.rearRotor = rearRotor;
-  // Skids.
-  for (const s of [-0.9, 0.9]) B(g, 0.12, 0.12, 3.4, mt(0x333333, 0.6), s, -1.0, 0);
+  // Main rotor: mast + hub + 4 wide blades (two crossed boxes, chord
+  // 0.85 m = 8% of the 10.8 m diameter) with light-grey tips. Spins in
+  // update() — a cross reads as a rotor from any angle, never a stick.
+  const rotor = new GP();
+  rotor.position.y = 1.15;
+  const mast = new ME(new CG(0.14, 0.14, 0.55, 8), mt(0x2e3338, 0.6));
+  mast.position.y = -0.15;
+  rotor.add(mast);
+  const hub = new ME(new CG(0.32, 0.32, 0.18, 12), mt(0x1a1a1a, 0.6));
+  hub.position.y = 0.1;
+  rotor.add(hub);
+  const bladeMat = mt(0x16181a, 0.6);
+  const bA = new ME(new BX(10.8, 0.07, 0.85), bladeMat);
+  bA.position.y = 0.2;
+  const bB = new ME(new BX(0.85, 0.07, 10.8), bladeMat);
+  bB.position.y = 0.2;
+  rotor.add(bA, bB);
+  for (const [tx, tz] of [[4.85, 0], [-4.85, 0], [0, 4.85], [0, -4.85]]) {
+    const tip = new ME(new BX(1.1, 0.08, 0.87), mt(0xcccccc, 0.5));
+    tip.position.set(tx, 0.2, tz);
+    rotor.add(tip);
+  }
+  g.add(rotor);
+  g.userData.rotor = rotor;
+  // Translucent rotor disc — at speed the eye reads a disc, not a stick.
+  const disc = new ME(new CI(5.4, 32), new MB({ color: 0x1a1a1a, transparent: true, opacity: 0.15, side: DS, depthWrite: false }));
+  disc.rotation.x = -PI / 2;
+  disc.position.y = 1.32;
+  g.add(disc);
+  // Skids: 2 long tubes + 4 struts.
+  for (const s of [-0.95, 0.95]) {
+    B(g, 0.12, 0.12, 3.6, mt(0x333333, 0.6), s, -1.05, 0);
+    for (const z of [-1.2, 1.2]) B(g, 0.08, 0.55, 0.08, mt(0x333333, 0.6), s, -0.75, z);
+  }
+  // White searchlight disc under the belly + red/green nav lights.
+  const lamp = new ME(new CI(0.45, 16), new MB({ color: 0xfff2b0 }));
+  lamp.rotation.x = PI / 2;
+  lamp.position.set(0, -0.82, 1.2);
+  g.add(lamp);
+  B(g, 0.08, 0.08, 0.08, new MS({ color: 0xff2222, emissive: 0xff0000, emissiveIntensity: 2 }), -1.12, 0.3, 0.5);
+  B(g, 0.08, 0.08, 0.08, new MS({ color: 0x22ff66, emissive: 0x00aa33, emissiveIntensity: 2 }), 1.12, 0.3, 0.5);
   // Searchlight cone under the belly. Shots hide it (the soft beam
   // sprites carry the light instead); in play it marks the heli's pool.
   const spot = new ME(
@@ -126,7 +204,7 @@ export function createPolice(game) {
       heli.position.z += (hz - heli.position.z) * Math.min(1, 0.8 * dt);
       heli.position.y = 38 + Math.sin(game.time * 0.8) * 1.2;
       heli.rotation.y += dt * 0.15;
-      heli.userData.rotor.rotation.y += dt * 22;
+      heli.userData.rotor.rotation.y += dt * 18;
       heli.userData.rearRotor.rotation.x += dt * 18;
     } else {
       heli.visible = false;

@@ -47,7 +47,7 @@ function createEnemyMesh(kind) {
   group.add(barFg);
   group.userData.barFg = barFg;
   // 10 ground blob.
-  const blob = new ME(new PG(1.1, 0.9), SH(blobShadowTexture(), 0.5));
+  const blob = new ME(new PG(1.1, 0.9), SH(blobShadowTexture(), 0.65));
   blob.rotation.x = -PI / 2;
   blob.position.set(0, 0.07, 0);
   blob.renderOrder = 2;
@@ -114,8 +114,11 @@ export function createCombat(game) {
   function addTracer(from, to, color = 0xffa040) {
     const dir = new V3().subVectors(to, from);
     const len = dir.length();
+    // The box's long axis is Z: lookAt points +Z at the target, so the
+    // tracer runs from muzzle to target. The old X-axis box rendered as
+    // a horizontal yellow band across the whole frame in shot 2.
     const m = new ME(
-      new BX(len, 0.08, 0.08),
+      new BX(0.08, 0.08, len),
       new MB({ color, transparent: true, opacity: 0.95, blending: AB, depthWrite: false }),
     );
     m.position.copy(from).addScaledVector(dir, 0.5);

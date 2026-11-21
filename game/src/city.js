@@ -178,7 +178,7 @@ export function buildCity(scene, rng, textures) {
   // Curbs: real 0.15 m boxes along every road edge, in segments that
   // stop at each intersection (the gaps are the crosswalks). Two
   // InstancedMeshes, one per direction — one draw call each.
-  const curbMat = new MS({ color: 0xc9c2b2, roughness: 0.95 });
+  const curbMat = new MS({ color: 0xc9c2b2, roughness: 0.95, emissive: 0x2a2a2a });
   const aveSegs = [];
   for (const x of CITY.roadLinesX) {
     for (let i = 0; i < CITY.roadLinesZ.length - 1; i += 1) {
@@ -510,7 +510,14 @@ export function buildCity(scene, rng, textures) {
       const z = bz + rng.range(-12, 12);
       const brickTex = rng.chance(0.5) ? tx.brickBrown : tx.brick;
       const tex = tile(brickTex, Math.max(1, Math.round(w / 8)), Math.max(1, Math.round(h / 8)));
-      const building = box(scene, w, h, d, SM({ map: tex, roughness: 0.9 }), x, h / 2, z, true);
+      // Facade variety: brick is only ~60% now — the rest are stucco
+      // in beige, pale mint or grey-blue, so the street is not one long
+      // brick wall.
+      const stuccoCol = rng.pick([0xd8c9a8, 0xa8bfae, 0x7d8b96, 0xc9a878]);
+      const bmat = rng.chance(0.6)
+        ? SM({ map: tex, roughness: 0.9 })
+        : SM({ map: tile(tx.stucco, 2, 1), color: stuccoCol, roughness: 0.95 });
+      const building = box(scene, w, h, d, bmat, x, h / 2, z, true);
       building.receiveShadow = true;
       addAOSkirt(scene, x, z, w, d);
       if (rng.chance(0.5)) box(scene, 0.6, 0.5, 0.4, M(0xE8EBE8, 0.9), x + w / 4, h + 0.65, z, true);
@@ -525,11 +532,13 @@ export function buildCity(scene, rng, textures) {
           for (const s of [-1, 1]) box(scene, 0.06, 0.7, d * 0.4, M(0x2c3e50, 0.7), x + s * (w / 2 + 1.35), 4 + f * 7 + 0.45, z);
         }
       }
-      if (h < 16 && rng.chance(0.6)) {
+      if (h < 16 && rng.chance(0.8)) {
         // Storefront cell, not a flat dark box — the face shot 2 sees.
         const sw = box(scene, w * 0.7, 3, 0.2, facadeMat, x, 1.5, z + d / 2 + 0.1);
         applyFacadeUVs(sw.geometry, 12, w * 0.7, 20, 0.2);
-        const awn2 = box(scene, w * 0.75, 0.15, 2, TM(tx.awning, 2, 1, 0.9), x, 3.4, z + d / 2 + 1);
+        const awnCol = rng.pick([0xc0392b, 0x1e8449, 0xe67e22, 0x7d3c98, 0x2c3e50, 0x0066aa]);
+        const awnMat = rng.chance(0.5) ? TM(tx.awning, 2, 1, 0.9) : M(awnCol, 0.85);
+        const awn2 = box(scene, w * 0.75, 0.15, 2, awnMat, x, 3.4, z + d / 2 + 1);
         awn2.rotation.x = 0.22;
         if (stex.length) {
           const sg2 = new ME(new PG(7, 1.8), new MB({ map: rng.pick(stex) }));
@@ -545,20 +554,26 @@ export function buildCity(scene, rng, textures) {
   // ---- Hero-zone dressing, signs, far skyline ----
   // 8 frond palms along the hero-zone sidewalks. The (247.5,-175) palm
   // stood in front of the BODEGA sign and its trunk hid the "BO" — it
-  // sits north at -158 now.
+  // sits north at -158 now. Heights vary 7-12 m, leans point different
+  // ways, positions jitter — never a row of identical poles. The two
+  // west palms nearest the sunset heli (z=-175, -185) are short (7 m)
+  // so their crowns stay well below the heli's 8.5 m flight band.
   const heroPalmSpots = [
-    [232.5, -195], [247.5, -195], [232.5, -185], [247.5, -185],
-    [232.5, -175], [247.5, -158], [232.5, -165], [247.5, -165],
+    [232.5, -195, 10, 1.5, 2.1], [247.5, -195, 9, 1.1, 0.9],
+    [232.5, -185, 7, 1.0, 0.4], [247.5, -210, 11, 1.6, 3.3],
+    [232.5, -175, 7, 0.8, 4.0], [247.5, -158, 8, 1.2, 5.5],
+    [232.5, -155, 10, 1.8, 1.2], [247.5, -165, 9, 0.9, 2.8],
   ];
-  for (const [px, pz] of heroPalmSpots) {
-    const palm = makeV31Palm();
+  for (const [px, pz, ph, pl, pd] of heroPalmSpots) {
+    const palm = makeV31Palm(ph, pl, pd);
     palm.position.set(px, 0, pz);
     scene.add(palm);
   }
   // 4 streetlights in the hero zone. The (232.5,-170) lamp stood on the
   // sunset camera's sightline to the AUTO DEALER sign and its pole hid
-  // the "D" — it sits at -160 now.
-  for (const [lx, lz] of [[226.5, -190], [247.5, -190], [232.5, -160], [247.5, -170]]) {
+  // the "D" — it sits at -160 now. The (232.5,-160) lamp's pole crossed
+  // the SUITES sign's "S" in the downtown shot — it sits at -150 now.
+  for (const [lx, lz] of [[226.5, -190], [247.5, -190], [232.5, -150], [247.5, -170]]) {
     const lamp = makeLamp();
     lamp.position.set(lx, 0, lz);
     scene.add(lamp);
@@ -586,6 +601,52 @@ export function buildCity(scene, rng, textures) {
     }
     scene.add(sign);
   });
+  // Hero shop fronts (v42): the 12 towers nearest the centre get
+  // distinct ground-floor storefronts — a solid podium colour from the
+  // 6-colour palette, a glowing glass panel, an awning on half of them,
+  // and a prop out front. The old podium wore one atlas cell, so every
+  // shop read as the same brick box. The panel/glass sit on the same
+  // face as the tower's sign (east for odd i, south for even i).
+  const SHOP_PALETTE = [0x8c4a3a, 0xd8c9a8, 0xa8bfae, 0xc9a878, 0x7d8b96, 0x4a4a4a];
+  const SHOP_GLASS = [0xffd98a, 0x9fd8ff, 0xa8e6a0, 0xffb3c1, 0xd8c9a8, 0x8ecae6];
+  const SHOP_AWN = [0xc0392b, 0x1e8449, 0xe67e22, 0x7d3c98, 0x2c3e50, 0x0066aa];
+  heroTowers.forEach((t, i) => {
+    const east = i % 2 === 1;
+    const panelCol = SHOP_PALETTE[i % SHOP_PALETTE.length];
+    const glassCol = SHOP_GLASS[i % SHOP_GLASS.length];
+    const pw = t.w + 1.5;
+    const pd = t.d + 1.5;
+    if (east) {
+      box(scene, 0.12, 4.5, pd, M(panelCol, 0.9), t.x + pw / 2 + 0.08, 2.25, t.z);
+      box(scene, 0.08, 2.2, pd * 0.6, M(glassCol, 0.3, { emissive: glassCol }), t.x + pw / 2 + 0.18, 1.6, t.z);
+      if (i % 4 < 2) box(scene, 1.4, 0.12, pd * 0.6, M(SHOP_AWN[i % SHOP_AWN.length], 0.85), t.x + pw / 2 + 0.7, 3.3, t.z);
+    } else {
+      box(scene, pw, 4.5, 0.12, M(panelCol, 0.9), t.x, 2.25, t.z + pd / 2 + 0.08);
+      box(scene, pw * 0.6, 2.2, 0.08, M(glassCol, 0.3, { emissive: glassCol }), t.x, 1.6, t.z + pd / 2 + 0.18);
+      if (i % 4 < 2) box(scene, pw * 0.6, 0.12, 1.4, M(SHOP_AWN[i % SHOP_AWN.length], 0.85), t.x, 3.3, t.z + pd / 2 + 0.7);
+    }
+    // A prop out front (crate / bin / potted plant, cycling).
+    const px = east ? t.x + pw / 2 + 1.8 : t.x + (i % 3 - 1) * 3;
+    const pz = east ? t.z + (i % 3 - 1) * 3 : t.z + pd / 2 + 1.8;
+    if (i % 3 === 0) box(scene, 0.8, 0.8, 0.8, M(0x8a6b4f, 0.9), px, 0.4, pz);
+    else if (i % 3 === 1) cyl(scene, 0.4, 0.4, 1.0, 8, M(0x2c3e50, 0.8), px, 0.5, pz, true);
+    else {
+      cyl(scene, 0.3, 0.4, 0.6, 8, M(0x8a4a3a, 0.9), px, 0.3, pz, true);
+      const bush = new ME(new SG(0.5, 8, 6), M(0x2f6b30, 1));
+      bush.position.set(px, 0.9, pz);
+      scene.add(bush);
+    }
+  });
+  // One fire escape on tower 1's south face (its sign is on the east
+  // face, so the south face is free): 3 platforms up the upper floors.
+  {
+    const fe = heroTowers[1];
+    if (fe) {
+      for (let f = 0; f < 3; f += 1) {
+        box(scene, 4, 0.12, 1.0, M(0x333333, 0.7, { metalness: 0.6 }), fe.x, 6 + f * 3, fe.z + (fe.d + 1.5) / 2 + 0.6);
+      }
+    }
+  }
   // Far skyline: 24 boxes at 450-550 m sharing 4 baked facade cells.
   scene.add(makeFarSkyline(facadeAtlas));
 

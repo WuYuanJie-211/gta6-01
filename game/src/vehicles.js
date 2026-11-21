@@ -75,12 +75,12 @@ export function createCarMesh(model, color, police = false) {
     cabin.castShadow = true;
     g.userData.cabin = cabin;
   } else {
-    // Windshield + frame on the front face. The frame slab is slightly
-    // larger than the glass and sits behind it, so a light border shows
-    // around the dark glass — every van reads as having a front, not a
-    // flat panel.
+    // Windshield + frame on the front face. The frame is dark and only
+    // slightly larger than the glass, so it reads as a dark border around
+    // the glass — the old light-grey frame (0.95 tall, 1.95 wide) read
+    // as one pure-white front panel on the black armored van.
     const wy = model === 'armored' ? 1.85 : model === 'bus' ? 2.0 : 1.6;
-    const frame = B(g, 0.02, 0.95, 1.95, VM(0xd8d8d8, 0.5), len / 2 + 0.01, wy, 0);
+    const frame = B(g, 0.02, 0.8, 1.8, VM(0x1a1a1a, 0.5), len / 2 + 0.01, wy, 0);
     g.userData.frame = frame;
     const shield = B(g, 0.05, 0.7, 1.7, glass, len / 2 + 0.04, wy, 0);
     g.userData.windshield = shield;
@@ -131,7 +131,7 @@ export function createCarMesh(model, color, police = false) {
   }
   // Under-car shadow: wider than the body on every side, dark, drawn
   // after the road paint so it is never covered up.
-  const shadow = new ME(new PG(len + 1.0, 3.0), SH(blobShadowTexture(), 0.75));
+  const shadow = new ME(new PG(len + 1.4, 3.4), SH(blobShadowTexture(), 0.85));
   shadow.rotation.x = -PI / 2;
   shadow.position.set(0, 0.06, 0);
   shadow.renderOrder = 2;

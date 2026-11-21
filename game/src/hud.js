@@ -165,10 +165,15 @@ export function createHud(game) {
     for (const car of game.police.state.cars) dot(car.pos.x, car.pos.z, '#ff4444', 2.5);
     if (game.police.heli?.visible) dot(game.police.heli.position.x, game.police.heli.position.z, '#ff8800', 3);
     const p = game.player.car ? game.player.car.pos : game.player.pos;
+    // Player dot — small (r=3) with a dark outline, so it reads as a
+    // marker instead of a stray white spot.
     ctx.fillStyle = '#ffffff';
     ctx.beginPath();
-    ctx.arc(cx + p.x * scale, cy + p.z * scale, 4, 0, Math.PI * 2);
+    ctx.arc(cx + p.x * scale, cy + p.z * scale, 3, 0, Math.PI * 2);
     ctx.fill();
+    ctx.strokeStyle = 'rgba(20,20,24,0.9)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
     ctx.restore();
     ctx.strokeStyle = 'rgba(255,255,255,0.7)';
     ctx.lineWidth = 2;

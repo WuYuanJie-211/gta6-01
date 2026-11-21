@@ -67,12 +67,12 @@ export function ringTexture() {
   if (_ringTex) return _ringTex;
   const [c, x] = canvas(256, 256);
   x.strokeStyle = 'rgba(255,255,255,0.95)';
-  x.lineWidth = 14;
+  x.lineWidth = 10;
   x.beginPath();
   x.arc(128, 128, 100, 0, PI * 2);
   x.stroke();
-  x.strokeStyle = 'rgba(255,255,255,0.35)';
-  x.lineWidth = 30;
+  x.strokeStyle = 'rgba(255,255,255,0.25)';
+  x.lineWidth = 18;
   x.beginPath();
   x.arc(128, 128, 100, 0, PI * 2);
   x.stroke();
@@ -153,8 +153,9 @@ export function makeRoadTexture(aniso) {
       x.fill();
     });
   }
-  // Cracks.
-  x.strokeStyle = 'rgba(20,20,24,0.55)';
+  // Cracks — kept faint (0.35 alpha, 1-2 px): at a grazing angle near
+  // the camera the old 0.55-alpha cracks stretched into black streaks.
+  x.strokeStyle = 'rgba(20,20,24,0.35)';
   for (let i = 0; i < 9; i += 1) {
     const px = rnd() * 1024;
     const py = rnd() * 1024;
@@ -168,7 +169,7 @@ export function makeRoadTexture(aniso) {
         qy += (rnd() - 0.5) * 130;
         x.lineTo(qx, qy);
       }
-      x.lineWidth = 1.5 + rnd() * 1.5;
+      x.lineWidth = 1 + rnd() * 1;
       x.stroke();
     });
   }
@@ -264,7 +265,7 @@ const PALETTES = [
   { bg: '#d8c49a', win: '#2a3a4a', trim: '#b09a6a' },
   { bg: '#a85a4a', win: '#22303e', trim: '#7a3a30' },
   { bg: '#5a7a9a', win: '#1c2836', trim: '#3a5a7a' },
-  { bg: '#7a8a6a', win: '#24303a', trim: '#5a6a4a' },
+  { bg: '#c2a878', win: '#22303e', trim: '#9a7f52' },
   { bg: '#e0d8c0', win: '#2a3a4a', trim: '#b8ac88' },
   { bg: '#4a4f55', win: '#12181f', trim: '#2e3338' },
 ];
@@ -465,10 +466,10 @@ export function makeTrafficLight(state, offset) {
     lamps[key] = { mesh: orb, mat: m, color };
   }
   const halo = new SP(new THREE.SpriteMaterial({
-    map: ringTexture(), transparent: true, opacity: 0.9,
+    map: ringTexture(), transparent: true, opacity: 0.7,
     blending: AB, depthWrite: false,
   }));
-  halo.scale.set(1.5, 1.5, 1);
+  halo.scale.set(0.9, 0.9, 1);
   halo.position.set(1.35, 4.55, 0.4);
   g.add(halo);
   g.userData.trafficLight = { lamps, halo, offset, state };
@@ -487,7 +488,7 @@ export function updateTrafficLights(lights, time) {
     const lamp = u.lamps[lit];
     u.halo.position.set(1.35, lamp.mesh.position.y, 0.4);
     u.halo.material.color.setHex(lamp.color);
-    u.halo.material.opacity = lit === 'r' ? 0.95 : 0.6;
+    u.halo.material.opacity = lit === 'r' ? 0.7 : 0.45;
     u.state = lit;
   }
 }
@@ -531,10 +532,12 @@ function signTexture(text, fg, bg, w, h) {
   return t;
 }
 
-// A big unlit sign (MeshBasicMaterial, so it reads at dusk).
+// A big unlit sign (MeshBasicMaterial, so it reads at dusk). The
+// backboard is a solid dark panel larger than the face, so the sign
+// reads as one clean panel instead of text floating on a busy facade.
 export function makeV31Sign(name, bg, fg, w, h) {
   const g = new GP();
-  const back = new ME(new BX(w + 0.2, h + 0.2, 0.12), new MS({ color: 0x1a1a1e, roughness: 0.7 }));
+  const back = new ME(new BX(w + 0.5, h + 0.5, 0.12), new MS({ color: 0x1a1a1e, roughness: 0.7 }));
   g.add(back);
   const face = new ME(new PG(w, h), new MB({ map: signTexture(name, fg, bg, w, h) }));
   face.position.z = 0.08;
@@ -641,42 +644,91 @@ export function makeTree(rng) {
   return g;
 }
 
-function makePalmFronds(g, count, len, y, droop) {
-  const greens = [0x27ae60, 0x2ecc71, 0x1e8449];
-  for (let i = 0; i < count; i += 1) {
-    const a = (i / count) * PI * 2;
-    const frond = new ME(new BX(0.28, 0.04, len), new MS({ color: greens[i % 3], roughness: 1 }));
-    frond.position.set(Math.sin(a) * len * 0.32, y - 0.25, Math.cos(a) * len * 0.32);
-    frond.rotation.y = a;
-    frond.rotation.x = droop;
-    g.add(frond);
+// Palm crown: 8-14 V-folded leaves in 3 layers (upper upright, middle
+// horizontal, lower drooping), 2-4 dry yellow leaves hanging under the
+// crown, 3-6 coconuts. Colours are per LEAF in 3 grades. Each leaf is a
+// nested group (yaw, then pitch) so the droop is radial — the old flat
+// fronds pitched around the world X axis, so half of them pointed up.
+function makePalmCrown(g, x, y, z, scale, rnd) {
+  const greens = [0x2f4a26, 0x3f6b30, 0x6f8f3a];
+  const leaves = 11;
+  for (let i = 0; i < leaves; i += 1) {
+    const a = (i / leaves) * PI * 2 + (rnd ? rnd() * 0.4 : i * 0.13);
+    const layer = i % 3;
+    const droop = layer === 0 ? 0.25 : layer === 1 ? 0.75 : 1.25;
+    const len = 3.1 * scale * (layer === 2 ? 1.1 : 1);
+    const yaw = new GP();
+    yaw.position.set(x, y, z);
+    yaw.rotation.y = a;
+    const pitch = new GP();
+    pitch.rotation.x = droop;
+    yaw.add(pitch);
+    for (const s of [-1, 1]) {
+      const blade = new ME(
+        new BX(0.5, 0.03, len),
+        new MS({ color: greens[(i + (s > 0 ? 1 : 0)) % 3], roughness: 1, side: DS }),
+      );
+      blade.position.set(s * 0.18, 0, len / 2);
+      blade.rotation.z = -s * 0.45;
+      pitch.add(blade);
+    }
+    g.add(yaw);
   }
+  for (let i = 0; i < 3; i += 1) {
+    const a = (i / 3) * PI * 2 + 0.7;
+    const dry = new ME(new BX(0.28, 0.03, 2.2), new MS({ color: 0x8a7a4e, roughness: 1, side: DS }));
+    dry.position.set(x + Math.sin(a) * 0.9, y - 0.9, z + Math.cos(a) * 0.9);
+    dry.rotation.y = a;
+    dry.rotation.x = 1.9;
+    g.add(dry);
+  }
+  for (let i = 0; i < 4; i += 1) {
+    const a = (i / 4) * PI * 2 + 0.4;
+    const nut = new ME(new SG(0.11, 8, 6), new MS({ color: 0x6a5a3a, roughness: 1 }));
+    nut.position.set(x + Math.sin(a) * 0.35, y - 0.35, z + Math.cos(a) * 0.35);
+    g.add(nut);
+  }
+}
+
+// Segmented curved trunk: 9 short cylinders stacked along a C-curve,
+// leaning 8-15 deg, bend concentrated in the lower third, radius 0.35
+// at the base tapering to 0.2 at the top. Returns the crown offset.
+function makePalmTrunk(g, h, lean, leanDir) {
+  const segs = 9;
+  const segH = h / segs;
+  const dx = Math.sin(leanDir);
+  const dz = Math.cos(leanDir);
+  for (let i = 0; i < segs; i += 1) {
+    const t = (i + 0.5) / segs;
+    const off = lean * (2 * t - t * t);
+    const tilt = Math.atan((lean * (2 - 2 * t)) / h);
+    const rTop = 0.35 - 0.15 * ((i + 1) / segs);
+    const rBot = 0.35 - 0.15 * (i / segs);
+    const seg = new ME(new CG(rTop, rBot, segH * 1.1, 7), new MS({ color: 0x7a5a3a, roughness: 1 }));
+    seg.position.set(dx * off, segH * (i + 0.5), dz * off);
+    seg.rotation.x = dz * tilt;
+    seg.rotation.z = -dx * tilt;
+    g.add(seg);
+  }
+  return { x: dx * lean, z: dz * lean };
 }
 
 export function makePalm(rng) {
   const g = new GP();
-  const h = rng.range(4.5, 6.5);
-  const trunk = new ME(new CG(0.14, 0.24, h, 8), new MS({ color: 0x7a5a3a, roughness: 1 }));
-  trunk.position.y = h / 2;
-  trunk.rotation.z = rng.range(-0.06, 0.06);
-  g.add(trunk);
-  makePalmFronds(g, 7, 3.0, h, 0.55);
-  for (let i = 0; i < 3; i += 1) {
-    const nut = new ME(new SG(0.14, 8, 6), new MS({ color: 0x6a4a2a, roughness: 1 }));
-    nut.position.set(Math.sin(i * 2.1) * 0.3, h - 0.3, Math.cos(i * 2.1) * 0.3);
-    g.add(nut);
-  }
+  const h = rng.range(6, 12);
+  const lean = rng.range(0.6, 1.9);
+  const leanDir = rng.range(0, PI * 2);
+  const top = makePalmTrunk(g, h, lean, leanDir);
+  makePalmCrown(g, top.x, h, top.z, h / 8, () => rng.range(0, 1));
   return g;
 }
 
-// The hero-zone palm: taller, fuller, so the boulevard reads.
-export function makeV31Palm() {
+// The hero-zone palm: taller, fuller, so the boulevard reads. Height,
+// lean and lean direction vary per call so no two read the same.
+export function makeV31Palm(h = 8, lean = 1.2, leanDir = 0.5) {
   const g = new GP();
-  const h = 8;
-  const trunk = new ME(new CG(0.16, 0.28, h, 8), new MS({ color: 0x7a5a3a, roughness: 1 }));
-  trunk.position.y = h / 2;
-  g.add(trunk);
-  makePalmFronds(g, 9, 3.6, h, 0.5);
+  const top = makePalmTrunk(g, h, lean, leanDir);
+  makePalmCrown(g, top.x, h, top.z, h / 8, null);
   return g;
 }
 
