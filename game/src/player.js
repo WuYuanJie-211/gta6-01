@@ -34,22 +34,50 @@ export function createPlayerMesh() {
   const armR = B(group, 0.18, 0.65, 0.2, jacket, 0.44, 1.15, 0);
   // Rifle: barrel along local +z (the player's forward). Shots stage
   // it precisely; here it just needs to exist and point forward.
-  // The barrel is mid-grey, not near-black, so it reads against the
-  // dark road and the muzzle tip does not float detached (v42).
+  // v53 REBUILD (both reviewers, v52): the old rifle was a dark
+  // 0.9 m barrel + dark receiver + a skin block — it read as one
+  // long brown plank with a tan block, not a rifle. This one is
+  // built ONCE at true size with parts that separate by SILHOUETTE
+  // as well as colour: a long thin LIGHT barrel (1.4 m, pale grey,
+  // well past the near hand), a fatter tan handguard, a slim
+  // near-black receiver, a dropped dark-wood stock, a magazine
+  // hanging below, a sight on top and a front-sight post near the
+  // muzzle — plus TWO skin hands with fingers (grip + stock), so
+  // the hold reads two-handed from behind. The muzzle anchor is
+  // the barrel tip (local z 1.6); flash + tracer anchor here.
   const rifle = new GP();
-  B(rifle, 0.06, 0.06, 0.9, mt(0x3a3a3a, 0.4), 0, 0, 0.45);
-  B(rifle, 0.09, 0.14, 0.5, mt(0x3a2a1a, 0.8), 0, 0, 0.1);
-  B(rifle, 0.07, 0.12, 0.28, mt(0x3a2a1a, 0.8), 0, 0, -0.28);
-  B(rifle, 0.05, 0.2, 0.06, mt(0x3a3a3a, 0.4), 0, -0.12, 0.15);
-  // v51: a skin hand ON the grip — the rifle floated above the arm
-  // with air between it and the hand. The hand rides the rifle, so
-  // the grip always reads held even when the arm pose is approximate.
-  B(rifle, 0.12, 0.12, 0.14, skin, 0, -0.1, 0.1);
+  const rBarrel = mt(0xbbbbbb, 0.4);
+  const rGuard = mt(0xa9743f, 0.8);
+  const rDark = mt(0x1a1a1a, 0.4);
+  const rWood = mt(0x5a3a22, 0.8);
+  B(rifle, 0.05, 0.05, 1.4, rBarrel, 0, 0.02, 0.9); // barrel, z 0.2-1.6
+  B(rifle, 0.11, 0.13, 0.45, rGuard, 0, 0, 0.42); // handguard, z 0.2-0.65
+  B(rifle, 0.09, 0.15, 0.3, rDark, 0, 0, 0.05); // receiver, z -0.1-0.2
+  B(rifle, 0.08, 0.13, 0.25, rWood, 0, -0.03, -0.225); // stock, z -0.35--0.1
+  const rGrip = B(rifle, 0.07, 0.16, 0.08, mt(0x3a2a18, 0.8), 0, -0.12, -0.05);
+  rGrip.rotation.x = -0.3;
+  const rMag = B(rifle, 0.05, 0.24, 0.09, rDark, 0, -0.17, 0.05);
+  rMag.rotation.x = 0.15;
+  B(rifle, 0.035, 0.12, 0.06, rDark, 0, 0.13, 0.1); // sight
+  B(rifle, 0.03, 0.08, 0.03, rDark, 0, 0.06, 1.5); // front-sight post
+  // Two skin hands with fingers, riding the rifle: the near hand on
+  // the grip, the far hand on the stock (the far arm cannot reach
+  // the forend — it bends across the chest and its hand lands here).
+  const handNear = new GP();
+  B(handNear, 0.09, 0.1, 0.09, skin, 0, -0.08, -0.05);
+  for (const fx of [-0.03, 0, 0.03]) B(handNear, 0.025, 0.08, 0.03, skin, fx, -0.14, -0.01);
+  B(handNear, 0.03, 0.06, 0.03, skin, 0.05, -0.08, -0.08);
+  rifle.add(handNear);
+  const handFar = new GP();
+  B(handFar, 0.09, 0.09, 0.1, skin, 0, -0.02, -0.225);
+  for (const fx of [-0.03, 0, 0.03]) B(handFar, 0.025, 0.07, 0.03, skin, fx, -0.08, -0.225);
+  B(handFar, 0.03, 0.06, 0.03, skin, -0.05, -0.02, -0.2);
+  rifle.add(handFar);
   // Muzzle anchor: an empty group at the barrel tip. The flash, its
   // light and the tracer all anchor here, so the fire provably comes
   // from the muzzle, never from the waist (v42).
   const muzzle = new GP();
-  muzzle.position.set(0, 0, 0.95);
+  muzzle.position.set(0, 0.02, 1.6);
   rifle.add(muzzle);
   rifle.userData.muzzle = muzzle;
   rifle.position.set(0.3, 1.5, 0.3);

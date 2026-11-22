@@ -229,7 +229,7 @@ export function createCombat(game) {
 
   function muzzleWorld() {
     const p = game.player;
-    // The muzzle anchor on the rifle (local z=0.95, the barrel tip) —
+    // The muzzle anchor on the rifle (local z=1.6, the barrel tip) —
     // its world position IS the muzzle, no forward offset guess.
     const rifle = p.mesh.userData.rifle;
     if (rifle && rifle.userData.muzzle) {

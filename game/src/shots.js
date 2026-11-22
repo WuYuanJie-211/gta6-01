@@ -43,32 +43,20 @@ function sunTex() {
   const c = document.createElement('canvas');
   c.width = 256; c.height = 256;
   const x = c.getContext('2d');
-  // Core: vertical gradient, clipped to a disc.
-  x.save();
-  x.beginPath(); x.arc(128, 128, 78, 0, PI * 2); x.clip();
-  const vg = x.createLinearGradient(0, 50, 0, 206);
-  vg.addColorStop(0, '#fffdf4');
-  vg.addColorStop(0.55, '#ffe9b0');
-  vg.addColorStop(1, '#ffcf8a');
-  x.fillStyle = vg; x.fillRect(0, 0, 256, 256);
-  x.restore();
-  // Soft edge: fade the disc out with a radial alpha mask.
-  x.globalCompositeOperation = 'destination-in';
-  const rg = x.createRadialGradient(128, 128, 40, 128, 128, 78);
-  rg.addColorStop(0, 'rgba(0,0,0,1)');
-  rg.addColorStop(0.8, 'rgba(0,0,0,1)');
-  rg.addColorStop(1, 'rgba(0,0,0,0)');
+  // v53: ONE radial gradient, cream core bleeding straight into
+  // warm orange — no second stop band, no gap, no ring. The v52
+  // two-stop corona (rings stroked at r96/r116, outside the r78
+  // core disc) read as a bullseye: white core, plain-sky gap, hard
+  // saturated orange ring (Quick, severe). Here the core is cream
+  // to ~0.35, warm orange by 0.5, fading to transparent at the
+  // edge — the halo sprites below do the wide bloom.
+  const rg = x.createRadialGradient(128, 128, 0, 128, 128, 128);
+  rg.addColorStop(0, '#fff8e2');
+  rg.addColorStop(0.35, '#ffedb5');
+  rg.addColorStop(0.5, '#ffd28a');
+  rg.addColorStop(0.7, 'rgba(255,170,80,0.5)');
+  rg.addColorStop(1, 'rgba(255,150,60,0)');
   x.fillStyle = rg; x.fillRect(0, 0, 256, 256);
-  x.globalCompositeOperation = 'source-over';
-  // Two-stop corona ring: two soft orange rings around the core.
-  x.shadowColor = 'rgba(255,150,50,0.9)';
-  x.shadowBlur = 12;
-  x.strokeStyle = 'rgba(255,176,90,0.85)';
-  x.lineWidth = 7;
-  x.beginPath(); x.arc(128, 128, 96, 0, PI * 2); x.stroke();
-  x.strokeStyle = 'rgba(255,150,50,0.5)';
-  x.lineWidth = 10;
-  x.beginPath(); x.arc(128, 128, 116, 0, PI * 2); x.stroke();
   _sunTex = new CT(c);
   _sunTex.colorSpace = SC;
   return _sunTex;
@@ -536,8 +524,9 @@ function stageGunfight(game) {
   rifle.position.set(-0.6, 1.6, 0.5);
   rifle.rotation.set(0, -0.15, 0);
   rifle.scale.setScalar(1.5);
-  if (rifle.children[0]) rifle.children[0].material.color.setHex(0x999999);
-  if (rifle.children[1]) rifle.children[1].material.color.setHex(0x7a5a3a);
+  // v53: colours live in the rifle builder (player.js) now — the
+  // light barrel + tan handguard are part of the rebuild, not a
+  // staging override, so no children[] recolour here.
   // The arms are posed AFTER game.step (below) — updatePlayerOnFoot
   // resets both arms every step, so the v51 pre-step pose never
   // survived (the second root cause of the floating gun).
@@ -727,6 +716,13 @@ function stageDowntown(game) {
   // x=0.3, and the old -1.27 sat inside the cabin (rear face at
   // cab.x - bodyLen*0.26), so neither ever showed.
   const sign = taxi.mesh.userData.roofSign;
+  // v53: lower the roof sign flush and recolour it into the cap —
+  // the pale yellow slab read as a cream plate sitting on the black
+  // cabin (the sign's east face is blank from this camera; the TAXI
+  // text plane is on its south face, edge-on here). Sunk 0.16 m so
+  // only a thin dark sliver shows, and dark so it reads as the cap.
+  sign.position.y -= 0.16;
+  sign.material = new MS({ color: 0x2a2a2a, roughness: 0.6 });
   const tsign = new ME(new PG(0.9, 0.25), new MB({ map: taxiTextTex() }));
   tsign.rotation.y = -PI / 2;
   tsign.position.set(sign.position.x - 0.46, sign.position.y, 0);
@@ -801,13 +797,17 @@ function stageDowntown(game) {
   // none, so they floated on the asphalt (Quick + Superbot v51).
   // Taxi + 3 traffic + 3 parked; long side along each car's heading
   // (PI/2 = north-south, 0/PI = east-west).
-  blob(game, 248, -184.5, 3.0, 5.5, 0.6, 0.1);
-  blob(game, 228, -177, 5.5, 3.0, 0.6, 0.1);
-  blob(game, 220, -183, 5.5, 3.0, 0.6, 0.1);
-  blob(game, 243, -200, 3.0, 5.5, 0.6, 0.1);
-  blob(game, 243, -194, 3.0, 5.5, 0.6, 0.1);
-  blob(game, 242.3, -168.84, 3.0, 5.5, 0.6, 0.1);
-  blob(game, 244.5, -204, 3.0, 5.5, 0.6, 0.1);
+  // v53: opacity 0.75 (was 0.6) and ~20% smaller, so the blob sits
+  // under the wheels instead of pooling — the van and the taxi had
+  // a soft darkening, the green/blue cars and far traffic had none
+  // (Quick + Superbot, should-fix).
+  blob(game, 248, -184.5, 2.4, 4.4, 0.75, 0.1);
+  blob(game, 228, -177, 4.4, 2.4, 0.75, 0.1);
+  blob(game, 220, -183, 4.4, 2.4, 0.75, 0.1);
+  blob(game, 243, -200, 2.4, 4.4, 0.75, 0.1);
+  blob(game, 243, -194, 2.4, 4.4, 0.75, 0.1);
+  blob(game, 242.3, -168.84, 2.4, 4.4, 0.75, 0.1);
+  blob(game, 244.5, -204, 2.4, 4.4, 0.75, 0.1);
   // 6 pedestrians in the hero zone.
   const walkers = [[232, -168], [248, -168], [232, -192], [248, -192], [240, -165], [240, -195]];
   game.peds.slice(0, 6).forEach((p, i) => {
@@ -938,13 +938,16 @@ function stageSunset(game) {
   // WEST (rotation.y = PI/2 + PI), BACK TO the east camera — the old
   // PI/2 faced him north, so the camera saw his FACE and the shot
   // lost the over-the-shoulder read (v43).
-  const r = game.combat.spawnGunman(240, -183);
+  // v53: 1.5 m south (z -183 -> -181.5) — 'ROUTES' sat behind his
+  // head and the BUS sign crowded it (Superbot, should-fix). His
+  // shadow blob + core move with him.
+  const r = game.combat.spawnGunman(240, -181.5);
   r.mesh.children[8].visible = r.mesh.children[9].visible = false;
   r.mesh.rotation.y = PI / 2 + PI;
-  blob(game, 240, -183, 5.0, 4.0, 0.65, 0.12);
+  blob(game, 240, -181.5, 5.0, 4.0, 0.65, 0.12);
   const core = new ME(new PG(2.5, 1.8), SH(blobShadowTexture(), 0.85));
   core.rotation.x = -PI / 2;
-  core.position.set(240, 0.13, -183);
+  core.position.set(240, 0.13, -181.5);
   core.renderOrder = 3;
   game.scene.add(core);
   const p = game.player;
@@ -1086,14 +1089,14 @@ function stageSunset(game) {
     sunDisc.scale.set(8, 8, 1);
     sunDisc.renderOrder = 999;
     game.scene.add(sunDisc);
-    const sunHalo = new THREE.Sprite(new THREE.SpriteMaterial({ map: sunPool, color: 0xff9a2e, transparent: true, opacity: 0.3, depthWrite: false, depthTest: false }));
+    const sunHalo = new THREE.Sprite(new THREE.SpriteMaterial({ map: sunPool, color: 0xffb060, transparent: true, opacity: 0.3, depthWrite: false, depthTest: false }));
     sunHalo.position.set(172, 27, -186);
-    sunHalo.scale.set(30, 30, 1);
+    sunHalo.scale.set(36, 36, 1);
     sunHalo.renderOrder = 998;
     game.scene.add(sunHalo);
-    const sunOuter = new THREE.Sprite(new THREE.SpriteMaterial({ map: sunPool, color: 0xff7a2e, transparent: true, opacity: 0.15, depthWrite: false, depthTest: false }));
+    const sunOuter = new THREE.Sprite(new THREE.SpriteMaterial({ map: sunPool, color: 0xffa050, transparent: true, opacity: 0.15, depthWrite: false, depthTest: false }));
     sunOuter.position.set(172, 27, -186);
-    sunOuter.scale.set(50, 50, 1);
+    sunOuter.scale.set(60, 60, 1);
     sunOuter.renderOrder = 997;
     game.scene.add(sunOuter);
   }
@@ -1134,27 +1137,72 @@ function stageSunset(game) {
   // the parts separate by colour as well as by shape, plus a
   // handguard wrapping the barrel's rear and a sight breaking the
   // top silhouette.
+  // v53 REBUILD — same canonical rifle as the player's (player.js):
+  // long thin LIGHT barrel, fatter tan handguard, slim near-black
+  // receiver, dropped dark-wood stock, magazine below, sight on top,
+  // front-sight post near the muzzle, two skin hands with fingers
+  // (grip + stock). The v52 fgRifle was a chunky dark barrel +
+  // dark receiver + tan guard/stock — it merged into one long
+  // brown plank with an orange segment (Quick, severe).
   const fgRifle = new THREE.Group();
-  const fgRifleMat = new MS({ color: 0x1a1a1a, roughness: 0.4 });
-  const fgRifleWood = new MS({ color: 0x8a6b4f, roughness: 0.8 });
-  const fgBarrel = new ME(new BX(0.09, 0.09, 0.85), fgRifleMat);
-  fgBarrel.position.set(0, 0.04, 0.65);
+  const fgBarrelMat = new MS({ color: 0xbbbbbb, roughness: 0.4 });
+  const fgGuardMat = new MS({ color: 0xa9743f, roughness: 0.8 });
+  const fgDarkMat = new MS({ color: 0x1a1a1a, roughness: 0.4 });
+  const fgWoodMat = new MS({ color: 0x5a3a22, roughness: 0.8 });
+  const fgSkinMat = new MS({ color: 0xe0ac69, roughness: 0.8 });
+  const fgBarrel = new ME(new BX(0.05, 0.05, 1.4), fgBarrelMat);
+  fgBarrel.position.set(0, 0.02, 0.9);
   fgRifle.add(fgBarrel);
-  const fgGuard = new ME(new BX(0.14, 0.14, 0.4), fgRifleWood);
-  fgGuard.position.set(0, 0.02, 0.3);
+  const fgGuard = new ME(new BX(0.11, 0.13, 0.45), fgGuardMat);
+  fgGuard.position.set(0, 0, 0.42);
   fgRifle.add(fgGuard);
-  const fgRecv = new ME(new BX(0.13, 0.16, 0.42), fgRifleMat);
-  fgRecv.position.set(0, 0, -0.05);
+  const fgRecv = new ME(new BX(0.09, 0.15, 0.3), fgDarkMat);
+  fgRecv.position.set(0, 0, 0.05);
   fgRifle.add(fgRecv);
-  const fgStock = new ME(new BX(0.12, 0.14, 0.4), fgRifleWood);
-  fgStock.position.set(0, -0.02, -0.45);
+  const fgStock = new ME(new BX(0.08, 0.13, 0.25), fgWoodMat);
+  fgStock.position.set(0, -0.03, -0.225);
   fgRifle.add(fgStock);
-  const fgMag = new ME(new BX(0.07, 0.26, 0.1), fgRifleMat);
-  fgMag.position.set(0, -0.17, 0.0);
+  const fgGrip = new ME(new BX(0.07, 0.16, 0.08), new MS({ color: 0x3a2a18, roughness: 0.8 }));
+  fgGrip.position.set(0, -0.12, -0.05);
+  fgGrip.rotation.x = -0.3;
+  fgRifle.add(fgGrip);
+  const fgMag = new ME(new BX(0.05, 0.24, 0.09), fgDarkMat);
+  fgMag.position.set(0, -0.17, 0.05);
+  fgMag.rotation.x = 0.15;
   fgRifle.add(fgMag);
-  const fgSight = new ME(new BX(0.05, 0.1, 0.06), fgRifleMat);
-  fgSight.position.set(0, 0.13, -0.05);
+  const fgSight = new ME(new BX(0.035, 0.12, 0.06), fgDarkMat);
+  fgSight.position.set(0, 0.13, 0.1);
   fgRifle.add(fgSight);
+  const fgFront = new ME(new BX(0.03, 0.08, 0.03), fgDarkMat);
+  fgFront.position.set(0, 0.06, 1.5);
+  fgRifle.add(fgFront);
+  // Two skin hands with fingers, riding the rifle (grip + stock).
+  const fgHandNear = new THREE.Group();
+  const fgPalmN = new ME(new BX(0.09, 0.1, 0.09), fgSkinMat);
+  fgPalmN.position.set(0, -0.08, -0.05);
+  fgHandNear.add(fgPalmN);
+  for (const fx of [-0.03, 0, 0.03]) {
+    const f = new ME(new BX(0.025, 0.08, 0.03), fgSkinMat);
+    f.position.set(fx, -0.14, -0.01);
+    fgHandNear.add(f);
+  }
+  const fgThumbN = new ME(new BX(0.03, 0.06, 0.03), fgSkinMat);
+  fgThumbN.position.set(0.05, -0.08, -0.08);
+  fgHandNear.add(fgThumbN);
+  fgRifle.add(fgHandNear);
+  const fgHandFar = new THREE.Group();
+  const fgPalmF = new ME(new BX(0.09, 0.09, 0.1), fgSkinMat);
+  fgPalmF.position.set(0, -0.02, -0.225);
+  fgHandFar.add(fgPalmF);
+  for (const fx of [-0.03, 0, 0.03]) {
+    const f = new ME(new BX(0.025, 0.07, 0.03), fgSkinMat);
+    f.position.set(fx, -0.08, -0.225);
+    fgHandFar.add(f);
+  }
+  const fgThumbF = new ME(new BX(0.03, 0.06, 0.03), fgSkinMat);
+  fgThumbF.position.set(-0.05, -0.02, -0.2);
+  fgHandFar.add(fgThumbF);
+  fgRifle.add(fgHandFar);
   fgRifle.position.set(0.45, 1.45, 0.35);
   fgRifle.rotation.set(0.25, 1.0, 0);
   fgGun.mesh.add(fgRifle);

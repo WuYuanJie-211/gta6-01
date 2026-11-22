@@ -544,15 +544,12 @@ export function buildCity(scene, rng, textures) {
       for (const [pw, pd, px, pz] of [[w + 0.3, 0.4, 0, d / 2], [w + 0.3, 0.4, 0, -d / 2], [0.4, d + 0.3, w / 2, 0], [0.4, d + 0.3, -w / 2, 0]]) box(scene, pw, 0.6, pd, M(0x6a5a4a), x + px, h + 0.5, z + pz);
       if (rng.chance(0.3)) box(scene, 2.5, 1.2, 1.8, M(0x888888), x + w / 4, h + 0.8, z);
       if (h >= 14) {
-        const floors = Math.min(4, Math.floor(h / 7));
-        for (let f = 0; f < floors; f += 1) {
-          // v52: the two horizontal per-floor pieces are DELETED — the
-          // v51 bands still read as loose planks across the window
-          // recesses (Quick, medium to severe). Only the vertical side
-          // fins stay: 0.06 proud of the side walls, they read as
-          // pilasters, not floating ledges.
-          for (const s of [-1, 1]) box(scene, 0.06, 0.7, d * 0.4, M(0x8E5438+f*257,0.7), x + s * (w / 2 + 0.03), 4 + f * 7 + 0.45, z);
-        }
+        // v53: the per-floor side "fins" are DELETED — they were
+        // 0.06 x 0.7 x (d*0.4) LONG HORIZONTAL bars along the side
+        // walls, not vertical pilasters, and from the south camera
+        // one read as a diagonal brown plank across the window bay
+        // (shot 2, Quick + Superbot, severe). No rotated or long
+        // horizontal bars survive on any tall building.
       }
       if (h < 16 && rng.chance(0.8)) {
         // Storefront cell, not a flat dark box — the face shot 2 sees.
