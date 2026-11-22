@@ -251,17 +251,19 @@ function glassTex() {
 // Van glass texture — a DARK sky gradient (top lighter, bottom
 // near-black) with a faint diagonal reflection streak, so the van
 // glass reads as glass reflecting sky, not a flat black card.
-// Dark enough (avg lum ~25) to stay darker than the sunlit paint
-// (lum ~66) while the gradient is visible at 720p. v57.2 Fix 1.
+// Dark enough to stay darker than the sunlit paint while the
+// gradient is visible at 720p. v57.2 Fix 1. v57.3: top darkened
+// (#263448 -> #182230, was L 55, target top L 28-38) and bottom
+// lifted (#080c14 -> #0d1119, was L 5, target bottom L 6-12).
 function vanGlassTex() {
   const c = document.createElement('canvas');
   c.width = 128;
   c.height = 64;
   const x = c.getContext('2d');
   const g = x.createLinearGradient(0, 0, 0, 64);
-  g.addColorStop(0, '#263448');
-  g.addColorStop(0.6, '#141c2a');
-  g.addColorStop(1, '#080c14');
+  g.addColorStop(0, '#182230');
+  g.addColorStop(0.6, '#101725');
+  g.addColorStop(1, '#0d1119');
   x.fillStyle = g;
   x.fillRect(0, 0, 128, 64);
   x.fillStyle = 'rgba(255,255,255,0.12)';
@@ -272,6 +274,30 @@ function vanGlassTex() {
   x.lineTo(45, 64);
   x.closePath();
   x.fill();
+  const t = new CT(c);
+  t.colorSpace = SC;
+  return t;
+}
+
+// Van chrome texture — a BRIGHT sky gradient, so the chrome reads
+// as polished metal reflecting sky. v57.3: the metalness-1 chrome
+// (MS, no envMap) read black from the chase camera — no light
+// reflects off the flank into the camera, so no metalness value
+// can make it bright; the gradient is painted instead (same trick
+// as vanGlassTex). Top L 205-235 falling to 85-120 at the bottom,
+// transition inside 6 px on an 11 px strip.
+function vanChromeTex() {
+  const c = document.createElement('canvas');
+  c.width = 128;
+  c.height = 64;
+  const x = c.getContext('2d');
+  const g = x.createLinearGradient(0, 0, 0, 64);
+  g.addColorStop(0, '#dfe4ea');
+  g.addColorStop(0.5, '#c9ced6');
+  g.addColorStop(0.6, '#6a7078');
+  g.addColorStop(1, '#555b64');
+  x.fillStyle = g;
+  x.fillRect(0, 0, 128, 64);
   const t = new CT(c);
   t.colorSpace = SC;
   return t;
@@ -367,17 +393,27 @@ function stageChase(game) {
   // every paint part at once; the old clone-one-box trick left the
   // shoulder dark.
   const vpm = van.mesh.userData.paint;
-  if (vpm) { vpm.color.setHex(0x6b7078); vpm.roughness = 0.2; vpm.metalness = 0.2; }
+  // v57.3: flank (shadow side) was L 11.2-11.5, target 12-18 — lift
+  // the paint one notch (0x6b7078 -> 0x767c84).
+  if (vpm) { vpm.color.setHex(0x767c84); vpm.roughness = 0.2; vpm.metalness = 0.2; }
+  // Roof material: cool blue-grey, so the lit top plane reads L 30-40
+  // with B-R >= 10 instead of the warm L 44 / B-R -10 the shared
+  // paint gives under the warm sun. Roof + nose chamfer share it.
+  // v57.3b: rough 0.8 (the 0.2 clearcoat caught a sun glint, L 112-128)
+  // and darker (0x2e3a55), so the top plane lands in the 30-40 band.
+  const roofM = new MS({ color: 0x2e3a55, roughness: 0.8, metalness: 0.1 });
   const vb = van.mesh.userData.body;
   if (vb) {
-    const glassM = new MS({ color: 0x0e1418, roughness: 0.08, metalness: 0.8 });
     // Van glass uses the dark sky-gradient texture (MeshBasic, so
     // the gradient reads even on the shadowed flank) — the side
     // windows and rear screen must show a sky gradient, not flat
     // black, while staying darker than the sunlit paint.
     const vanGlassM = new MB({ map: vanGlassTex() });
     const seamM = new MS({ color: 0x1a1a1a, roughness: 0.9 });
-    const chromeM = new MS({ color: 0xe8ecf0, roughness: 0.1, metalness: 1 });
+    // v57.3: chrome is MeshBasic with the bright sky-gradient map
+    // (see vanChromeTex) — metalness-1 chrome with no envMap read
+    // black from the chase camera, so the gradient is painted.
+    const chromeM = new MB({ map: vanChromeTex() });
     const rubberM = new MS({ color: 0x141414, roughness: 0.9 });
     for (const s of [-1, 1]) {
       const win = new ME(new BX(2.6, 0.55, 0.04), vanGlassM);
@@ -396,7 +432,9 @@ function stageChase(game) {
       }
       // Chrome beltline trim: runs the full flank at the beltline
       // (y 1.68), so the flank reads as styled metal, not a slab.
-      const belt = new ME(new BX(4.6, 0.05, 0.03), chromeM);
+      // v57.3b: 0.09 tall (~10 px) so the chrome reads as a band,
+      // not a line — the 0.05 strip was only 6 px.
+      const belt = new ME(new BX(4.6, 0.09, 0.03), chromeM);
       belt.position.set(0, 1.68, s * 0.97);
       van.mesh.add(belt);
       // Wheel-arch cut: a dark rubber arch band above each wheel,
@@ -420,7 +458,8 @@ function stageChase(game) {
     }
     // Roof cap, 1.68 wide — 11.6% narrower than the 1.9 beltline —
     // so the roof reads tapered from behind, not a flat slab top.
-    const roof = new ME(new BX(4.2, 0.1, 1.68), vpm);
+    // v57.3: own cool material (roofM), not the shared paint.
+    const roof = new ME(new BX(4.2, 0.1, 1.68), roofM);
     roof.position.set(-0.1, 2.45, 0);
     van.mesh.add(roof);
     // Chrome roof-edge trim on both sides: the rim light from the
@@ -442,7 +481,8 @@ function stageChase(game) {
     van.mesh.add(rScreen);
     // Front quarter chamfer: a sloped paint panel at the front top
     // (hood slope), so the nose is not a flat vertical face.
-    const nose = new ME(new BX(0.8, 0.08, 1.7), vpm);
+    // v57.3: roofM, so the chamfer reads as a cool bevel (L 45-55).
+    const nose = new ME(new BX(0.8, 0.08, 1.7), roofM);
     nose.position.set(1.95, 2.32, 0);
     nose.rotation.z = -0.35;
     van.mesh.add(nose);
@@ -455,10 +495,21 @@ function stageChase(game) {
     const rTop = new ME(new BX(0.05, 0.05, 1.7), chromeM);
     rTop.position.set(-2.37, 2.38, 0);
     van.mesh.add(rTop);
-    // Windshield glass: near-black, roughness 0.08, so it reflects
-    // sky and separates from paint (was 0.12 / 0.6).
+    // Windshield glass: the dark sky-gradient texture (was a
+    // metalness-0.8 standard material that read pure black — no
+    // envMap, no reflection). Same gradient as the side glass, so
+    // the windshield reads as sky, not a black card.
     const ws = van.mesh.userData.windshield;
-    if (ws) { ws.material = glassM; }
+    if (ws) { ws.material = vanGlassM; }
+    // Stock chrome from vehicles.js (grille surround, headlight
+    // surrounds, bumper strips, wheel hubs, door handles, mirror
+    // heads) is the same metalness-1 material that read black — swap
+    // it for the bright gradient chrome on this van only. Match by
+    // colour (0xd8dce0); the stage chrome above is already MeshBasic
+    // so it is not touched.
+    van.mesh.traverse((o) => {
+      if (o.isMesh && o.material && o.material.color && o.material.color.getHex && o.material.color.getHex() === 0xd8dce0) o.material = chromeM;
+    });
   }
   // v46: the van's warm-white headlights (0xfff3c4 + emissive) sit
   // inside the dash-B measurement box (790-860,430-450) and read 209
@@ -1340,11 +1391,19 @@ function stageSunset(game) {
   // dark receiver + tan guard/stock — it merged into one long
   // brown plank with an orange segment (Quick, severe).
   const fgRifle = new THREE.Group();
-  const fgBarrelMat = new MS({ color: 0x777777, roughness: 0.4 });
-  const fgGuardMat = new MS({ color: 0x7d9b8c, roughness: 0.8 }); // v55b: 0x736140 rendered (126,45,12) — still too red/dark; the warm sunset crushes G/B, so the source must be lighter/cooler to land near (138,78,34).
+  // v57.3 (Superbot plan — weapon three-way split, same targets as
+  // the player.js rifle): the warm sunset/fire light makes neutral
+  // greys render warm/saturated, so the sources are blue-biased.
+  // Receiver L 32-40 sat <=8, handguard hue 25-35 sat 30-40
+  // L 38-46, barrel L 55-68 sat 10-20, mag L 45-55 and >=12 L
+  // lighter than the handguard. The receiver gets its own material
+  // (was fgDarkMat 0x1a1a1a, rendered L 2.6); the sight/cap stay dark.
+  const fgBarrelMat = new MS({ color: 0x3a6a8c, roughness: 0.4 }); // v57.3c: 0x5a6a7a rendered sat 46 (red fire light) — bluer so it lands sat 10-20
+  const fgGuardMat = new MS({ color: 0x5a9aad, roughness: 0.8 }); // v57.3e: 0x3c7d8f rendered L 34 (only 3 above the receiver) — lighter teal so it lands L 42-46, >=10 above the receiver
+  const fgRecvMat = new MS({ color: 0x4a8ac0, roughness: 0.4 }); // v57.3e: 0x3a7aa8 rendered L 30.6 — slightly lighter so it lands L 32-40 (sat 6.5 already neutral)
   const fgDarkMat = new MS({ color: 0x1a1a1a, roughness: 0.4 });
   const fgLightMat = new MS({ color: 0xffffff, roughness: 0.5 });
-  const fgMagMat = new MS({ color: 0x4b4f55, roughness: 0.4, emissive: 0x4b4f55, emissiveIntensity: 0.7 });
+  const fgMagMat = new MS({ color: 0x3a4048, roughness: 0.4, emissive: 0x3a4048, emissiveIntensity: 0.15 }); // v57.3d: was L 78 (too bright) — darker + less emissive so it lands L 45-55
   const fgWoodMat = new MS({ color: 0x6b4426, roughness: 0.8 });
   const fgSkinMat = new MS({ color: 0xe0ac69, roughness: 0.8 });
   const fgBarrel = new ME(new BX(0.05, 0.05, 1.4), fgBarrelMat);
@@ -1358,7 +1417,7 @@ function stageSunset(game) {
   const fgGuard = new ME(new BX(0.11, 0.13, 0.45), fgGuardMat);
   fgGuard.position.set(0, 0, 0.42);
   fgRifle.add(fgGuard);
-  const fgRecv = new ME(new BX(0.09, 0.15, 0.3), fgDarkMat);
+  const fgRecv = new ME(new BX(0.09, 0.15, 0.3), fgRecvMat);
   fgRecv.position.set(0, 0, 0.05);
   fgRifle.add(fgRecv);
   const fgStock = new ME(new BX(0.08, 0.13, 0.25), fgWoodMat);
@@ -1425,8 +1484,20 @@ function stageSunset(game) {
   fgThumbF.position.set(-0.05, -0.02, -0.2);
   fgHandFar.add(fgThumbF);
   fgRifle.add(fgHandFar);
-  fgRifle.position.set(0.45, 1.45, 0.35);
-  fgRifle.rotation.set(0.25, 1.0, 0);
+  // v57.3 (Superbot plan — shot-4 rifle pose, the blocker): the
+  // v57.2 bore ran 6.7 deg nose-down (sight 477, flash 541, drop
+  // 64 px) — a waist carry firing at the tarmac. First try (rot.x
+  // 0.05, y 1.58) overshot: sight top 424, flash 477. Solved by
+  // projection (validated vs the render: sight 906,424 / muzzle
+  // 638,481): rot.x -0.36, y 1.39 -> sight (923,460), muzzle
+  // (648,449), flash core ~445, drop ~15 px, muzzle on the line
+  // shoulder -> burning car (x 260-470, y 380-430).
+  // v57.3: pose1 (rot.x 0.05, y 1.58) overshot — sight top 424 (target
+  // 455-465), flash 477 (target 435-455). Solved by projection:
+  // rot.x -0.36, y 1.39 -> sight (923,460), muzzle (648,449), flash
+  // core ~445. Bore ~+11 deg world pitch reads level on screen.
+  fgRifle.position.set(0.45, 1.39, 0.35);
+  fgRifle.rotation.set(-0.36, 1.0, 0);
   fgGun.mesh.add(fgRifle);
   const fgBrim = new ME(new BX(0.5, 0.05, 0.3), new MS({ color: 0x1a1a1a, roughness: 0.8 }));
   fgBrim.position.set(0, 1.98, 0.28);

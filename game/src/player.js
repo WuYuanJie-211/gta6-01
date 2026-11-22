@@ -61,17 +61,22 @@ export function createPlayerMesh() {
   // the hold reads two-handed from behind. The muzzle anchor is
   // the barrel tip (local z 1.6); flash + tracer anchor here.
   const rifle = new GP();
-  const rBarrel = mt(0xbbbbbb, 0.4);
+  // v57.3 (Superbot plan — weapon three-way split): the warm light
+  // makes neutral greys render warm/saturated, so the sources are
+  // blue-biased to cancel it. Receiver L 32-40 sat <=8, handguard
+  // hue 25-35 sat 30-40 L 38-46, barrel L 55-68 sat 10-20, mag
+  // L 45-55 neutral and >=12 L lighter than the handguard.
+  const rBarrel = mt(0x5f6a75, 0.4);
   // v57.2: the receiver/handguard were near-black (0x1a1a1a /
   // 0x3a3e44) and blended into the player's dark jacket, so only
   // the pale barrel read — the rifle looked detached/floating and
   // the reviewer saw no weapon in the player's hands. Lighten the
   // receiver and handguard to mid-grey so the whole rifle reads as
   // one continuous object from grip to muzzle, in every shot.
-  const rGuard = mt(0x6a6e74, 0.8); // v55: gunmetal, was tan 0xa9743f
+  const rGuard = mt(0x453f38, 0.8); // v55: gunmetal, was tan 0xa9743f
   // — in shot 2 it rendered bright yellow (#ffd21f) and read as a
   // plastic prop; the dark gunmetal separates it from the skin hands.
-  const rDark = mt(0x555555, 0.4);
+  const rDark = mt(0x2e343c, 0.4);
   const rWood = mt(0x5a3a22, 0.8);
   B(rifle, 0.05, 0.05, 1.4, rBarrel, 0, 0.02, 0.9); // barrel, z 0.2-1.6
   B(rifle, 0.11, 0.13, 0.45, rGuard, 0, 0, 0.42); // handguard, z 0.2-0.65
@@ -79,7 +84,7 @@ export function createPlayerMesh() {
   B(rifle, 0.08, 0.13, 0.25, rWood, 0, -0.03, -0.225); // stock, z -0.35--0.1
   const rGrip = B(rifle, 0.07, 0.16, 0.08, mt(0x3a2a18, 0.8), 0, -0.12, -0.05);
   rGrip.rotation.x = -0.3;
-  const rMag = B(rifle, 0.05, 0.24, 0.09, rDark, 0, -0.17, 0.05);
+  const rMag = B(rifle, 0.05, 0.24, 0.09, mt(0x484e56, 0.4), 0, -0.17, 0.05); // v57.3: own mag material (was rDark) so it reads L 45-55, >=12 L lighter than the handguard
   rMag.rotation.x = 0.15;
   B(rifle, 0.035, 0.12, 0.06, rDark, 0, 0.13, 0.1); // sight
   B(rifle, 0.03, 0.08, 0.03, rDark, 0, 0.06, 1.5); // front-sight post
