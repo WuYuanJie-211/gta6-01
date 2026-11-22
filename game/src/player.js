@@ -47,7 +47,9 @@ export function createPlayerMesh() {
   // the barrel tip (local z 1.6); flash + tracer anchor here.
   const rifle = new GP();
   const rBarrel = mt(0xbbbbbb, 0.4);
-  const rGuard = mt(0xa9743f, 0.8);
+  const rGuard = mt(0x3a3e44, 0.8); // v55: gunmetal, was tan 0xa9743f
+  // — in shot 2 it rendered bright yellow (#ffd21f) and read as a
+  // plastic prop; the dark gunmetal separates it from the skin hands.
   const rDark = mt(0x1a1a1a, 0.4);
   const rWood = mt(0x5a3a22, 0.8);
   B(rifle, 0.05, 0.05, 1.4, rBarrel, 0, 0.02, 0.9); // barrel, z 0.2-1.6

@@ -74,8 +74,12 @@ function createHeli() {
   // disc (radial-gradient texture, so no hard plate edge), a darker
   // rim and one faint concentric streak. Child of the rotor, so the
   // mirror clone carries it too, and both shots match.
+  // v55: tail rotor lowered (y 0.7 -> 0.48) and nudged toward the
+  // camera side (x -0.4 -> -0.34) so the blur-disc sliver drops
+  // ~6 px and shifts ~4 px right onto the tail boom instead of
+  // floating detached from it (shots 1 and 4).
   const rearRotor = new GP();
-  rearRotor.position.set(-0.4, 0.7, -5.6);
+  rearRotor.position.set(-0.34, 0.48, -5.6);
   const rrMat = new MS({ color: 0x888888, emissive: 0x888888, emissiveIntensity: 0.3 });
   const rrHub = new ME(new CG(0.14, 0.14, 0.1, 10), rrMat);
   rrHub.rotation.z = PI / 2;

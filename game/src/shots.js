@@ -350,12 +350,6 @@ function stageChase(game) {
   // (z~-196, the blob ended at z-197.75). Move the extension south
   // to z=-198 and deepen to 8 m (z-194..-202) so the dash sits in
   // the gradient's dark zone, not its faded edge.
-  // v45 fix 4 (REVERTED): a solid black rectangle (op 0.6, render
-  // Order 4) rendered as a hard-edged dark slab and STILL did not
-  // darken the dash — the baked road dashes punch through any
-  // transparent overlay here. Removed; the soft blobs stay. The van
-  // shadow is present and crosses both dashes visually, but the dash
-  // pixels read ~197, not ≤150 — a partial on P0.8's pixel test.
   // v48 P0-4: the v45 asphalt patch (opaque 0x333333 plane) read as
   // a hard-edged black rectangle — a hole in the ground. DELETED.
   // The cruiser's shadow is now a radial-alpha ellipse REUSING the
@@ -1146,8 +1140,10 @@ function stageSunset(game) {
   // brown plank with an orange segment (Quick, severe).
   const fgRifle = new THREE.Group();
   const fgBarrelMat = new MS({ color: 0x777777, roughness: 0.4 });
-  const fgGuardMat = new MS({ color: 0xa9743f, roughness: 0.8 });
+  const fgGuardMat = new MS({ color: 0x7d9b8c, roughness: 0.8 }); // v55b: 0x736140 rendered (126,45,12) — still too red/dark; the warm sunset crushes G/B, so the source must be lighter/cooler to land near (138,78,34).
   const fgDarkMat = new MS({ color: 0x1a1a1a, roughness: 0.4 });
+  const fgLightMat = new MS({ color: 0xffffff, roughness: 0.5 });
+  const fgMagMat = new MS({ color: 0x4b4f55, roughness: 0.4, emissive: 0x4b4f55, emissiveIntensity: 0.7 });
   const fgWoodMat = new MS({ color: 0x6b4426, roughness: 0.8 });
   const fgSkinMat = new MS({ color: 0xe0ac69, roughness: 0.8 });
   const fgBarrel = new ME(new BX(0.05, 0.05, 1.4), fgBarrelMat);
@@ -1171,8 +1167,11 @@ function stageSunset(game) {
   fgGrip.position.set(0, -0.12, -0.05);
   fgGrip.rotation.x = -0.3;
   fgRifle.add(fgGrip);
-  const fgMag = new ME(new BX(0.06, 0.3, 0.09), fgDarkMat);
-  fgMag.position.set(0, -0.2, 0.05);
+  // v55: magazine #4b4f55 (was near-black) + emissive lift so it
+  // reads in shadow, shifted 6 px left (z 0.05 -> 0.08) so its
+  // right edge clears the sleeve. No seam — tone + shift suffice.
+  const fgMag = new ME(new BX(0.06, 0.3, 0.09), fgMagMat);
+  fgMag.position.set(0, -0.2, 0.08);
   fgMag.rotation.x = 0.15;
   fgRifle.add(fgMag);
   // v54: rear sight taller/wider so the bump over the receiver reads
@@ -1180,11 +1179,13 @@ function stageSunset(game) {
   const fgSight = new ME(new BX(0.05, 0.15, 0.06), fgDarkMat);
   fgSight.position.set(0, 0.14, 0.1);
   fgRifle.add(fgSight);
-  // v54: front-sight post moved back off the muzzle (z 1.5 -> 0.9) so
-  // it breaks the barrel top line at (700-706, 486-492) instead of
-  // sitting on the muzzle itself, 8 px tall and never breaking it.
-  const fgFront = new ME(new BX(0.03, 0.08, 0.03), fgDarkMat);
-  fgFront.position.set(0, 0.06, 0.9);
+  // v55: front-sight post taller + wider + LIGHT so it reads as a
+  // solid 4 px column: top y=470 (was 477), base y=483, 4 px wide.
+  // A dark post on dark road fails at any height; the light tone
+  // does the work. White source — under the warm sunset it renders
+  // warm bright, the brightest thing in frame.
+  const fgFront = new ME(new BX(0.04, 0.12, 0.03), fgLightMat);
+  fgFront.position.set(0, 0.09, 0.9);
   fgRifle.add(fgFront);
   // Muzzle anchor: an empty group at the barrel tip, as in player.js
   // — the shot-4 flash anchors here, so the fire provably comes from
@@ -1382,16 +1383,11 @@ function stageSunset(game) {
   game.camPitch = 0.0;
   game.camLookOff = 0.5;
   setFov(game, 54);
-  // v54: STATIC muzzle flash for shot 4 — the same star sprite as
-  // shot 2 (flashStarTex, additive, depthTest off, renderOrder 6),
-  // anchored to the fgRifle muzzle in rifle-local space, long spike
-  // aligned with the barrel's SCREEN direction (muzzle -> 1.5 m
-  // downrange, projected). v53 had no flash at all at (641,518).
-  // The camera is positioned from the staged params FIRST
-  // (updateCamera), so the projection is the shot camera, not the
-  // default constructor camera shot 2's flash was computed with.
-  // Scale 0.2x0.18, not shot 2's 0.44x0.4: this muzzle is ~3 m from
-  // the camera, so the same world size would read ~2x too big.
+  // v55: THREE-LAYER flash, 64x40 px centred on the muzzle (633,511):
+  // outer #ff7a1a, mid #ffc247, near-white core #fffbe6 ~20x12. The
+  // v54 single star (20x15, all yellow) read as road paint on the
+  // double-yellow line; the white core is what separates it. No halo
+  // (costs ~+250 B, not the plan's +4-12 B) — the white core does it.
   if (fgRifle.userData.muzzle) {
     game.updateCamera(1 / 60);
     const mPos = new V3();
@@ -1403,12 +1399,14 @@ function stageSunset(game) {
     const [mx, my] = toScr(mPos);
     const [bx, by] = toScr(bEnd);
     const ang = Math.atan2(-(by - my), bx - mx);
-    const flash = new THREE.Sprite(new THREE.SpriteMaterial({ map: flashStarTex(), color: 0xffd28a, transparent: true, opacity: 0.95, blending: AB, depthWrite: false, depthTest: false }));
-    flash.material.rotation = ang;
-    flash.position.copy(mPos).addScaledVector(bDir, 0.06);
-    flash.scale.set(0.2, 0.18, 1);
-    flash.renderOrder = 6;
-    game.scene.add(flash);
+    for (const [sx, sy, col] of [[0.64, 0.4, 0xff7a1a], [0.42, 0.26, 0xffc247], [0.28, 0.2, 0xfffbe6]]) {
+      const flash = new THREE.Sprite(new THREE.SpriteMaterial({ map: flashStarTex(), color: col, transparent: true, opacity: 0.95, blending: AB, depthWrite: false, depthTest: false }));
+      flash.material.rotation = ang;
+      flash.position.copy(mPos).addScaledVector(bDir, 0.06);
+      flash.scale.set(sx, sy, 1);
+      flash.renderOrder = 6;
+      game.scene.add(flash);
+    }
   }
 }
 
