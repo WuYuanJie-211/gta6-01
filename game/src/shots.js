@@ -92,6 +92,73 @@ function flashStarTex() {
   return _flashTex;
 }
 
+// Soft halo texture for the muzzle flash (v56): a radial glow —
+// white-hot at the centre, warm orange by the middle, transparent
+// at the edge. No spikes, no ring: it is the bloom around the star,
+// not a second star. Drawn once, cached, like flashStarTex.
+let _haloTex = null;
+function flashHaloTex() {
+  if (_haloTex) return _haloTex;
+  const c = document.createElement('canvas');
+  c.width = 128; c.height = 128;
+  const x = c.getContext('2d');
+  const g = x.createRadialGradient(64, 64, 0, 64, 64, 64);
+  g.addColorStop(0, 'rgba(255,250,235,1)');
+  g.addColorStop(0.25, 'rgba(255,220,150,0.85)');
+  g.addColorStop(0.55, 'rgba(255,160,60,0.35)');
+  g.addColorStop(1, 'rgba(255,140,40,0)');
+  x.fillStyle = g; x.fillRect(0, 0, 128, 128);
+  _haloTex = new CT(c);
+  _haloTex.colorSpace = SC;
+  return _haloTex;
+}
+
+// Muzzle flash, rebuilt (v56): one place that owns the whole flash —
+// the halo, the star layers and the screen-space nudge. It takes the
+// rifle group, reads the muzzle anchor the rifle already carries, and
+// puts every sprite at the same nudged screen point, all rotated to
+// the barrel's screen direction so the star reads long, not round.
+//
+// The nudge is in screen pixels (x right, y down): the anchor is
+// projected to the screen, shifted, and unprojected back to the same
+// depth, so the shift is exact in pixels whatever the camera does.
+// v56 nudges +9/-5 to land the core on the plan centre (633,511).
+//
+// spec: { nudge: [dx, dy], halo: [sx, sy, color, opacity] | null,
+//         layers: [[sx, sy, color], ...] } — layers draw back to
+// front, so the last one is the bright core on top.
+function flashAtMuzzle(game, rifle, spec) {
+  if (!rifle || !rifle.userData.muzzle) return;
+  game.updateCamera(1 / 60);
+  const mPos = new V3();
+  rifle.userData.muzzle.getWorldPosition(mPos);
+  const bDir = rifle.getWorldDirection(new V3());
+  const bEnd = mPos.clone().addScaledVector(bDir, 1.5);
+  game.camera.updateMatrixWorld();
+  const toScr = (v) => { const p = v.clone().project(game.camera); return [((p.x + 1) / 2) * 1280, ((1 - p.y) / 2) * 720]; };
+  const [mx, my] = toScr(mPos);
+  const [bx, by] = toScr(bEnd);
+  const ang = Math.atan2(-(by - my), bx - mx);
+  // Anchor: a touch forward of the muzzle along the barrel, then the
+  // screen-space nudge, unprojected back to the same depth.
+  const anchor = mPos.clone().addScaledVector(bDir, 0.06);
+  const p = anchor.clone().project(game.camera);
+  const nudge = spec.nudge || [0, 0];
+  const px = ((p.x + 1) / 2) * 1280 + nudge[0];
+  const py = ((1 - p.y) / 2) * 720 + nudge[1];
+  const pos = new V3((px / 1280) * 2 - 1, -((py / 720) * 2 - 1), p.z).unproject(game.camera);
+  const place = (map, w, h, col, op, order) => {
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map, color: col, transparent: true, opacity: op, blending: AB, depthWrite: false, depthTest: false }));
+    s.material.rotation = ang;
+    s.position.copy(pos);
+    s.scale.set(w, h, 1);
+    s.renderOrder = order;
+    game.scene.add(s);
+  };
+  if (spec.halo) place(flashHaloTex(), spec.halo[0], spec.halo[1], spec.halo[2], spec.halo[3], 5);
+  for (const [lx, ly, col] of spec.layers) place(flashStarTex(), lx, ly, col, 0.95, 6);
+}
+
 // A soft additive light pool on the ground (the pool texture).
 function pool(g, x, z, r, o, y = 0.07) {
   const t = g.textures && g.textures.pool;
@@ -1383,31 +1450,16 @@ function stageSunset(game) {
   game.camPitch = 0.0;
   game.camLookOff = 0.5;
   setFov(game, 54);
-  // v55: THREE-LAYER flash, 64x40 px centred on the muzzle (633,511):
-  // outer #ff7a1a, mid #ffc247, near-white core #fffbe6 ~20x12. The
-  // v54 single star (20x15, all yellow) read as road paint on the
-  // double-yellow line; the white core is what separates it. No halo
-  // (costs ~+250 B, not the plan's +4-12 B) — the white core does it.
-  if (fgRifle.userData.muzzle) {
-    game.updateCamera(1 / 60);
-    const mPos = new V3();
-    fgRifle.userData.muzzle.getWorldPosition(mPos);
-    const bDir = fgRifle.getWorldDirection(new V3());
-    const bEnd = mPos.clone().addScaledVector(bDir, 1.5);
-    game.camera.updateMatrixWorld();
-    const toScr = (v) => { const p = v.clone().project(game.camera); return [((p.x + 1) / 2) * 1280, ((1 - p.y) / 2) * 720]; };
-    const [mx, my] = toScr(mPos);
-    const [bx, by] = toScr(bEnd);
-    const ang = Math.atan2(-(by - my), bx - mx);
-    for (const [sx, sy, col] of [[0.64, 0.4, 0xff7a1a], [0.42, 0.26, 0xffc247], [0.28, 0.2, 0xfffbe6]]) {
-      const flash = new THREE.Sprite(new THREE.SpriteMaterial({ map: flashStarTex(), color: col, transparent: true, opacity: 0.95, blending: AB, depthWrite: false, depthTest: false }));
-      flash.material.rotation = ang;
-      flash.position.copy(mPos).addScaledVector(bDir, 0.06);
-      flash.scale.set(sx, sy, 1);
-      flash.renderOrder = 6;
-      game.scene.add(flash);
-    }
-  }
+  // v56: the flash goes through flashAtMuzzle now — same three star
+  // layers as v55 (outer #ff7a1a, mid #ffc247, near-white core
+  // #fffbe6), plus a soft halo behind them (free here: shots.js is
+  // outside the dossier text), and a +9/-5 px nudge that lands the
+  // core on the plan centre (633,511) instead of (624,516).
+  flashAtMuzzle(game, fgRifle, {
+    nudge: [9, -5],
+    halo: [1.15, 0.72, 0xff9a3c, 0.5],
+    layers: [[0.64, 0.4, 0xff7a1a], [0.42, 0.26, 0xffc247], [0.28, 0.2, 0xfffbe6]],
+  });
 }
 
 export const SHOT_ORDER = ['chase', 'gunfight', 'downtown', 'sunset'];
