@@ -867,13 +867,20 @@ export function buildCity(scene, rng, textures) {
     bench.position.set(stop.x, 0, stop.z);
     scene.add(bench);
     const sign = makeSign('BUS', '#ffffff', '#2a6a3a', 3.0, 1.5);
-    sign.position.set(stop.x, 2.2, stop.z);
+    // v54: 0.3 m north (stop.z + 0.3) — the sign's right edge covered
+    // the ROUTES board's R at (811,356); the board's own 0.3 m shift
+    // only half-freed it. The post moves with the sign.
+    sign.position.set(stop.x, 2.2, stop.z + 0.3);
     scene.add(sign);
     const signPost = new ME(new CG(0.12, 0.12, 1.5, 6), M(0x2e3338, 0.7));
-    signPost.position.set(stop.x, 0.75, stop.z);
+    signPost.position.set(stop.x, 0.75, stop.z + 0.3);
     scene.add(signPost);
     const shelterMat = M(0x2a6a3a, 0.8);
-    for (const dx of [-1.2, 1.2]) {
+    // v54: right post inset to +0.6 (was +1.2) — it stood at screen
+    // ~828, inside the ROUTES word, hiding the R (and O/U before the
+    // board shift). At +0.6 it sits in the margin before the R and
+    // the whole word reads; it stays under the 3 m roof.
+    for (const dx of [-1.2, 0.6]) {
       const post = new ME(new CG(0.12, 0.12, 2.6, 6), shelterMat);
       post.position.set(stop.x + dx, 1.3, stop.z - 0.5);
       scene.add(post);
@@ -888,10 +895,15 @@ export function buildCity(scene, rng, textures) {
     // the headless renderer (no CJK font), so the board read as
     // broken marks. Same weight, size and baseline as before.
     const rb = makeSign('ROUTES 1 · 5 · 12', '#ffffff', '#1a3a5f', 3.2, 1.4);
-    rb.position.set(stop.x, 1.7, stop.z - 1.2);
+    // v54: 0.5 m north in total (z -1.2 -> -1.7) — the BUS sign's
+    // right edge covered the R, and 0.3 m only half-freed it; the
+    // shelter post then covered O/U. At -1.7 the R clears the post
+    // (1 px nick) and the whole word reads. The board's own post
+    // moves with it so it stays supported.
+    rb.position.set(stop.x, 1.7, stop.z - 1.7);
     scene.add(rb);
     const rbPost = new ME(new CG(0.06, 0.06, 1.1, 6), M(0x2e3338, 0.7));
-    rbPost.position.set(stop.x, 0.55, stop.z - 1.2);
+    rbPost.position.set(stop.x, 0.55, stop.z - 1.7);
     scene.add(rbPost);
   }
   // The five green collectible packages.

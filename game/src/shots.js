@@ -1145,14 +1145,19 @@ function stageSunset(game) {
   // dark receiver + tan guard/stock — it merged into one long
   // brown plank with an orange segment (Quick, severe).
   const fgRifle = new THREE.Group();
-  const fgBarrelMat = new MS({ color: 0xbbbbbb, roughness: 0.4 });
+  const fgBarrelMat = new MS({ color: 0x777777, roughness: 0.4 });
   const fgGuardMat = new MS({ color: 0xa9743f, roughness: 0.8 });
   const fgDarkMat = new MS({ color: 0x1a1a1a, roughness: 0.4 });
-  const fgWoodMat = new MS({ color: 0x5a3a22, roughness: 0.8 });
+  const fgWoodMat = new MS({ color: 0x6b4426, roughness: 0.8 });
   const fgSkinMat = new MS({ color: 0xe0ac69, roughness: 0.8 });
   const fgBarrel = new ME(new BX(0.05, 0.05, 1.4), fgBarrelMat);
   fgBarrel.position.set(0, 0.02, 0.9);
   fgRifle.add(fgBarrel);
+  // v54: muzzle end cap — a slightly proud dark tip so the barrel
+  // terminates instead of fading at the cut (639,490)-(645,503).
+  const fgCap = new ME(new BX(0.06, 0.06, 0.03), fgDarkMat);
+  fgCap.position.set(0, 0.02, 1.6);
+  fgRifle.add(fgCap);
   const fgGuard = new ME(new BX(0.11, 0.13, 0.45), fgGuardMat);
   fgGuard.position.set(0, 0, 0.42);
   fgRifle.add(fgGuard);
@@ -1166,28 +1171,43 @@ function stageSunset(game) {
   fgGrip.position.set(0, -0.12, -0.05);
   fgGrip.rotation.x = -0.3;
   fgRifle.add(fgGrip);
-  const fgMag = new ME(new BX(0.05, 0.24, 0.09), fgDarkMat);
-  fgMag.position.set(0, -0.17, 0.05);
+  const fgMag = new ME(new BX(0.06, 0.3, 0.09), fgDarkMat);
+  fgMag.position.set(0, -0.2, 0.05);
   fgMag.rotation.x = 0.15;
   fgRifle.add(fgMag);
-  const fgSight = new ME(new BX(0.035, 0.12, 0.06), fgDarkMat);
-  fgSight.position.set(0, 0.13, 0.1);
+  // v54: rear sight taller/wider so the bump over the receiver reads
+  // at 1x (it already breaks the top line at (850-867, 438-461)).
+  const fgSight = new ME(new BX(0.05, 0.15, 0.06), fgDarkMat);
+  fgSight.position.set(0, 0.14, 0.1);
   fgRifle.add(fgSight);
+  // v54: front-sight post moved back off the muzzle (z 1.5 -> 0.9) so
+  // it breaks the barrel top line at (700-706, 486-492) instead of
+  // sitting on the muzzle itself, 8 px tall and never breaking it.
   const fgFront = new ME(new BX(0.03, 0.08, 0.03), fgDarkMat);
-  fgFront.position.set(0, 0.06, 1.5);
+  fgFront.position.set(0, 0.06, 0.9);
   fgRifle.add(fgFront);
+  // Muzzle anchor: an empty group at the barrel tip, as in player.js
+  // — the shot-4 flash anchors here, so the fire provably comes from
+  // the muzzle (v54; v53 had no flash at all at (641,518)).
+  const fgMuzzle = new THREE.Group();
+  fgMuzzle.position.set(0, 0.02, 1.6);
+  fgRifle.add(fgMuzzle);
+  fgRifle.userData.muzzle = fgMuzzle;
   // Two skin hands with fingers, riding the rifle (grip + stock).
   const fgHandNear = new THREE.Group();
-  const fgPalmN = new ME(new BX(0.09, 0.1, 0.09), fgSkinMat);
-  fgPalmN.position.set(0, -0.08, -0.05);
+  // v54: near-hand palm dropped 0.03 m (~6-8 px) and widened, with
+  // fingers + thumb riding down with it — it sat high inside the
+  // black instead of wrapping the grip (868-895, 470-495).
+  const fgPalmN = new ME(new BX(0.1, 0.1, 0.09), fgSkinMat);
+  fgPalmN.position.set(0, -0.11, -0.05);
   fgHandNear.add(fgPalmN);
   for (const fx of [-0.03, 0, 0.03]) {
     const f = new ME(new BX(0.025, 0.08, 0.03), fgSkinMat);
-    f.position.set(fx, -0.14, -0.01);
+    f.position.set(fx, -0.17, -0.01);
     fgHandNear.add(f);
   }
   const fgThumbN = new ME(new BX(0.03, 0.06, 0.03), fgSkinMat);
-  fgThumbN.position.set(0.05, -0.08, -0.08);
+  fgThumbN.position.set(0.05, -0.11, -0.08);
   fgHandNear.add(fgThumbN);
   fgRifle.add(fgHandNear);
   const fgHandFar = new THREE.Group();
@@ -1302,17 +1322,50 @@ function stageSunset(game) {
   for (const o of [...game.scene.children]) {
     if (o.isMesh && o.geometry && o.geometry.type === 'BoxGeometry' && o.position.z === -180 && (o.position.y === 0.15 || o.position.y === 0.35) && Math.abs(o.position.x - 270) < 0.5) o.visible = false;
   }
+  // v54: med4 SHRUNK to the far side of the camera — the 36 m
+  // replacement (246-282) straddled the camera (x251), so its 5 m
+  // nearest the camera projected huge across the bottom-centre road
+  // (620,525)-(790,720) and read as a stray plank; the raycast
+  // proves it (first hit at (800,710) is med4's top, 2.76 m away).
+  // The cx=210 hide was a misdiagnosis (its end is 17 m off and the
+  // beam survived hiding it). Now 30 m at x225 (210-240): its east
+  // end stops 11 m short of the camera at the zebra, joining med4b
+  // into one 186-240 barrier; the 240-282 gap is the intersection
+  // gap the zebra crosses. Cap moves to the new end (240).
   const med4Mat = new MS({ color: 0x5e564b, roughness: 0.9 });
   const med4Top = new MS({ color: 0x3a3a3a, roughness: 0.7 });
-  const med4 = new ME(new BX(36, 0.3, 0.3), med4Mat);
-  med4.position.set(264, 0.15, -180);
+  const med4 = new ME(new BX(30, 0.3, 0.3), med4Mat);
+  med4.position.set(225, 0.15, -180);
   game.scene.add(med4);
-  const med4T = new ME(new BX(36, 0.1, 0.18), med4Top);
-  med4T.position.set(264, 0.35, -180);
+  const med4T = new ME(new BX(30, 0.1, 0.18), med4Top);
+  med4T.position.set(225, 0.35, -180);
   game.scene.add(med4T);
   const med4Cap = new ME(new CG(0.25, 0.25, 0.3, 12), med4Mat);
-  med4Cap.position.set(282, 0.15, -180);
+  med4Cap.position.set(240, 0.15, -180);
   game.scene.add(med4Cap);
+  // v54: shorten the hero-street median the OTHER way — hide the
+  // 48 m city segment at cx=210 (x186-234) and replace it with a
+  // 24 m one (x186-210), so its near (east) end pulls back from 2 m
+  // off the camera to 41 m. The v53 near end projected huge across
+  // the bottom-centre road (620,525)-(790,720) and read as a stray
+  // dark-wood plank; the hide-the-stock diagnostic proved it is the
+  // median, not the stock (the beam stays with both stocks hidden).
+  // The 24 m gap (210-234) reads as the intersection gap at the
+  // zebra the action stands in. Height 0.30 m, as the city median.
+  for (const o of [...game.scene.children]) {
+    if (o.isMesh && o.geometry && o.geometry.type === 'BoxGeometry' && o.position.z === -180 && (o.position.y === 0.15 || o.position.y === 0.35) && Math.abs(o.position.x - 210) < 0.5) o.visible = false;
+  }
+  const med4bMat = new MS({ color: 0x5e564b, roughness: 0.9 });
+  const med4bTop = new MS({ color: 0x3a3a3a, roughness: 0.7 });
+  const med4b = new ME(new BX(24, 0.3, 0.5), med4bMat);
+  med4b.position.set(198, 0.15, -180);
+  game.scene.add(med4b);
+  const med4bT = new ME(new BX(24, 0.1, 0.3), med4bTop);
+  med4bT.position.set(198, 0.35, -180);
+  game.scene.add(med4bT);
+  const med4bCap = new ME(new CG(0.25, 0.25, 0.3, 12), med4bMat);
+  med4bCap.position.set(210, 0.15, -180);
+  game.scene.add(med4bCap);
   // v46: the palm at (247.5,-158) presses its fronds over BODEGA's
   // right end — shift it 0.5 m north so the leaves clear the sign.
   for (const o of [...game.scene.children]) {
@@ -1329,6 +1382,34 @@ function stageSunset(game) {
   game.camPitch = 0.0;
   game.camLookOff = 0.5;
   setFov(game, 54);
+  // v54: STATIC muzzle flash for shot 4 — the same star sprite as
+  // shot 2 (flashStarTex, additive, depthTest off, renderOrder 6),
+  // anchored to the fgRifle muzzle in rifle-local space, long spike
+  // aligned with the barrel's SCREEN direction (muzzle -> 1.5 m
+  // downrange, projected). v53 had no flash at all at (641,518).
+  // The camera is positioned from the staged params FIRST
+  // (updateCamera), so the projection is the shot camera, not the
+  // default constructor camera shot 2's flash was computed with.
+  // Scale 0.2x0.18, not shot 2's 0.44x0.4: this muzzle is ~3 m from
+  // the camera, so the same world size would read ~2x too big.
+  if (fgRifle.userData.muzzle) {
+    game.updateCamera(1 / 60);
+    const mPos = new V3();
+    fgRifle.userData.muzzle.getWorldPosition(mPos);
+    const bDir = fgRifle.getWorldDirection(new V3());
+    const bEnd = mPos.clone().addScaledVector(bDir, 1.5);
+    game.camera.updateMatrixWorld();
+    const toScr = (v) => { const p = v.clone().project(game.camera); return [((p.x + 1) / 2) * 1280, ((1 - p.y) / 2) * 720]; };
+    const [mx, my] = toScr(mPos);
+    const [bx, by] = toScr(bEnd);
+    const ang = Math.atan2(-(by - my), bx - mx);
+    const flash = new THREE.Sprite(new THREE.SpriteMaterial({ map: flashStarTex(), color: 0xffd28a, transparent: true, opacity: 0.95, blending: AB, depthWrite: false, depthTest: false }));
+    flash.material.rotation = ang;
+    flash.position.copy(mPos).addScaledVector(bDir, 0.06);
+    flash.scale.set(0.2, 0.18, 1);
+    flash.renderOrder = 6;
+    game.scene.add(flash);
+  }
 }
 
 export const SHOT_ORDER = ['chase', 'gunfight', 'downtown', 'sunset'];
