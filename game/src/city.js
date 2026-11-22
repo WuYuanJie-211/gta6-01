@@ -297,7 +297,9 @@ export function buildCity(scene, rng, textures) {
   if (tx.neonSign) {
     for (const [nx, nz] of [[180, -168], [120, -192], [300, -168]]) {
       const n = new ME(new PG(5, 3.5), new MB({ map: tx.neonSign }));
-      n.position.set(nx, 5, nz);
+      // v52: +0.1 m proud of the wall — coplanar, its magenta edges
+      // z-fought with the facade and read as torn (Superbot v51).
+      n.position.set(nx + 0.1, 5, nz);
       n.rotation.y = PI / 2;
       scene.add(n);
     }
@@ -544,13 +546,11 @@ export function buildCity(scene, rng, textures) {
       if (h >= 14) {
         const floors = Math.min(4, Math.floor(h / 7));
         for (let f = 0; f < floors; f += 1) {
-          // v51: these three per-floor pieces floated 0.7-1.35 m off the
-          // wall with nothing under them (the shot-2 "floating ledges").
-          // They now sit ON the facade as bands/fins: the front bar is
-          // 0.2 deep at the wall face, the slab 0.42 deep at the face,
-          // the side fins 0.06 proud of the side walls.
-          box(scene, w * 0.4, 0.25, 0.2, M(0x6a5a4a), x, 4 + f * 7, z + d / 2 + 0.1, true);
-          box(scene, w * 0.4, 0.7, 0.42, M(0xB8A48C, 0.7), x, 4 + f * 7 + 0.45, z + d / 2 + 0.21);
+          // v52: the two horizontal per-floor pieces are DELETED — the
+          // v51 bands still read as loose planks across the window
+          // recesses (Quick, medium to severe). Only the vertical side
+          // fins stay: 0.06 proud of the side walls, they read as
+          // pilasters, not floating ledges.
           for (const s of [-1, 1]) box(scene, 0.06, 0.7, d * 0.4, M(0x8E5438+f*257,0.7), x + s * (w / 2 + 0.03), 4 + f * 7 + 0.45, z);
         }
       }
@@ -567,6 +567,9 @@ export function buildCity(scene, rng, textures) {
           const strut = box(scene, 0.12, 2.1, 0.12, M(0x8a8a8a, 0.9), x + s * w * 0.25, 2.78, z + d / 2 + 0.85);
           strut.rotation.x = -2.16;
         }
+        // v52: two vertical posts under the awning's outer edge — the
+        // diagonal struts alone left the board reading as floating.
+        for (const s of [-1, 1]) box(scene, 0.1, 2.9, 0.1, M(0x2e3338, 0.7), x + s * w * 0.25, 1.45, z + d / 2 + 1.6);
         if (stex.length) {
           const sg2 = new ME(new PG(7, 1.8), new MB({ map: rng.pick(stex) }));
           sg2.position.set(x, 4.8, z + d / 2 + 0.2);
@@ -619,10 +622,9 @@ export function buildCity(scene, rng, textures) {
   heroTowers.forEach((t, i) => {
     const name = SIGN_NAMES[i % SIGN_NAMES.length];
     const bg = SIGN_COLORS[i % SIGN_COLORS.length];
-    // v51: CINEMA 18 m (was min(14, w*0.8) = 13.7) — its tower sits
-    // ~100 m from the shot-1 camera, so its type read a quarter of
-    // GYM's. 18 m gives ~2.5 m letters, about half GYM's on screen.
-    // The tower is 17.1 m wide, so the overhang is 0.45 m a side.
+    // v51: CINEMA 18 m — its tower sits ~100 m from the shot-1
+    // camera, so the type read a quarter of GYM's. (v52: size is
+    // perspective-correct and legible — settled, do not widen again.)
     const signW = name === 'CINEMA' ? 18 : Math.min(14, t.w * 0.8);
     const sign = makeV31Sign(name, bg, '#FFFFFF', signW, signW * 0.25);
     // v51: SUITES +0.4 m forward — stands the face proud of the wall
@@ -666,6 +668,10 @@ export function buildCity(scene, rng, textures) {
       if (i % 4 < 2) {
         box(scene, 1.4, 0.2, pd * 0.6, M(SHOP_AWN[i % SHOP_AWN.length], 0.85), t.x + pw / 2 + 0.7, 2.95, t.z); // v47: sunk 0.35
         box(scene, 0.08, 0.5, pd * 0.6, M(SHOP_AWN[i % SHOP_AWN.length], 0.85), t.x + pw / 2 + 1.36, 2.7, t.z);
+        // v52: two posts under the awning's outer edge, down to the
+        // sidewalk — without them the awning + glass read as a board
+        // floating on the facade (Superbot v51, shot 3).
+        for (const s of [-1, 1]) box(scene, 0.1, 2.9, 0.1, M(0x2e3338, 0.7), t.x + pw / 2 + 1.3, 1.45, t.z + s * pd * 0.25);
       }
     } else {
       box(scene, pw, 4.5, 0.12, M(panelCol, 0.9), t.x, 2.25, t.z + pd / 2 + 0.08);
@@ -675,6 +681,8 @@ export function buildCity(scene, rng, textures) {
       if (i % 4 < 2) {
         box(scene, pw * 0.6, 0.2, 1.4, M(SHOP_AWN[i % SHOP_AWN.length], 0.85), t.x, 2.95, t.z + pd / 2 + 0.7); // v47: sunk 0.35
         box(scene, pw * 0.6, 0.5, 0.08, M(SHOP_AWN[i % SHOP_AWN.length], 0.85), t.x, 2.7, t.z + pd / 2 + 1.36);
+        // v52: two posts under the awning's outer edge (see east branch).
+        for (const s of [-1, 1]) box(scene, 0.1, 2.9, 0.1, M(0x2e3338, 0.7), t.x + s * pw * 0.25, 1.45, t.z + pd / 2 + 1.3);
       }
     }
     // A prop out front (crate / bin / potted plant, cycling).

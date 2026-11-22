@@ -8,6 +8,7 @@ export const BX = T.BoxGeometry;
 export const CG = T.CylinderGeometry;
 export const CN = T.ConeGeometry;
 export const CI = T.CircleGeometry;
+export const RG = T.RingGeometry;
 export const PG = T.PlaneGeometry;
 export const SG = T.SphereGeometry;
 export const OG = T.OctahedronGeometry;

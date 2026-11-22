@@ -1,7 +1,8 @@
 // Police: wanted stars, chase cars that ram, roadblocks at 3 stars, the
 // helicopter at 4 stars, and the heat cooling off when the player lays low.
 import * as THREE from 'three';
-import { BX, CG, CN, CI, MB, MS, ME, GP, PI, DS } from './geo.js';
+import { BX, CG, CN, CI, RG, MB, MS, ME, GP, PI, DS } from './geo.js';
+import { poolTexture } from './v31.js';
 import { POLICE, CAR } from './config.js';
 import { spawnPoliceCar } from './vehicles.js';
 import { nearestNode } from './roads.js';
@@ -68,28 +69,26 @@ function createHeli() {
   B(g, 0.12, 1.5, 1.1, mt(0x1b2430, 0.6), 0, 0.75, -5.6);
   B(g, 0.14, 0.12, 0.9, mt(0xffd94d, 0.5), 0, 1.52, -5.6);
   B(g, 0.1, 0.12, 0.1, new MS({ color: 0xff2222, emissive: 0xff0000, emissiveIntensity: 2 }), 0, 1.66, -5.6);
-  // Tail rotor (v51): two THIN grey blades + a faint spin disc — the
-  // v48 blades were 0.6 m wide in the disc plane (the 0.1 was only
-  // the axial thickness), so from the side they read as a fat white
-  // X. Grey, not white emissive; 0.14 m wide; no outlines or tips.
+  // Tail rotor (v52): NO blades — the v51 blades still showed a
+  // darker X inside the disc (Quick, shot 4). One soft grey spin
+  // disc (radial-gradient texture, so no hard plate edge), a darker
+  // rim and one faint concentric streak. Child of the rotor, so the
+  // mirror clone carries it too, and both shots match.
   const rearRotor = new GP();
   rearRotor.position.set(-0.4, 0.7, -5.6);
   const rrMat = new MS({ color: 0x888888, emissive: 0x888888, emissiveIntensity: 0.3 });
   const rrHub = new ME(new CG(0.14, 0.14, 0.1, 10), rrMat);
   rrHub.rotation.z = PI / 2;
   rearRotor.add(rrHub);
-  for (const a of [PI / 4, 3 * PI / 4]) {
-    const bl = new ME(new BX(0.1, 1.73, 0.14), rrMat);
-    bl.rotation.x = a;
-    rearRotor.add(bl);
-  }
-  // Semi-transparent spin disc (same pattern as the main rotor disc):
-  // the blades blur into it at speed, so the tail reads as a grey
-  // disc, never a hard cross. Child of the rotor, so the mirror clone
-  // carries it too.
-  const rrDisc = new ME(new CI(0.9, 24), new MB({ color: 0xbbbbbb, transparent: true, opacity: 0.2, side: DS, depthWrite: false }));
+  const rrDisc = new ME(new CI(0.9, 24), new MB({ map: poolTexture(), color: 0x999999, transparent: true, opacity: 0.55, side: DS, depthWrite: false }));
   rrDisc.rotation.y = PI / 2;
   rearRotor.add(rrDisc);
+  const rrRim = new ME(new RG(0.82, 0.9, 24), new MB({ color: 0x555555, transparent: true, opacity: 0.6, side: DS, depthWrite: false }));
+  rrRim.rotation.y = PI / 2;
+  rearRotor.add(rrRim);
+  const rrStreak = new ME(new RG(0.45, 0.52, 24), new MB({ color: 0xdddddd, transparent: true, opacity: 0.3, side: DS, depthWrite: false }));
+  rrStreak.rotation.y = PI / 2;
+  rearRotor.add(rrStreak);
   g.add(rearRotor);
   g.userData.rearRotor = rearRotor;
   // Mirror on the other side of the fin — the camera sees the heli

@@ -33,6 +33,47 @@ function mulberry32(seed) {
 // the texture's +x, so material.rotation aligns it with the barrel's
 // screen direction.
 let _flashTex = null;
+// Sun face — a vertical-gradient core (white top to warm cream
+// bottom) with a soft edge, plus a two-stop corona ring, drawn once
+// on canvas so the sun reads as a body with bloom, not a flat white
+// disc sticker (Superbot v51: "reads as a sticker").
+let _sunTex = null;
+function sunTex() {
+  if (_sunTex) return _sunTex;
+  const c = document.createElement('canvas');
+  c.width = 256; c.height = 256;
+  const x = c.getContext('2d');
+  // Core: vertical gradient, clipped to a disc.
+  x.save();
+  x.beginPath(); x.arc(128, 128, 78, 0, PI * 2); x.clip();
+  const vg = x.createLinearGradient(0, 50, 0, 206);
+  vg.addColorStop(0, '#fffdf4');
+  vg.addColorStop(0.55, '#ffe9b0');
+  vg.addColorStop(1, '#ffcf8a');
+  x.fillStyle = vg; x.fillRect(0, 0, 256, 256);
+  x.restore();
+  // Soft edge: fade the disc out with a radial alpha mask.
+  x.globalCompositeOperation = 'destination-in';
+  const rg = x.createRadialGradient(128, 128, 40, 128, 128, 78);
+  rg.addColorStop(0, 'rgba(0,0,0,1)');
+  rg.addColorStop(0.8, 'rgba(0,0,0,1)');
+  rg.addColorStop(1, 'rgba(0,0,0,0)');
+  x.fillStyle = rg; x.fillRect(0, 0, 256, 256);
+  x.globalCompositeOperation = 'source-over';
+  // Two-stop corona ring: two soft orange rings around the core.
+  x.shadowColor = 'rgba(255,150,50,0.9)';
+  x.shadowBlur = 12;
+  x.strokeStyle = 'rgba(255,176,90,0.85)';
+  x.lineWidth = 7;
+  x.beginPath(); x.arc(128, 128, 96, 0, PI * 2); x.stroke();
+  x.strokeStyle = 'rgba(255,150,50,0.5)';
+  x.lineWidth = 10;
+  x.beginPath(); x.arc(128, 128, 116, 0, PI * 2); x.stroke();
+  _sunTex = new CT(c);
+  _sunTex.colorSpace = SC;
+  return _sunTex;
+}
+
 function flashStarTex() {
   if (_flashTex) return _flashTex;
   const c = document.createElement('canvas');
@@ -417,6 +458,38 @@ function stageChase(game) {
   gym.position.set(233, 2.75, -220); // v47: down 0.25 m, skid gap 33 -> ~44 px
   gym.rotation.y = 0;
   game.scene.add(gym);
+  // v52: finish the BAR panel (hero frame's dead centre) — the v51
+  // storefront was a blank beige slab: a blue BAR sign over a tan
+  // glass panel and a same-tan upper band, no lettering on the shop,
+  // no door, no shadow under the sign. The BAR tower is at
+  // (272.7, -262.1), south face (podium front z -262.14, tower face
+  // z -263.0, glass spans x 264.6-280.8). A lettered band over the
+  // glass, a door on the podium's left strip, mullions dividing the
+  // glass into panes, and a shadow line under the main sign.
+  const barBand = makeV31Sign('BAR', '#1a3a5f', '#FFFFFF', 8, 0.9);
+  barBand.position.set(272.7, 3.6, -262.0);
+  barBand.rotation.y = 0;
+  game.scene.add(barBand);
+  const barDoorFrame = new ME(new BX(1.5, 2.6, 0.06), new MS({ color: 0x8a6b4f, roughness: 0.7 }));
+  barDoorFrame.position.set(261.7, 1.3, -262.05);
+  game.scene.add(barDoorFrame);
+  const barDoor = new ME(new BX(1.3, 2.4, 0.08), new MS({ color: 0x1a1a1e, roughness: 0.6 }));
+  barDoor.position.set(261.7, 1.2, -262.0);
+  game.scene.add(barDoor);
+  const barHandle = new ME(new BX(0.08, 0.08, 0.06), new MS({ color: 0xc9a227, roughness: 0.4, metalness: 0.6 }));
+  barHandle.position.set(262.2, 1.2, -261.94);
+  game.scene.add(barHandle);
+  for (const mx of [270.0, 275.4]) {
+    const mull = new ME(new BX(0.08, 2.2, 0.06), new MS({ color: 0x1a1a1e, roughness: 0.6 }));
+    mull.position.set(mx, 1.6, -262.0);
+    game.scene.add(mull);
+  }
+  const barMullH = new ME(new BX(16.2, 0.08, 0.06), new MS({ color: 0x1a1a1e, roughness: 0.6 }));
+  barMullH.position.set(272.7, 1.6, -262.0);
+  game.scene.add(barMullH);
+  const barShadow = new ME(new BX(14, 0.2, 0.06), new MS({ color: 0x1a1a1e, roughness: 0.9 }));
+  barShadow.position.set(272.7, 4.9, -262.9);
+  game.scene.add(barShadow);
   for (const px of [231, 235]) {
     const pole = new ME(new CG(0.12, 0.12, 3.0, 6), new MS({ color: 0x2e3338, roughness: 0.7 }));
     pole.position.set(px, 1.5, -220);
@@ -446,29 +519,28 @@ function stageGunfight(game) {
   player.mesh.rotation.x = 0;
   player.mesh.scale.y = 0.85;
   const rifle = player.mesh.userData.rifle;
-  // Bigger rifle (scale 1.3), turned 26 deg toward the camera-right so
-  // the barrel reads side-on instead of foreshortened to a stub — the
-  // old scale-1.0 rifle pointing straight away was invisible (v43).
-  // Local x -0.55 (not -0.35): the mesh is rotated PI, so local +x is
-  // world west — the old spot put the rifle only just outside the
-  // torso (half-width 0.375 m), so from the staged camera the muzzle
-  // sat inside the torso silhouette and the flash was fully occluded
-  // by his own body (v44). At -0.55 the muzzle clears the silhouette.
-  rifle.position.set(-0.55, 1.65, 0.55);
-  rifle.rotation.set(0.16, 0.45, 0);
-  rifle.scale.setScalar(1.3);
-  // v51: the LEFT arm reaches up-forward to the grip — the arm hung
-  // straight down while the rifle sat at chest height, so the gun
-  // floated with air under it. The arm pivots about its centre, so
-  // rotation.x -2.0 (up-forward) plus a raised centre puts its lower
-  // end on the grip (-0.55, 1.65, 0.65); the skin hand box on the
-  // rifle (player.js) covers the last centimetres. x -0.48 keeps the
-  // arm's inner face against the torso.
-  const armL = player.mesh.userData.armL;
-  if (armL) {
-    armL.position.set(-0.48, 1.52, 0.36);
-    armL.rotation.x = -2.0;
-  }
+  // v52: the rifle points NORTH at the duellist (rotation.y -0.15,
+  // turned 9 deg toward camera-right so the barrel projects longer
+  // across the frame) — the v51 turn (0.45) put the barrel 11 deg off
+  // the view axis, so its 1.17 m foreshortened to a 25 px cube and
+  // the gun read as floating in mid-air (Quick's new severe). Level
+  // and north, the barrel projects ~100 px toward the duellist.
+  // Local x -0.6 (not -0.35): the mesh is rotated PI, so local +x is
+  // world west — the rifle sits clear of the torso (half-width
+  // 0.375 m), so from the staged camera the barrel clears the
+  // silhouette instead of blending into the jacket (v44). Scale 1.5
+  // and a light barrel: the v52 first render still read as a thin
+  // dark stick against the dark jacket, so the barrel is recoloured
+  // mid-grey and the receiver lighter wood (mt() makes a fresh
+  // material per part, so this touches only this rifle).
+  rifle.position.set(-0.6, 1.6, 0.5);
+  rifle.rotation.set(0, -0.15, 0);
+  rifle.scale.setScalar(1.5);
+  if (rifle.children[0]) rifle.children[0].material.color.setHex(0x999999);
+  if (rifle.children[1]) rifle.children[1].material.color.setHex(0x7a5a3a);
+  // The arms are posed AFTER game.step (below) — updatePlayerOnFoot
+  // resets both arms every step, so the v51 pre-step pose never
+  // survived (the second root cause of the floating gun).
   // No steel tip: the light tip read as a detached floating handgun
   // (v42). The barrel is mid-grey now and the flash cone at the muzzle
   // anchor carries the shot.
@@ -510,8 +582,10 @@ function stageGunfight(game) {
   // Ground shadows under all three men — big and dark with a core, so
   // the white dash under each pair of feet is visibly half-dark. The
   // core (renderOrder 3) draws after the dash texture and after any
-  // light pool, so nothing repaints over it.
-  blob(game, -183, 197, 4.5, 3.5, 0.5, 0.1);
+  // light pool, so nothing repaints over it. v52: opacity 0.65 (was
+  // 0.5) — the adjudication says shot 2 DOES have soft shadows, so
+  // deepen them instead of claiming they were absent.
+  blob(game, -183, 197, 4.5, 3.5, 0.65, 0.1);
   // v47: core enlarged 1.8 -> 3.0 m deep — the 2 m dash segment stuck
   // out past the core's dense centre (the dash ends read 159-201).
   // 3.0 m covers the whole segment plus margin; opacity 0.72.
@@ -520,7 +594,7 @@ function stageGunfight(game) {
   pcore.position.set(-183, 0.13, 197);
   pcore.renderOrder = 3;
   game.scene.add(pcore);
-  blob(game, -183, 189, 3.5, 2.8, 0.5, 0.1);
+  blob(game, -183, 189, 3.5, 2.8, 0.65, 0.1);
   // v47: far gunman's core enlarged 1.5 -> 2.5 m deep, same reason;
   // same world size as the near core would read smaller at his
   // distance, so 2.5 m keeps the dash covered. Opacity 0.72.
@@ -529,8 +603,8 @@ function stageGunfight(game) {
   dcore.position.set(-183, 0.13, 189);
   dcore.renderOrder = 3;
   game.scene.add(dcore);
-  blob(game, -188, 193.0, 2.0, 1.6, 0.5, 0.1);
-  blob(game, -189, 195.0, 2.0, 1.6, 0.5, 0.1);
+  blob(game, -188, 193.0, 2.0, 1.6, 0.65, 0.1);
+  blob(game, -189, 195.0, 2.0, 1.6, 0.65, 0.1);
   camB(game);
   // Profile view, NOT over-the-shoulder: camB puts the camera due
   // south (behind the player), so the muzzle, flash and rifle are all
@@ -552,6 +626,22 @@ function stageGunfight(game) {
   skid(game, -183.5, 198.5);
   game.input.fireAction(ACTION_SHOOT);
   game.step(STEP);
+  // v52: two-handed pose, set AFTER the step (see above). The near
+  // arm's hand lands on the grip (-0.6, 1.5, 0.6); the far arm bends
+  // across the chest toward the stock — its 0.65 m cannot reach the
+  // forend, so it points at the stock and the hand lands on the
+  // chest, reading as a two-handed hold from this camera. Both arms
+  // pivot about their centres; the upper ends stay on the shoulders.
+  const armL = player.mesh.userData.armL;
+  if (armL) {
+    armL.position.set(-0.524, 1.488, 0.315);
+    armL.rotation.set(-1.61, 0, -0.261);
+  }
+  const armR = player.mesh.userData.armR;
+  if (armR) {
+    armR.position.set(0.125, 1.517, 0.074);
+    armR.rotation.set(-2.12, 0, -1.325);
+  }
   // v47: STATIC muzzle flash — a screen-space billboard (three-pointed
   // star sprite), reusing the tracer's material set: transparent,
   // additive, depthWrite off, renderOrder 6 above the gun body. The
@@ -707,6 +797,17 @@ function stageDowntown(game) {
   const others = game.cars.parked.filter((c) => c !== taxi);
   others.slice(0, 3).forEach((c, i) => place(c, parkedSpots[i][0], parkedSpots[i][1], PI / 2));
   others.slice(3).forEach((c) => { place(c, 0, 300, 0); });
+  // v52: contact shadows under every visible vehicle — the cars had
+  // none, so they floated on the asphalt (Quick + Superbot v51).
+  // Taxi + 3 traffic + 3 parked; long side along each car's heading
+  // (PI/2 = north-south, 0/PI = east-west).
+  blob(game, 248, -184.5, 3.0, 5.5, 0.6, 0.1);
+  blob(game, 228, -177, 5.5, 3.0, 0.6, 0.1);
+  blob(game, 220, -183, 5.5, 3.0, 0.6, 0.1);
+  blob(game, 243, -200, 3.0, 5.5, 0.6, 0.1);
+  blob(game, 243, -194, 3.0, 5.5, 0.6, 0.1);
+  blob(game, 242.3, -168.84, 3.0, 5.5, 0.6, 0.1);
+  blob(game, 244.5, -204, 3.0, 5.5, 0.6, 0.1);
   // 6 pedestrians in the hero zone.
   const walkers = [[232, -168], [248, -168], [232, -192], [248, -192], [240, -165], [240, -195]];
   game.peds.slice(0, 6).forEach((p, i) => {
@@ -812,6 +913,11 @@ function stageSunset(game) {
   place(comet, 243, -196, PI / 2);
   comet.stolen = true;
   comet.speed = 0;
+  // v52: the comet had no contact shadow — it floated like the shot-3
+  // cars did. (The centre gunman, the foreground gunman and the
+  // burning car already have blobs; their opacities are deepened
+  // below, 0.5 -> 0.65 and 0.6 -> 0.7.)
+  blob(game, 243, -196, 3.0, 5.5, 0.6, 0.1);
   const tex = game.textures.sunsetSky;
   if (tex) {
     tex.mapping = THREE.EquirectangularReflectionMapping;
@@ -835,7 +941,7 @@ function stageSunset(game) {
   const r = game.combat.spawnGunman(240, -183);
   r.mesh.children[8].visible = r.mesh.children[9].visible = false;
   r.mesh.rotation.y = PI / 2 + PI;
-  blob(game, 240, -183, 5.0, 4.0, 0.5, 0.12);
+  blob(game, 240, -183, 5.0, 4.0, 0.65, 0.12);
   const core = new ME(new PG(2.5, 1.8), SH(blobShadowTexture(), 0.85));
   core.rotation.x = -PI / 2;
   core.position.set(240, 0.13, -183);
@@ -877,27 +983,27 @@ function stageSunset(game) {
   bm.cabin.material.color.setHex(0x2a2226);
   bc.mesh.position.y = -0.05;
   // The sunk mesh drags its own under-car shadow below the road, so the
-  // burning car gets an explicit blob to ground it.
-  blob(game, 233, -177, 6.0, 3.8, 0.6, 0.08);
+  // burning car gets an explicit blob to ground it. v52: 0.7 (was 0.6).
+  blob(game, 233, -177, 6.0, 3.8, 0.7, 0.08);
   // Fire is PARTICLES emitted from the car body, not cones: the old
   // 3 cones (tallest 2.8 m) read as a solid yellow triangle floating
   // above the roof with a gap from the body (v43). v45: 6 emission
-  // points SPREAD ALONG THE CAR'S LENGTH (local z, the visible axis)
-  // x 60 sprites each, 3 colour layers (pale core / orange / dark
-  // red edge), so the fire reads as volume, not flat stickers. The
-  // old points spread along local x (the car's width, i.e. depth
-  // from this camera) so they piled into one cluster. Flame height
-  // 45 px (0.55x car): sprites sit 0.6-1.8 m, size 0.25-0.6 m.
-  // v51: 40 per point (was 60), opacity 0.25-0.55 (was 0.55-0.95) so
-  // the cluster stops reading as one solid sticker; the 3 layers are
-  // STAGGERED in height (pale core tall + narrow, dark red low +
-  // wide) and each sprite tapers with height, so the flame reads as
-  // two layers of volume, not a flat sheet.
+  // points, 40 sprites each, 3 colour layers (pale core / orange /
+  // dark red edge), so the fire reads as volume, not flat stickers.
+  // v52: the points spread along LOCAL X — the car's length axis.
+  // The v45 comment said local z was the length, but the car model
+  // builds its length on local x (heading PI/2 maps local +x to
+  // world north, local +z to world east, toward the camera), so the
+  // v45/v51 points spread in DEPTH and piled into one cluster from
+  // the east camera. Now they spread -1.4..1.6 m along the length
+  // and sit just outside the east flank (local z +0.9..1.3), and the
+  // flame LEANS out of the car's side: higher sprites shift toward
+  // the camera (+z) instead of stacking vertically on the panel.
   const fireRng = mulberry32(44);
   const fireTex = game.textures.fireball;
   if (fireTex) {
     const fireCols = [0xfff0b0, 0xff8a20, 0x8a1e08];
-    const firePts = [[0.3, 1.6], [-0.3, 1.1], [0.3, 0.4], [-0.3, -0.2], [0.3, -0.9], [-0.2, -1.4]];
+    const firePts = [[1.6, 1.0], [1.1, 1.2], [0.4, 0.9], [-0.2, 1.1], [-0.9, 1.0], [-1.4, 1.2]];
     for (const [lx, lz] of firePts) {
       for (let i = 0; i < 40; i += 1) {
         const layer = i % 3;
@@ -905,10 +1011,16 @@ function stageSunset(game) {
           map: fireTex, color: fireCols[layer], transparent: true,
           opacity: 0.25 + fireRng() * 0.3, blending: AB, depthWrite: false,
         }));
-        const hBase = [1.1, 0.7, 0.5][layer];
+        // v52: pale core raised to 1.8 m (was 1.1) so it sits above
+        // the orange layer instead of inside it — and all three
+        // layers start at or above the roofline (1.0 m), so the
+        // flames rise FROM the car instead of painting its side
+        // panel (the v52 first render still read as red splotches
+        // on the red flank).
+        const hBase = [1.8, 1.3, 1.0][layer];
         const h = hBase + fireRng() * (layer === 0 ? 0.9 : 0.8);
         const spread = layer === 0 ? 0.3 : 0.6;
-        s.position.set(lx + (fireRng() - 0.5) * spread, h, lz + (fireRng() - 0.5) * spread);
+        s.position.set(lx + (fireRng() - 0.5) * spread, h, lz + (fireRng() - 0.5) * spread + (h - 0.5) * 0.25);
         // v47: particle size -15% so the flame top drops back to y≈305.
         // v51: taper with height — the top sprites are half the base size.
         const taper = 1 - ((h - 0.5) / 1.5) * 0.5;
@@ -918,8 +1030,8 @@ function stageSunset(game) {
       }
     }
     const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: fireTex, color: 0xff8030, transparent: true, opacity: 0.4, blending: AB, depthWrite: false }));
-    glow.position.set(0.3, 1.2, 0);
-    glow.scale.set(2.4, 2.0, 1);
+    glow.position.set(0.3, 1.2, 0.9);
+    glow.scale.set(3.0, 2.2, 1);
     bc.mesh.add(glow);
     // v48 P0-1: warm patch ON the car roof (screen 390-480, 358-388)
     // — an additive warm quad reusing the fire texture, so the roof
@@ -962,24 +1074,26 @@ function stageSunset(game) {
   // (700, 150). At 80 m out the disc is 6 m across (radius ~32 px)
   // and the halo 3x that. Sprites with depthTest off so no building
   // can occlude them; the disc is the brightest thing in the frame.
-  const sunTex = game.textures.pool;
-  if (sunTex) {
-    // v51 P2: warmer disc (was 0xfff2c0, near-white) + a bigger, softer
-    // halo and a faint outer halo, so the sun reads as a warm glare
-    // instead of a blown-out white blob.
-    const sunDisc = new THREE.Sprite(new THREE.SpriteMaterial({ map: sunTex, color: 0xffd9a0, transparent: true, opacity: 0.95, depthWrite: false, depthTest: false }));
+  const sunPool = game.textures.pool;
+  if (sunPool) {
+    // v52: the sun has a BODY now — a vertical-gradient core (white
+    // to warm cream) with a two-stop corona ring, drawn on canvas
+    // (sunTex above), plus a bigger bloom into the horizon haze. The
+    // v51 pool-texture disc was one flat colour with a soft edge and
+    // read as a white sticker (Superbot + Quick, severe).
+    const sunDisc = new THREE.Sprite(new THREE.SpriteMaterial({ map: sunTex(), transparent: true, opacity: 1, depthWrite: false, depthTest: false }));
     sunDisc.position.set(172, 27, -186);
-    sunDisc.scale.set(6, 6, 1);
+    sunDisc.scale.set(8, 8, 1);
     sunDisc.renderOrder = 999;
     game.scene.add(sunDisc);
-    const sunHalo = new THREE.Sprite(new THREE.SpriteMaterial({ map: sunTex, color: 0xff9a2e, transparent: true, opacity: 0.25, depthWrite: false, depthTest: false }));
+    const sunHalo = new THREE.Sprite(new THREE.SpriteMaterial({ map: sunPool, color: 0xff9a2e, transparent: true, opacity: 0.3, depthWrite: false, depthTest: false }));
     sunHalo.position.set(172, 27, -186);
-    sunHalo.scale.set(26, 26, 1);
+    sunHalo.scale.set(30, 30, 1);
     sunHalo.renderOrder = 998;
     game.scene.add(sunHalo);
-    const sunOuter = new THREE.Sprite(new THREE.SpriteMaterial({ map: sunTex, color: 0xff7a2e, transparent: true, opacity: 0.12, depthWrite: false, depthTest: false }));
+    const sunOuter = new THREE.Sprite(new THREE.SpriteMaterial({ map: sunPool, color: 0xff7a2e, transparent: true, opacity: 0.15, depthWrite: false, depthTest: false }));
     sunOuter.position.set(172, 27, -186);
-    sunOuter.scale.set(42, 42, 1);
+    sunOuter.scale.set(50, 50, 1);
     sunOuter.renderOrder = 997;
     game.scene.add(sunOuter);
   }
@@ -1007,29 +1121,40 @@ function stageSunset(game) {
   // 0.5 m larger each way (radius +15 px), so it covers the white
   // dash under his feet (900-1010, 625-655) instead of stopping
   // short of it.
-  blob(game, 247.8, -181.7, 5.5, 4.5, 0.5, 0.12);
+  blob(game, 247.8, -181.7, 5.5, 4.5, 0.65, 0.12);
   // Rifle: in his RIGHT hand (local +x, the camera side after the
   // torso turn), longer (1.6 m) and angled up-right so the barrel
   // sticks out past the torso — >=60 px exposed, stock to shoulder.
   // The old rifle sat on his left (local -x) behind the torso and
   // was fully occluded from this camera.
-  // v51: the rifle was one thin 0.07 m box — a stick. Rebuilt as
-  // barrel + receiver + stock + magazine, same position/rotation.
+  // v52: rebuilt at readable scale — the v51 rifle was four thin
+  // (0.05-0.09 m) bars that merged into one dark stick at 4 m. Each
+  // segment is thicker now with a contrasting material (dark barrel,
+  // tan wood handguard and stock, black receiver and magazine) so
+  // the parts separate by colour as well as by shape, plus a
+  // handguard wrapping the barrel's rear and a sight breaking the
+  // top silhouette.
   const fgRifle = new THREE.Group();
-  const fgRifleMat = new MS({ color: 0x2a2a2a, roughness: 0.4 });
-  const fgRifleWood = new MS({ color: 0x3a2a1a, roughness: 0.8 });
-  const fgBarrel = new ME(new BX(0.06, 0.06, 0.9), fgRifleMat);
-  fgBarrel.position.set(0, 0.02, 0.55);
+  const fgRifleMat = new MS({ color: 0x1a1a1a, roughness: 0.4 });
+  const fgRifleWood = new MS({ color: 0x8a6b4f, roughness: 0.8 });
+  const fgBarrel = new ME(new BX(0.09, 0.09, 0.85), fgRifleMat);
+  fgBarrel.position.set(0, 0.04, 0.65);
   fgRifle.add(fgBarrel);
-  const fgRecv = new ME(new BX(0.09, 0.12, 0.5), fgRifleWood);
-  fgRecv.position.set(0, 0, 0.05);
+  const fgGuard = new ME(new BX(0.14, 0.14, 0.4), fgRifleWood);
+  fgGuard.position.set(0, 0.02, 0.3);
+  fgRifle.add(fgGuard);
+  const fgRecv = new ME(new BX(0.13, 0.16, 0.42), fgRifleMat);
+  fgRecv.position.set(0, 0, -0.05);
   fgRifle.add(fgRecv);
-  const fgStock = new ME(new BX(0.08, 0.1, 0.45), fgRifleWood);
-  fgStock.position.set(0, -0.01, -0.35);
+  const fgStock = new ME(new BX(0.12, 0.14, 0.4), fgRifleWood);
+  fgStock.position.set(0, -0.02, -0.45);
   fgRifle.add(fgStock);
-  const fgMag = new ME(new BX(0.05, 0.22, 0.09), fgRifleMat);
-  fgMag.position.set(0, -0.14, 0.1);
+  const fgMag = new ME(new BX(0.07, 0.26, 0.1), fgRifleMat);
+  fgMag.position.set(0, -0.17, 0.0);
   fgRifle.add(fgMag);
+  const fgSight = new ME(new BX(0.05, 0.1, 0.06), fgRifleMat);
+  fgSight.position.set(0, 0.13, -0.05);
+  fgRifle.add(fgSight);
   fgRifle.position.set(0.45, 1.45, 0.35);
   fgRifle.rotation.set(0.25, 1.0, 0);
   fgGun.mesh.add(fgRifle);
@@ -1081,11 +1206,12 @@ function stageSunset(game) {
   // by the fire — the strongest clue the fire is ON the car.
   // v45: 0xFF7A28, intensity 3, range 6 m (10 Hz flicker is a live-game
   // effect; the still reads the steady value).
-  // v51: intensity 8, range 8 m — the v48 lights measured no effect on
-  // the car/road (ratio 1.00x), so the fire must also carry itself
-  // with sprites: the ground pool below does the warming the lights
-  // were supposed to do.
-  const fireLight = new THREE.PointLight(0xff7a28, 8, 8);
+  // v52: intensity 10, range 12 m — the v51 light (8/8 m) stopped
+  // short of the centre gunman (9.2 m away) and the road in front
+  // of the car. (The v48 lights measured no effect on the car/road,
+  // so the pool above does the visible warming; this light is the
+  // second layer, not the proof.)
+  const fireLight = new THREE.PointLight(0xff7a28, 10, 12);
   fireLight.position.set(0, 2, 0);
   bc.mesh.add(fireLight);
   // v46: a second, closer light just above the body (y=1.2, range
@@ -1096,14 +1222,19 @@ function stageSunset(game) {
   const bodyLight = new THREE.PointLight(0xff7a28, 5, 4);
   bodyLight.position.set(0, 1.2, 0);
   bc.mesh.add(bodyLight);
-  // v51: orange ground glow pool under the burning car — the warm
+  // v52: orange ground glow pool under the burning car — the warm
   // reflection on the asphalt that proves the fire lights the street.
-  // Small (r 2.8), low opacity (0.22), tinted orange; renderOrder 3
-  // so it draws over the car's dark blob shadow instead of under it.
-  // (The v42 pool was a big opaque beige blob — this one is a third
-  // the size and a quarter the opacity.)
-  const firePool = pool(game, 233, -177, 2.8, 0.22, 0.09);
+  // v51's pool (r 2.8, opacity 0.22, centred under the car) was
+  // invisible: the car's own blob shadow covers it and only a thin
+  // rim sticks out past the body. Now r 4.2 at 0.45, shifted east
+  // and north so a visible orange apron spills onto the road in
+  // front of the car, plus a brighter hot core under the fire.
+  // (The v42 pool was a big opaque beige blob — this one is additive,
+  // so it can only warm the road, never paint it.)
+  const firePool = pool(game, 234.5, -176, 4.2, 0.45, 0.14);
   if (firePool) { firePool.material.color.setHex(0xff6a20); firePool.renderOrder = 3; }
+  const fireCore = pool(game, 234, -176.5, 2.2, 0.5, 0.15);
+  if (fireCore) { fireCore.material.color.setHex(0xff8a30); fireCore.renderOrder = 3; }
   // v45: the light bar must read red AND blue — the blue side was
   // unlit, so the bar read as one dark-red slab.
   if (bm.lightR) bm.lightR.material.emissive.setHex(0xff0000);
