@@ -62,10 +62,16 @@ export function createPlayerMesh() {
   // the barrel tip (local z 1.6); flash + tracer anchor here.
   const rifle = new GP();
   const rBarrel = mt(0xbbbbbb, 0.4);
-  const rGuard = mt(0x3a3e44, 0.8); // v55: gunmetal, was tan 0xa9743f
+  // v57.2: the receiver/handguard were near-black (0x1a1a1a /
+  // 0x3a3e44) and blended into the player's dark jacket, so only
+  // the pale barrel read — the rifle looked detached/floating and
+  // the reviewer saw no weapon in the player's hands. Lighten the
+  // receiver and handguard to mid-grey so the whole rifle reads as
+  // one continuous object from grip to muzzle, in every shot.
+  const rGuard = mt(0x6a6e74, 0.8); // v55: gunmetal, was tan 0xa9743f
   // — in shot 2 it rendered bright yellow (#ffd21f) and read as a
   // plastic prop; the dark gunmetal separates it from the skin hands.
-  const rDark = mt(0x1a1a1a, 0.4);
+  const rDark = mt(0x555555, 0.4);
   const rWood = mt(0x5a3a22, 0.8);
   B(rifle, 0.05, 0.05, 1.4, rBarrel, 0, 0.02, 0.9); // barrel, z 0.2-1.6
   B(rifle, 0.11, 0.13, 0.45, rGuard, 0, 0, 0.42); // handguard, z 0.2-0.65

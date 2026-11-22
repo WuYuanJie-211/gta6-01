@@ -248,6 +248,35 @@ function glassTex() {
   return t;
 }
 
+// Van glass texture — a DARK sky gradient (top lighter, bottom
+// near-black) with a faint diagonal reflection streak, so the van
+// glass reads as glass reflecting sky, not a flat black card.
+// Dark enough (avg lum ~25) to stay darker than the sunlit paint
+// (lum ~66) while the gradient is visible at 720p. v57.2 Fix 1.
+function vanGlassTex() {
+  const c = document.createElement('canvas');
+  c.width = 128;
+  c.height = 64;
+  const x = c.getContext('2d');
+  const g = x.createLinearGradient(0, 0, 0, 64);
+  g.addColorStop(0, '#263448');
+  g.addColorStop(0.6, '#141c2a');
+  g.addColorStop(1, '#080c14');
+  x.fillStyle = g;
+  x.fillRect(0, 0, 128, 64);
+  x.fillStyle = 'rgba(255,255,255,0.12)';
+  x.beginPath();
+  x.moveTo(20, 64);
+  x.lineTo(70, 0);
+  x.lineTo(95, 0);
+  x.lineTo(45, 64);
+  x.closePath();
+  x.fill();
+  const t = new CT(c);
+  t.colorSpace = SC;
+  return t;
+}
+
 function steerCarToward(game, tx, tz) {
   const car = game.player.car;
   if (!car) return;
@@ -324,31 +353,112 @@ function stageChase(game) {
   van.stolen = true;
   van.speed = 22.5;
   enterCar(game, van);
-  // v46: van body detail — the armored van read as a near-pure-black
-  // slab (body 0x2a2f36, albedo ~0.04). Clone the paint so only this
-  // van lightens (VM caches by colour), lift it to 0x565b63
-  // (albedo ~0.10), then break the slab with side windows + door
-  // seams on both flanks so the camera side always reads.
+  // v57.2 Fix 1 (Superbot synthesis — the chase car): the van is the
+  // player car and it must read as the REPLACED car in the frame
+  // players see most. Roof 10-12% narrower than the 1.9 beltline
+  // (roof cap 1.68), rear screen raked ~22 deg, front quarter
+  // chamfer, wheel arches cut, chrome on beltline / bumpers /
+  // mirror caps / rims. Paint lifted ~1.5 stops above tyre black
+  // with a clearcoat (roughness 0.2) so the roof catches a sky
+  // specular band; glass near-black (roughness 0.08) reflecting
+  // sky; rubber matte 0.9, the darkest surface in frame.
   // v57: the van body is a tapered two-box shell sharing one
   // per-car paint material (userData.paint) — mutating it lightens
   // every paint part at once; the old clone-one-box trick left the
   // shoulder dark.
   const vpm = van.mesh.userData.paint;
-  if (vpm) vpm.color.setHex(0x565b63);
+  if (vpm) { vpm.color.setHex(0x6b7078); vpm.roughness = 0.2; vpm.metalness = 0.2; }
   const vb = van.mesh.userData.body;
   if (vb) {
-    const glassM = new MS({ color: 0x223a4a, roughness: 0.15, metalness: 0.4 });
+    const glassM = new MS({ color: 0x0e1418, roughness: 0.08, metalness: 0.8 });
+    // Van glass uses the dark sky-gradient texture (MeshBasic, so
+    // the gradient reads even on the shadowed flank) — the side
+    // windows and rear screen must show a sky gradient, not flat
+    // black, while staying darker than the sunlit paint.
+    const vanGlassM = new MB({ map: vanGlassTex() });
     const seamM = new MS({ color: 0x1a1a1a, roughness: 0.9 });
+    const chromeM = new MS({ color: 0xe8ecf0, roughness: 0.1, metalness: 1 });
+    const rubberM = new MS({ color: 0x141414, roughness: 0.9 });
     for (const s of [-1, 1]) {
-      const win = new ME(new BX(2.6, 0.55, 0.04), glassM);
+      const win = new ME(new BX(2.6, 0.55, 0.04), vanGlassM);
       win.position.set(0.3, 1.95, s * 0.97);
       van.mesh.add(win);
+      // Chrome window trim: top and bottom edges of the side glass.
+      for (const wy of [2.24, 1.66]) {
+        const trim = new ME(new BX(2.62, 0.04, 0.03), chromeM);
+        trim.position.set(0.3, wy, s * 0.99);
+        van.mesh.add(trim);
+      }
       for (const dx of [1.2, -0.8]) {
         const seam = new ME(new BX(0.05, 1.3, 0.02), seamM);
         seam.position.set(dx, 1.45, s * 0.96);
         van.mesh.add(seam);
       }
+      // Chrome beltline trim: runs the full flank at the beltline
+      // (y 1.68), so the flank reads as styled metal, not a slab.
+      const belt = new ME(new BX(4.6, 0.05, 0.03), chromeM);
+      belt.position.set(0, 1.68, s * 0.97);
+      van.mesh.add(belt);
+      // Wheel-arch cut: a dark rubber arch band above each wheel,
+      // proud of the flank, so the arches read as cut, not painted.
+      for (const wx of [1.5, -1.5]) {
+        const arch = new ME(new BX(0.95, 0.24, 0.08), rubberM);
+        arch.position.set(wx, 0.78, s * 0.97);
+        van.mesh.add(arch);
+        // Chrome rim ring: a bright disc behind the hub so the rim
+        // reads as chrome, not a dark donut.
+        const rim = new ME(new CG(0.26, 0.26, 0.03, 16), chromeM);
+        rim.rotation.x = PI / 2;
+        rim.position.set(wx, 0.34, s * 0.86);
+        van.mesh.add(rim);
+      }
+      // Chrome mirror cap: larger than the stock head, so the cap
+      // catches a highlight from the chase camera.
+      const cap = new ME(new BX(0.14, 0.22, 0.09), chromeM);
+      cap.position.set(1.41, 2.56, s * 1.04);
+      van.mesh.add(cap);
     }
+    // Roof cap, 1.68 wide — 11.6% narrower than the 1.9 beltline —
+    // so the roof reads tapered from behind, not a flat slab top.
+    const roof = new ME(new BX(4.2, 0.1, 1.68), vpm);
+    roof.position.set(-0.1, 2.45, 0);
+    van.mesh.add(roof);
+    // Chrome roof-edge trim on both sides: the rim light from the
+    // cool fill catches it, so the roof edge cuts against the road.
+    for (const s of [-1, 1]) {
+      const edge = new ME(new BX(4.2, 0.04, 0.04), chromeM);
+      edge.position.set(-0.1, 2.51, s * 0.85);
+      van.mesh.add(edge);
+    }
+    // Raked rear screen: glass raked ~22 deg (top forward), with a
+    // chrome frame, so the rear is not a flat vertical slab.
+    const rFrame = new ME(new BX(0.04, 0.95, 1.62), chromeM);
+    rFrame.position.set(-2.22, 2.02, 0);
+    rFrame.rotation.z = -0.38;
+    van.mesh.add(rFrame);
+    const rScreen = new ME(new BX(0.05, 0.85, 1.5), vanGlassM);
+    rScreen.position.set(-2.21, 2.02, 0);
+    rScreen.rotation.z = -0.38;
+    van.mesh.add(rScreen);
+    // Front quarter chamfer: a sloped paint panel at the front top
+    // (hood slope), so the nose is not a flat vertical face.
+    const nose = new ME(new BX(0.8, 0.08, 1.7), vpm);
+    nose.position.set(1.95, 2.32, 0);
+    nose.rotation.z = -0.35;
+    van.mesh.add(nose);
+    // Chrome rear bumper: wide and bright, the rear chrome highlight
+    // (the >=200/255 chrome the chase frame needs).
+    const rBumper = new ME(new BX(0.16, 0.34, 1.9), chromeM);
+    rBumper.position.set(-2.42, 0.62, 0);
+    van.mesh.add(rBumper);
+    // Chrome strip on the rear top edge.
+    const rTop = new ME(new BX(0.05, 0.05, 1.7), chromeM);
+    rTop.position.set(-2.37, 2.38, 0);
+    van.mesh.add(rTop);
+    // Windshield glass: near-black, roughness 0.08, so it reflects
+    // sky and separates from paint (was 0.12 / 0.6).
+    const ws = van.mesh.userData.windshield;
+    if (ws) { ws.material = glassM; }
   }
   // v46: the van's warm-white headlights (0xfff3c4 + emissive) sit
   // inside the dash-B measurement box (790-860,430-450) and read 209
@@ -673,7 +783,16 @@ function stageGunfight(game) {
   // behind him (at PI/4 the duellist hid behind the player). The
   // wider angle also pushes the big orange brick wall (left third)
   // out of frame.
+  // v57.2 Fix (weapon in hand, Superbot synthesis): pin the 3/4
+  // camera angle. updateCamera auto-eases cameraAngle toward 0
+  // (directly behind the player) when lastDragAt is stale, so the
+  // staged 0.65 (south-east) drifted to ~0.13 by render time — and
+  // a north-pointing rifle seen end-on from directly behind is
+  // foreshortened to a dot behind the receiver. Pinning lastDragAt
+  // here keeps the 0.65 angle through the ~1.3 s of staging steps,
+  // so the barrel reads in profile.
   game.cameraAngle = 0.65;
+  game.lastDragAt = game.time;
   // Layout plan: camera 1.2 m, pitch ~level, FOV 40 — telephoto
   // compression presses the wall up against the figures. camX is
   // NEGATIVE now: the near gunman sits on the RIGHT golden line (the

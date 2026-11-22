@@ -762,6 +762,9 @@ export function buildCity(scene, rng, textures) {
     prop.position.set(px, 0, pz);
     prop.rotation.y = rot + rng.range(-0.15, 0.15);
     prop.scale.setScalar(sc * rng.range(0.95, 1.08));
+    // v57.2: props cast real shadows (they read pasted-in without
+    // one — the kiosk had bright sidewalk right up to its base).
+    prop.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
     scene.add(prop);
   }
   // One fire escape on tower 1's south face (its sign is on the east

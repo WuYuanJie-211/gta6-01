@@ -39,11 +39,15 @@ export function blobShadowTexture() {
   if (_blobTex) return _blobTex;
   const [c, x] = canvas(256, 256);
   // Power-2.0 falloff: dark solid core, soft edge, no hard ring.
+  // v57.2 Fix 2: the blob is dark BLUE-GREY (16,22,36), not pure
+  // black, so contact shadows read blue-grey (B >= R + 6) instead
+  // of neutral — the sun's cast shadows are blue-grey, and the
+  // contact darkening under them must match, not go black.
   const g = x.createRadialGradient(128, 128, 8, 128, 128, 128);
-  g.addColorStop(0, 'rgba(0,0,0,0.95)');
-  g.addColorStop(0.45, 'rgba(0,0,0,0.6)');
-  g.addColorStop(0.75, 'rgba(0,0,0,0.18)');
-  g.addColorStop(1, 'rgba(0,0,0,0)');
+  g.addColorStop(0, 'rgba(16,22,36,0.95)');
+  g.addColorStop(0.45, 'rgba(16,22,36,0.6)');
+  g.addColorStop(0.75, 'rgba(16,22,36,0.18)');
+  g.addColorStop(1, 'rgba(16,22,36,0)');
   x.fillStyle = g;
   x.fillRect(0, 0, 256, 256);
   _blobTex = new CT(c);
@@ -754,6 +758,19 @@ export function makeKiosk() {
   const sign = new ME(new BX(2.0, 0.35, 0.06), new MS({ color: 0xd32f2f, roughness: 0.6 }));
   sign.position.set(0, 2.0, 0.82);
   g.add(sign);
+  // v57.2: the front (+z) faces south-east but the chase camera is
+  // south-west, so the shot sees the flat back and the kiosk reads
+  // as a bare blue box. Mirror the counter, window and sign onto
+  // the back (-z) face too, so it reads as a kiosk from either side.
+  const counterB = new ME(new BX(2.4, 0.1, 0.5), trim);
+  counterB.position.set(0, 1.05, -0.95);
+  g.add(counterB);
+  const winB = new ME(new BX(1.8, 0.8, 0.05), glass);
+  winB.position.set(0, 1.5, -0.82);
+  g.add(winB);
+  const signB = new ME(new BX(2.0, 0.35, 0.06), new MS({ color: 0xd32f2f, roughness: 0.6 }));
+  signB.position.set(0, 2.0, -0.82);
+  g.add(signB);
   return g;
 }
 
@@ -861,6 +878,21 @@ export function makeBikeRack() {
   const seat = new ME(new BX(0.22, 0.05, 0.08), new MS({ color: 0x1a1a1a, roughness: 0.9 }));
   seat.position.set(-0.55, 0.72, 0.75);
   g.add(seat);
+  // v57.2: a frame triangle (down tube, seat tube, fork, chain
+  // stay, seat stay) so the two wheels read as one bicycle leaning
+  // on the rack — before, only a top bar joined them and the far
+  // wheel read as a solid black disc floating beside the hoop.
+  const tube = (len, x, y, rz) => {
+    const t = new ME(new BX(len, 0.045, 0.045), frame);
+    t.position.set(x, y, 0.75);
+    t.rotation.z = rz;
+    g.add(t);
+  };
+  tube(0.62, 0.275, 0.48, 0.47); // down tube: head tube to bracket
+  tube(0.67, -0.275, 0.53, -0.6); // seat tube: bracket to seat
+  tube(0.28, 0.55, 0.48, PI / 2); // fork: head tube to front axle
+  tube(0.55, -0.275, 0.34, 0); // chain stay: bracket to rear axle
+  tube(0.38, -0.55, 0.53, PI / 2); // seat stay: seat to rear axle
   return g;
 }
 
