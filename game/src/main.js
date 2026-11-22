@@ -51,7 +51,15 @@ class Game {
     this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, preserveDrawingBuffer: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    // v57 row 6 (grade): exposure 1.2 — a slight lift so backlit
+    // foreground figures are not pure silhouettes against the sky.
+    this.renderer.toneMappingExposure = 1.2;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    // v57 row 1: one shadow-casting sun (PCF soft) so every car,
+    // person and building grounds itself with a real cast shadow.
+    // Blob shadows stay as contact darkening underneath.
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.textures = textures;
     // Full anisotropy for the procedural road/sidewalk textures.
     this.textures.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
@@ -65,11 +73,36 @@ class Game {
     this.scene.add(this.sunBillboard);
     // Warm haze, pushed out (300/900) so the midground is not washed
     // into sky colour. The dome is unfogged.
-    this.scene.fog = new THREE.Fog(0xD9A06B, 300, 900);
+    // v57 row 6 (grade): the fog is a touch cooler and less saturated
+    // than the old warm tan, so distant haze separates by cool air
+    // instead of washing the whole street orange.
+    this.scene.fog = new THREE.Fog(0xc9a88c, 300, 900);
     this.camera = new THREE.PerspectiveCamera(60, 1, 0.1, 1500);
     const sun = new THREE.DirectionalLight(0xffd9a0, 3.0);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.camera.left = -60;
+    sun.shadow.camera.right = 60;
+    sun.shadow.camera.top = 60;
+    sun.shadow.camera.bottom = -60;
+    sun.shadow.camera.near = 10;
+    sun.shadow.camera.far = 400;
+    sun.shadow.bias = -0.0003;
+    sun.shadow.normalBias = 0.6;
     this.scene.add(sun);
-    this.scene.add(new THREE.HemisphereLight(0xffe0b8, 0x8a7a5a, 1.15));
+    this.scene.add(sun.target);
+    // Cool fill from the opposite side: lifts shadow faces with blue
+    // so shadows read blue-grey against the warm key. No shadow.
+    // v57 row 6 (grade): warm key, cool shadow, one accent. The fill
+    // is the cool counterweight to the warm sun — strong enough that
+    // shadow faces read blue-grey, not muddy orange. The hemisphere
+    // ground is a cool blue-grey for the same reason.
+    const fill = new THREE.DirectionalLight(0x8aa0c0, 0.65);
+    fill.position.set(-80, 40, -60);
+    this.scene.add(fill);
+    this.scene.add(fill.target);
+    // Hemisphere: warm sky, COOL blue-grey ground — shadows go blue.
+    this.scene.add(new THREE.HemisphereLight(0xffe0b8, 0x4a5a6e, 0.9));
     this.sun = sun;
     this.roads = buildRoads();
     this.city = buildCity(this.scene, this.rng, textures);

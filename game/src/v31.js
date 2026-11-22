@@ -145,6 +145,38 @@ export function makeRoadTexture(aniso) {
   // --- Markings, hard edges, no blur. Across: 1024 px = 12 m (85.3
   // px/m). Along: 1024 px = 8 m (128 px/m).
   const m = 1024 / 12; // px per metre across
+  // v57 row 4: tyre tracks — dark polished bands where wheels run
+  // (lane centres 3 m and 9 m, wheels at ±0.8 m). Three overlapping
+  // soft bands per track so the edge feathers instead of striping.
+  for (const cx of [2.2 * m, 3.8 * m, 8.2 * m, 9.8 * m]) {
+    for (const [w, a] of [[0.55 * m, 0.16], [0.35 * m, 0.12], [0.18 * m, 0.1]]) {
+      wrap(() => {
+        x.fillStyle = `rgba(0,0,0,${a})`;
+        x.fillRect(cx - w / 2, 0, w, 1024);
+      });
+    }
+  }
+  // v57 row 4: gutter — the outer 0.5 m darkens toward the curb,
+  // where dirt and leaves collect.
+  for (const [gx, dir] of [[0, 1], [1024, -1]]) {
+    for (let i = 0; i < 6; i += 1) {
+      wrap(() => {
+        x.fillStyle = `rgba(0,0,0,${0.05 - i * 0.007})`;
+        x.fillRect(gx + dir * i * 7, 0, 7, 1024);
+      });
+    }
+  }
+  // v57 row 4: oil patches — a few dark glossy blobs in the lanes.
+  // Fixed positions (not random) so the roughness map below draws
+  // the same spots glossy.
+  for (const [ox, oy, ow, oh] of [[2.6, 180, 55, 30], [8.9, 420, 40, 26], [3.4, 700, 48, 34], [9.5, 880, 38, 22], [5.2, 950, 44, 28]]) {
+    wrap(() => {
+      x.fillStyle = 'rgba(8,8,10,0.28)';
+      x.beginPath();
+      x.ellipse(ox * m, oy, ow, oh, 0.4, 0, PI * 2);
+      x.fill();
+    });
+  }
   const edge = (px, w) => { x.fillRect(px - w / 2, 0, w, 1024); };
   // White edge lines.
   x.fillStyle = '#dcdcdc';
@@ -159,8 +191,59 @@ export function makeRoadTexture(aniso) {
   for (const cx of [3 * m, 9 * m]) {
     for (const y0 of [0, 512]) x.fillRect(cx - 6.5, y0, 13, 256);
   }
+  // v57 row 4: worn paint — chip the markings with asphalt-coloured
+  // notches so the dashes and centre lines read as worn, not freshly
+  // painted. The chips are the base asphalt colour.
+  x.fillStyle = '#54585d';
+  for (let i = 0; i < 26; i += 1) {
+    const cx = [3 * m, 9 * m, 512 - 15, 512 + 15][Math.floor(rnd() * 4)];
+    const cy = rnd() * 1024;
+    const cw = 3 + rnd() * 8;
+    const ch = 4 + rnd() * 14;
+    wrap(() => x.fillRect(cx - cw / 2, cy, cw, ch));
+  }
   const t = new CT(c);
   t.colorSpace = SC;
+  t.anisotropy = aniso;
+  return t;
+}
+
+// v57 row 4: road roughness map — same 1024x1024 layout as the colour
+// map, so the tyre tracks line up. White = rough (0.95), dark =
+// polished. The tyre tracks are polished smooth by traffic (dark),
+// the oil patches are near-gloss (very dark), the rest stays rough.
+export function makeRoadRoughnessTexture(aniso) {
+  const [c, x] = canvas(1024, 1024);
+  const rnd = mulberry(4101);
+  const wrap = (fn) => {
+    for (const [dx, dy] of [[0, 0], [-1024, 0], [1024, 0], [0, -1024], [0, 1024]]) {
+      x.save();
+      x.translate(dx, dy);
+      fn();
+      x.restore();
+    }
+  };
+  x.fillStyle = '#f2f2f2'; // rough base
+  x.fillRect(0, 0, 1024, 1024);
+  const m = 1024 / 12;
+  for (const cx of [2.2 * m, 3.8 * m, 8.2 * m, 9.8 * m]) {
+    for (const [w, v] of [[0.55 * m, 150], [0.35 * m, 120], [0.18 * m, 95]]) {
+      wrap(() => {
+        x.fillStyle = `rgb(${v},${v},${v})`;
+        x.fillRect(cx - w / 2, 0, w, 1024);
+      });
+    }
+  }
+  // Oil patches: near-gloss. Same fixed positions as the colour map.
+  for (const [ox, oy, ow, oh] of [[2.6, 180, 55, 30], [8.9, 420, 40, 26], [3.4, 700, 48, 34], [9.5, 880, 38, 22], [5.2, 950, 44, 28]]) {
+    wrap(() => {
+      x.fillStyle = 'rgb(45,45,45)';
+      x.beginPath();
+      x.ellipse(ox * m, oy, ow, oh, 0.4, 0, PI * 2);
+      x.fill();
+    });
+  }
+  const t = new CT(c);
   t.anisotropy = aniso;
   return t;
 }
@@ -192,6 +275,43 @@ export function makeSidewalkTexture(aniso) {
   for (let i = 0; i <= 16; i += 1) {
     x.beginPath(); x.moveTo(i * 64, 0); x.lineTo(i * 64, 1024); x.stroke();
     x.beginPath(); x.moveTo(0, i * 64); x.lineTo(1024, i * 64); x.stroke();
+  }
+  // v57 row 4: grime — dark streaks running along the seams and
+  // pooling near the tile edges, so the sidewalk reads as walked-on.
+  for (let i = 0; i < 26; i += 1) {
+    const gx = rnd() * 1024;
+    const gy = rnd() * 1024;
+    const gl = 40 + rnd() * 140;
+    x.strokeStyle = `rgba(60,50,35,${0.05 + rnd() * 0.08})`;
+    x.lineWidth = 3 + rnd() * 8;
+    x.beginPath();
+    x.moveTo(gx, gy);
+    x.lineTo(gx + (rnd() - 0.5) * 30, gy + gl);
+    x.stroke();
+  }
+  // v57 row 4: gum spots — small dark dots pressed into the tiles.
+  for (let i = 0; i < 60; i += 1) {
+    x.fillStyle = `rgba(40,32,24,${0.25 + rnd() * 0.3})`;
+    x.beginPath();
+    x.arc(rnd() * 1024, rnd() * 1024, 2 + rnd() * 3.5, 0, PI * 2);
+    x.fill();
+  }
+  // v57 row 4: cracked tiles — a jagged dark line across a few tiles.
+  x.strokeStyle = 'rgba(50,42,30,0.5)';
+  x.lineWidth = 2;
+  for (let i = 0; i < 8; i += 1) {
+    const cx = Math.floor(rnd() * 16) * 64 + 12 + rnd() * 40;
+    const cy = Math.floor(rnd() * 16) * 64 + 12 + rnd() * 40;
+    x.beginPath();
+    x.moveTo(cx, cy);
+    let px = cx;
+    let py = cy;
+    for (let s = 0; s < 4; s += 1) {
+      px += (rnd() - 0.5) * 24;
+      py += 10 + rnd() * 12;
+      x.lineTo(px, py);
+    }
+    x.stroke();
   }
   const t = new CT(c);
   t.colorSpace = SC;
@@ -599,6 +719,148 @@ export function makeBench() {
     leg.position.set(dx, 0.22, 0);
     g.add(leg);
   }
+  return g;
+}
+
+// v57 row 3 — five street props (the facade kit's street clutter).
+// Each is a small group of real geometry, so one block carries many
+// more objects than before. Placed by city.js with varied scale and
+// rotation; roughly one in five is dropped.
+export function makeKiosk() {
+  const g = new GP();
+  const body = new MS({ color: 0x2e5a8a, roughness: 0.7 });
+  const trim = new MS({ color: 0xf5f0e6, roughness: 0.6 });
+  const glass = new MS({ color: 0x18242e, roughness: 0.15, metalness: 0.5 });
+  const main = new ME(new BX(2.4, 2.2, 1.6), body);
+  main.position.y = 1.1;
+  g.add(main);
+  const roof = new ME(new BX(2.7, 0.12, 1.9), trim);
+  roof.position.y = 2.26;
+  g.add(roof);
+  const counter = new ME(new BX(2.4, 0.1, 0.5), trim);
+  counter.position.set(0, 1.05, 0.95);
+  g.add(counter);
+  const win = new ME(new BX(1.8, 0.8, 0.05), glass);
+  win.position.set(0, 1.5, 0.82);
+  g.add(win);
+  // A stack of papers and magazines on the counter.
+  const mags = [0xe74c3c, 0xf1c40f, 0x3498db, 0xffffff];
+  for (let i = 0; i < 4; i += 1) {
+    const m = new ME(new BX(0.35, 0.06, 0.28), new MS({ color: mags[i], roughness: 0.8 }));
+    m.position.set(-0.7 + i * 0.45, 1.13, 0.95);
+    m.rotation.y = (i - 1.5) * 0.2;
+    g.add(m);
+  }
+  const sign = new ME(new BX(2.0, 0.35, 0.06), new MS({ color: 0xd32f2f, roughness: 0.6 }));
+  sign.position.set(0, 2.0, 0.82);
+  g.add(sign);
+  return g;
+}
+
+export function makeDumpster() {
+  const g = new GP();
+  const green = new MS({ color: 0x2e5d3a, roughness: 0.8, metalness: 0.2 });
+  const dark = new MS({ color: 0x1e3a26, roughness: 0.9 });
+  const body = new ME(new BX(2.0, 1.2, 1.1), green);
+  body.position.y = 0.75;
+  g.add(body);
+  // Lid, hinged open a crack so it reads as a lid, not a slab.
+  const lid = new ME(new BX(2.0, 0.08, 1.1), dark);
+  lid.position.set(0, 1.42, -0.15);
+  lid.rotation.x = -0.18;
+  g.add(lid);
+  const rim = new ME(new BX(2.05, 0.1, 1.15), dark);
+  rim.position.y = 1.32;
+  g.add(rim);
+  for (const s of [-1, 1]) {
+    const wheel = new ME(new CG(0.12, 0.12, 0.08, 8), new MS({ color: 0x111111, roughness: 1 }));
+    wheel.rotation.x = PI / 2;
+    wheel.position.set(s * 0.8, 0.12, 0.55);
+    g.add(wheel);
+  }
+  return g;
+}
+
+export function makeTrafficCones() {
+  const g = new GP();
+  const orange = new MS({ color: 0xe67e22, roughness: 0.7 });
+  const white = new MS({ color: 0xf5f5f5, roughness: 0.7 });
+  // Three cones in a loose cluster, one tipped on its side.
+  const spots = [[0, 0, 0], [0.7, 0, 0.3], [-0.5, 0, 0.6]];
+  for (const [x, , z] of spots) {
+    const cone = new ME(new CG(0.02, 0.22, 0.7, 10), orange);
+    cone.position.set(x, 0.45, z);
+    g.add(cone);
+    const band = new ME(new CG(0.09, 0.13, 0.16, 10), white);
+    band.position.set(x, 0.5, z);
+    g.add(band);
+    const base = new ME(new BX(0.5, 0.04, 0.5), orange);
+    base.position.set(x, 0.02, z);
+    g.add(base);
+  }
+  const tip = new ME(new CG(0.02, 0.22, 0.7, 10), orange);
+  tip.rotation.z = PI / 2 - 0.12;
+  tip.position.set(0.2, 0.22, -0.6);
+  g.add(tip);
+  return g;
+}
+
+export function makePlanter() {
+  const g = new GP();
+  const stone = new MS({ color: 0x8a8a86, roughness: 0.95 });
+  const soil = new MS({ color: 0x3a2a1a, roughness: 1 });
+  const box = new ME(new BX(1.4, 0.6, 1.4), stone);
+  box.position.y = 0.3;
+  g.add(box);
+  const top = new ME(new BX(1.3, 0.08, 1.3), soil);
+  top.position.y = 0.6;
+  g.add(top);
+  // A shrub: three overlapping green spheres + a few flowers.
+  const greens = [0x2e7d32, 0x388e3c];
+  for (let i = 0; i < 3; i += 1) {
+    const s = new ME(new SG(0.5 - i * 0.08, 10, 8), new MS({ color: greens[i % 2], roughness: 1 }));
+    s.position.set((i - 1) * 0.3, 0.95 + i * 0.15, (i % 2 ? 0.15 : -0.15));
+    g.add(s);
+  }
+  for (const [fx, fz, fc] of [[0.4, 0.3, 0xe74c3c], [-0.35, 0.25, 0xf1c40f], [0.1, -0.4, 0xe91e63]]) {
+    const f = new ME(new SG(0.07, 8, 6), new MS({ color: fc, roughness: 0.7 }));
+    f.position.set(fx, 1.25, fz);
+    g.add(f);
+  }
+  return g;
+}
+
+export function makeBikeRack() {
+  const g = new GP();
+  const steel = new MS({ color: 0x9aa0a6, roughness: 0.35, metalness: 0.8 });
+  // Two inverted-U hoops.
+  for (const dx of [-0.6, 0.6]) {
+    for (const s of [-1, 1]) {
+      const leg = new ME(new CG(0.035, 0.035, 0.8, 8), steel);
+      leg.position.set(dx, 0.4, s * 0.35);
+      g.add(leg);
+    }
+    const top = new ME(new CG(0.035, 0.035, 0.7, 8), steel);
+    top.rotation.x = PI / 2;
+    top.position.set(dx, 0.8, 0);
+    g.add(top);
+  }
+  // A bicycle leaning on the rack: two wheels + a diamond frame.
+  const tyre = new MS({ color: 0x111111, roughness: 1 });
+  const frame = new MS({ color: 0xc0392b, roughness: 0.5, metalness: 0.3 });
+  for (const wx of [-0.55, 0.55]) {
+    const wheel = new ME(new CG(0.34, 0.34, 0.04, 14), tyre);
+    wheel.rotation.x = PI / 2;
+    wheel.rotation.z = PI / 2;
+    wheel.position.set(wx, 0.34, 0.75);
+    g.add(wheel);
+  }
+  const bar = new ME(new BX(1.1, 0.05, 0.05), frame);
+  bar.position.set(0, 0.62, 0.75);
+  g.add(bar);
+  const seat = new ME(new BX(0.22, 0.05, 0.08), new MS({ color: 0x1a1a1a, roughness: 0.9 }));
+  seat.position.set(-0.55, 0.72, 0.75);
+  g.add(seat);
   return g;
 }
 

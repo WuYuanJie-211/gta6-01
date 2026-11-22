@@ -21,6 +21,13 @@ export function createPlayerMesh() {
   const jeans = mt(0x2c3e50);
   const torso = B(group, 0.7, 0.9, 0.4, jacket, 0, 1.15, 0);
   torso.castShadow = true;
+  // v57 row 2: shoulders, collar, belt and shoes so the figure reads
+  // as a person at 2 m, not five boxes and a sphere. The shoulder bar
+  // is wider than the torso; the collar rings the neck; the belt breaks
+  // the jacket at the waist; the shoes ground the legs.
+  B(group, 0.86, 0.18, 0.44, jacket, 0, 1.52, 0);
+  B(group, 0.4, 0.1, 0.3, mt(0x1e2c3a, 0.85), 0, 1.63, 0);
+  B(group, 0.72, 0.08, 0.42, mt(0x1a1a1a, 0.9), 0, 0.72, 0);
   const head = new ME(new SG(0.26, 14, 12), skin);
   head.position.y = 1.85;
   head.scale.y = 0.8;
@@ -30,8 +37,16 @@ export function createPlayerMesh() {
   group.add(hair);
   const legL = B(group, 0.24, 0.7, 0.28, jeans, -0.16, 0.35, 0);
   const legR = B(group, 0.24, 0.7, 0.28, jeans, 0.16, 0.35, 0);
+  B(group, 0.24, 0.1, 0.34, mt(0x1a1a1a, 0.9), -0.16, 0.05, 0.03);
+  B(group, 0.24, 0.1, 0.34, mt(0x1a1a1a, 0.9), 0.16, 0.05, 0.03);
   const armL = B(group, 0.18, 0.65, 0.2, jacket, -0.44, 1.15, 0);
   const armR = B(group, 0.18, 0.65, 0.2, jacket, 0.44, 1.15, 0);
+  // Hands ride the arms (children, so they swing with the walk cycle).
+  for (const arm of [armL, armR]) {
+    const hand = new ME(new BX(0.14, 0.12, 0.16), skin);
+    hand.position.set(0, -0.36, 0);
+    arm.add(hand);
+  }
   // Rifle: barrel along local +z (the player's forward). Shots stage
   // it precisely; here it just needs to exist and point forward.
   // v53 REBUILD (both reviewers, v52): the old rifle was a dark

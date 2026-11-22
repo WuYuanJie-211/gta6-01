@@ -15,10 +15,11 @@ import * as THREE from 'three';
 import { BX, CG, CN, CI, PG, SG, OG, MS, MB, ME, GP, V3, PI, RW, SC, CT, DS } from './geo.js';
 import { CITY, districtAt, COLOURS, TEXTURES } from './config.js';
 import {
-  makeRoadTexture, makeSidewalkTexture, makeZebraTexture, makeFacadeAtlas,
+  makeRoadTexture, makeRoadRoughnessTexture, makeSidewalkTexture, makeZebraTexture, makeFacadeAtlas,
   applyFacadeUVs, makeTrafficLight, makeHydrant, makeSign, makeLamp,
   makeBench, makeTree, makePalm, makeV31Palm, makeV31Sign, makeFarSkyline,
   addBlobShadow, addAOSkirt, makeBillboard,
+  makeKiosk, makeDumpster, makeTrafficCones, makePlanter, makeBikeRack,
 } from './v31.js';
 
 export const HERO_ZONE = { minX: 220, maxX: 260, minZ: -200, maxZ: -160, cx: 240, cz: -180 };
@@ -134,6 +135,7 @@ export function buildCity(scene, rng, textures) {
   const base = new ME(new PG(820, 700), M(COLOURS.ground, 1));
   base.rotation.x = -PI / 2;
   base.position.set(0, 0, -60);
+  base.receiveShadow = true;
   scene.add(base);
   // Sidewalk: one big plane with tile seams, 1 cm up.
   const walkTex = makeSidewalkTexture(aniso);
@@ -156,8 +158,23 @@ export function buildCity(scene, rng, textures) {
   roadTexS.needsUpdate = true;
   roadTexS.wrapT = RW;
   roadTexS.repeat.set(1, 90);
-  const roadMatA = new MS({ map: roadTexA, roughness: 0.95 });
-  const roadMatS = new MS({ map: roadTexS, roughness: 0.95 });
+  // v57 row 4: the roughness map breaks the specular up — the tyre
+  // tracks are polished smooth (dark, glossy at sunset) and the oil
+  // patches near-gloss, while the rest stays rough. Same repeats as
+  // the colour map so the tracks line up. roughness 1.0: the map
+  // drives it (roughnessMap multiplies the scalar).
+  const roadRough = makeRoadRoughnessTexture(aniso);
+  roadRough.wrapT = RW;
+  const roadRoughA = roadRough.clone();
+  roadRoughA.needsUpdate = true;
+  roadRoughA.wrapT = RW;
+  roadRoughA.repeat.set(1, 75);
+  const roadRoughS = roadRough.clone();
+  roadRoughS.needsUpdate = true;
+  roadRoughS.wrapT = RW;
+  roadRoughS.repeat.set(1, 90);
+  const roadMatA = new MS({ map: roadTexA, roughnessMap: roadRoughA, roughness: 1.0 });
+  const roadMatS = new MS({ map: roadTexS, roughnessMap: roadRoughS, roughness: 1.0 });
   for (const x of CITY.roadLinesX) {
     // Subdivided into 4 m quads (3 x 150): one big triangle per road
     // stretched the texture into blurry patches at a grazing angle.
@@ -217,6 +234,29 @@ export function buildCity(scene, rng, textures) {
     });
   }
   scene.add(stCurbs);
+  // v57 row 4: curb profile — a slightly wider, darker coping cap on
+  // top of each curb, so the curb reads as a profiled edge (light
+  // face, dark cap) instead of a plain box. Same segments, one draw
+  // call per direction.
+  const capMat = new MS({ color: 0x8a8272, roughness: 0.9 });
+  const aveCaps = new THREE.InstancedMesh(new BX(0.42, 0.05, 48), capMat, aveSegs.length);
+  {
+    const m4 = new THREE.Matrix4();
+    aveSegs.forEach(([x, z], i) => {
+      m4.makeTranslation(x, 0.175, z);
+      aveCaps.setMatrixAt(i, m4);
+    });
+  }
+  scene.add(aveCaps);
+  const stCaps = new THREE.InstancedMesh(new BX(48, 0.05, 0.42), capMat, stSegs.length);
+  {
+    const m4 = new THREE.Matrix4();
+    stSegs.forEach(([x, z], i) => {
+      m4.makeTranslation(x, 0.175, z);
+      stCaps.setMatrixAt(i, m4);
+    });
+  }
+  scene.add(stCaps);
   // Median barrier down the hero street (z=-180): light Jersey
   // barriers, not the dark striped band the old rail read as. Gaps at
   // every intersection so cars can turn and the zebra crosses clean.
@@ -694,6 +734,36 @@ export function buildCity(scene, rng, textures) {
       scene.add(bush);
     }
   });
+  // v57 row 3 — street clutter: the five kit props, placed along the
+  // hero-zone sidewalks where the four shots look. Scale and rotation
+  // vary per prop; roughly one in five spots is left empty so the
+  // street reads as lived-in, not a catalogue row. Positions sit on
+  // the sidewalks (x ~226-252, z ~-155 to -215), clear of the road,
+  // the heli band and the shot cameras.
+  const propSpots = [
+    ['kiosk', 246.5, -166, 0.3, 1.0],
+    ['planter', 233.5, -161, 1.2, 1.0],
+    ['cones', 241, -176, 0.8, 1.0],
+    ['bike', 229.5, -190, -0.5, 1.05],
+    ['dumpster', 252.5, -208, 2.6, 0.95],
+    ['planter', 244, -210, 2.0, 1.1],
+    ['cones', 228, -200, 1.6, 0.9],
+    ['kiosk', 231, -214, 3.1, 1.0],
+  ];
+  for (let i = 0; i < propSpots.length; i += 1) {
+    if (i % 5 === 4) continue; // drop one in five
+    const [kind, px, pz, rot, sc] = propSpots[i];
+    let prop;
+    if (kind === 'kiosk') prop = makeKiosk();
+    else if (kind === 'dumpster') prop = makeDumpster();
+    else if (kind === 'cones') prop = makeTrafficCones();
+    else if (kind === 'planter') prop = makePlanter();
+    else prop = makeBikeRack();
+    prop.position.set(px, 0, pz);
+    prop.rotation.y = rot + rng.range(-0.15, 0.15);
+    prop.scale.setScalar(sc * rng.range(0.95, 1.08));
+    scene.add(prop);
+  }
   // One fire escape on tower 1's south face (its sign is on the east
   // face, so the south face is free): 3 platforms up the upper floors.
   {

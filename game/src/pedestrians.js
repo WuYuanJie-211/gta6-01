@@ -27,6 +27,11 @@ function createPedestrianMesh(rng) {
   const build = rng.range(0.85, 1.25);
   const torso = B(group, 0.55 * build, 0.75, 0.32 * build, shirt, 0, 1.05, 0);
   torso.castShadow = true;
+  // v57 row 2: a shoulder bar (child of the torso, so the walk cycle
+  // is untouched) so pedestrians read as people, not boxes.
+  const sh = new ME(new BX(0.62 * build, 0.14, 0.36 * build), shirt);
+  sh.position.set(0, 0.32, 0);
+  torso.add(sh);
   const head = new ME(new SG(0.22, 12, 10), skin);
   head.position.y = 1.65;
   group.add(head);
@@ -48,6 +53,11 @@ function createPedestrianMesh(rng) {
   const legR = B(group, 0.2, 0.6, 0.24, legs, 0.14, 0.3, 0);
   const armL = B(group, 0.16, 0.55, 0.18, shirt, -0.38, 1.05, 0);
   const armR = B(group, 0.16, 0.55, 0.18, shirt, 0.38, 1.05, 0);
+  for (const arm of [armL, armR]) {
+    const hand = new ME(new BX(0.12, 0.1, 0.14), skin);
+    hand.position.set(0, -0.31, 0);
+    arm.add(hand);
+  }
   group.userData.legL = legL;
   group.userData.legR = legR;
   group.userData.armL = armL;

@@ -329,10 +329,14 @@ function stageChase(game) {
   // van lightens (VM caches by colour), lift it to 0x565b63
   // (albedo ~0.10), then break the slab with side windows + door
   // seams on both flanks so the camera side always reads.
+  // v57: the van body is a tapered two-box shell sharing one
+  // per-car paint material (userData.paint) — mutating it lightens
+  // every paint part at once; the old clone-one-box trick left the
+  // shoulder dark.
+  const vpm = van.mesh.userData.paint;
+  if (vpm) vpm.color.setHex(0x565b63);
   const vb = van.mesh.userData.body;
   if (vb) {
-    vb.material = vb.material.clone();
-    vb.material.color.setHex(0x565b63);
     const glassM = new MS({ color: 0x223a4a, roughness: 0.15, metalness: 0.4 });
     const seamM = new MS({ color: 0x1a1a1a, roughness: 0.9 });
     for (const s of [-1, 1]) {
@@ -453,12 +457,17 @@ function stageChase(game) {
   // camPitch 0.11 puts the camera at ~2.8 m — just above the tall
   // van's roof. At 1.4 m the camera sat below the roof and the van
   // blocked c2 entirely; from above the roof c2 reads over it.
+  // v57 row 5: FOV 48 -> 44 (toward the ~40 lens the four shots
+  // share; 42 cropped the heli's rotor, 44 keeps it). The height
+  // stays: shoulder height would put the van's roof between the
+  // camera and c2, so the elevated angle is load-bearing here, not
+  // a free choice.
   game.cameraAngle = -0.15;
   game.camDist = 8;
   game.camPitch = 0.11;
   game.camLookOff = 1.5;
   game.camX = -1.0;
-  setFov(game, 48);
+  setFov(game, 44);
   game.lastDragAt = game.time;
   // Hide any pedestrian standing within 9 m of the camera — one
   // loomed in the right foreground and blocked the van.
@@ -889,6 +898,11 @@ function stageDowntown(game) {
   // camLookOff -2.0 pushes the taxi right toward the golden point.
   // The old high/wide shot (camDist 32, 35 m back) saw only the
   // taxi's rear at 59 px and the VP dead centre.
+  // v57 row 5: FOV 34 -> 40 and camPitch 0.15 -> 0.05 were tried and
+  // REVERTED — the lower/wider frame cut the SUITES sign ("UITES"),
+  // shrank the taxi and weakened the vanishing point. The v44
+  // telephoto (FOV 34, ~4 m up) is load-bearing for this shot's
+  // composition; the ~40 lens guideline does not override it.
   // v45: camLookOff -4.0 — the taxi's world move north is swallowed
   // by the follow camera, so the look target moves further south to
   // push the taxi ~135 px right on screen (to x695-1015). (-2.0 gave
@@ -1031,20 +1045,21 @@ function stageSunset(game) {
   // and the cones on its roof read as a floating yellow pyramid.
   // Its front bumper stops just short of the median at z=-180.
   const bc = pc(game, 233, -177, PI / 2, 0);
-  // Char the burning car — clone the materials first, they are shared
-  // across every car of the same colour (recolouring the shared white
-  // would char the second cruiser too). v48 P0-1: the char is now a
-  // hot ember brown (0x7a2a18, was 0x3a2a22) WITH an emissive
+  // Char the burning car — the paint is per-car (userData.paint, so
+  // mutating it chars the whole tapered shell at once) and the cabin
+  // glass is a fresh instance per car, so no clone is needed and no
+  // other car of the same colour is touched. v48 P0-1: the char is
+  // now a hot ember brown (0x7a2a18, was 0x3a2a22) WITH an emissive
   // (0x1e0a04, intensity 1) — the v47 car body received NONE of the
   // fire light (ratio 1.00x), so the fire must light it from the
   // material side, not by adding another point light (light cap).
   const bm = bc.mesh.userData;
-  bm.body.material = bm.body.material.clone();
-  bm.body.material.color.setHex(0x7a2a18);
-  bm.body.material.emissive.setHex(0x1e0a04);
-  bm.body.material.emissiveIntensity = 1;
-  bm.cabin.material = bm.cabin.material.clone();
-  bm.cabin.material.color.setHex(0x2a2226);
+  if (bm.paint) {
+    bm.paint.color.setHex(0x7a2a18);
+    bm.paint.emissive.setHex(0x1e0a04);
+    bm.paint.emissiveIntensity = 1;
+  }
+  if (bm.cabin) bm.cabin.material.color.setHex(0x2a2226);
   bc.mesh.position.y = -0.05;
   // The sunk mesh drags its own under-car shadow below the road, so the
   // burning car gets an explicit blob to ground it. v52: 0.7 (was 0.6).
@@ -1444,12 +1459,16 @@ function stageSunset(game) {
   // camDist 8 (not 9): at 9 m the gunman read only 21% tall; at 8 m
   // he reads ~25% and the car ~15%. camLookOff 0.5 (not 2): the pair
   // sits on the golden points without being pushed to the centre.
+  // v57 row 5: FOV 54 -> 46 (toward the ~40 lens the four shots
+  // share, but not all the way — the wide framing is load-bearing:
+  // the heli, BODEGA and the sun all need to fit). Camera stays at
+  // 1.6 m shoulder height.
   game.cameraAngle = PI / 2 - 0.12;
   game.lastDragAt = game.time;
   game.camDist = 8;
   game.camPitch = 0.0;
   game.camLookOff = 0.5;
-  setFov(game, 54);
+  setFov(game, 46);
   // v56: the flash goes through flashAtMuzzle now — same three star
   // layers as v55 (outer #ff7a1a, mid #ffc247, near-white core
   // #fffbe6), plus a soft halo behind them (free here: shots.js is

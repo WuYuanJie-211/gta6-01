@@ -27,6 +27,13 @@ function createEnemyMesh(kind) {
   // 0 torso, 1 head, 2 legL, 3 legR, 4 armL, 5 armR, 6 hat, 7 vest.
   const torso = B(group, 0.75, 0.9, 0.42, shirt, 0, 1.15, 0);
   torso.castShadow = true;
+  // v57 row 2: a shoulder bar (child of the torso) and hands (children
+  // of the arms) so gunmen read as people. Both ride existing meshes,
+  // so the load-bearing child order below (8-9 bars, 12-15 rifle) is
+  // untouched.
+  const sh = new ME(new BX(0.86, 0.16, 0.46), shirt);
+  sh.position.set(0, 0.38, 0);
+  torso.add(sh);
   const head = new ME(new SG(0.26, 12, 10), skin);
   head.position.y = 1.85;
   group.add(head);
@@ -34,6 +41,11 @@ function createEnemyMesh(kind) {
   const legR = B(group, 0.24, 0.7, 0.28, pants, 0.16, 0.35, 0);
   const armL = B(group, 0.18, 0.65, 0.2, shirt, -0.48, 1.15, 0);
   const armR = B(group, 0.18, 0.65, 0.2, shirt, 0.48, 1.15, 0);
+  for (const arm of [armL, armR]) {
+    const hand = new ME(new BX(0.13, 0.11, 0.15), skin);
+    hand.position.set(0, -0.36, 0);
+    arm.add(hand);
+  }
   const hat = B(group, 0.5, 0.12, 0.5, gunman ? mt(0x1a1a1a, 0.8) : mt(0x8a1a1a, 0.9), 0, 2.02, 0);
   hat.visible = true;
   const vest = B(group, 0.78, 0.5, 0.46, gunman ? mt(0x1a1a1a, 0.95) : mt(0x5a2a1a, 0.95), 0, 1.2, 0);

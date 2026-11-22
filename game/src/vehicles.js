@@ -42,92 +42,154 @@ export function createCarMesh(model, color, police = false) {
   const len = def.len;
   const h = def.height;
   const g = new GP();
-  const glass = VM(0x14181c, 0.2);
+  // Four material zones (v57 row 2): paint (a slight metallic sheen),
+  // glass (dark, reflective), rubber (matte black), chrome (bright
+  // metal). Paint metalness stays LOW — with no environment map a
+  // high-metalness paint reflects nothing and reads near-black. One
+  // paint instance per car so staging can recolour the whole car by
+  // mutating userData.paint.
+  const glass = VM(0x18242e, 0.08);
+  const glassM = new MS({ color: 0x18242e, roughness: 0.12, metalness: 0.6 });
   const dark = VM(0x1a1a1a, 0.9);
   const tyre = VM(0x111111, 1);
-  let paint = VM(color, 0.4);
+  const chrome = VM(0xd8dce0, 0.18);
+  const chromeM = new MS({ color: 0xd8dce0, roughness: 0.18, metalness: 1 });
+  const rubberM = new MS({ color: 0x141414, roughness: 1 });
+  let paint = new MS({ color, roughness: 0.3, metalness: 0.2 });
   if (_paint) {
-    if (model === 'sport' && _paint.redPaint) paint = new MS({ color, roughness: 0.35, metalness: 0.4, map: _paint.redPaint });
-    if (model === 'taxi' && _paint.taxiPaint) paint = new MS({ color, roughness: 0.35, metalness: 0.4, map: _paint.taxiPaint });
+    if (model === 'sport' && _paint.redPaint) paint = new MS({ color, roughness: 0.28, metalness: 0.2, map: _paint.redPaint });
+    if (model === 'taxi' && _paint.taxiPaint) paint = new MS({ color, roughness: 0.28, metalness: 0.2, map: _paint.taxiPaint });
   }
-  // Body shell. Local +x is the front (heading 0 drives toward +x).
-  const body = B(g, len, h, 1.9, paint, 0, 0.5 + h / 2, 0);
-  body.castShadow = true;
-  g.userData.body = body;
+  g.userData.paint = paint;
+  // Body shell, tapered: a lower slab plus a narrower, shorter upper
+  // shoulder. The step between them is the chamfer that separates a
+  // styled body from two stacked boxes. Local +x is the front.
+  const lower = B(g, len, h * 0.62, 1.9, paint, 0, 0.5 + h * 0.31, 0);
+  lower.castShadow = true;
+  g.userData.body = lower;
   g.userData.bodyLen = len;
-  // Wheels: black tyre + SMALL dark hub. A big light-steel hub read as
-  // a huge beige donut disc on the wheels (v42 shot 4).
+  const upper = B(g, len * 0.94, h * 0.38, 1.76, paint, -len * 0.02, 0.5 + h * 0.81, 0);
+  upper.castShadow = true;
+  g.userData.shoulder = upper;
+  // Side skirts: dark rubber strips along the bottom edge of the body.
+  for (const s of [-1, 1]) B(g, len * 0.86, 0.12, 0.05, rubberM, 0, 0.56, s * 0.96);
+  // Door seams: thin dark verticals on both flanks + a shoulder seam.
+  for (const s of [-1, 1]) {
+    for (const dx of [len * 0.14, -len * 0.22]) {
+      B(g, 0.04, h * 0.5, 0.02, dark, dx, 0.5 + h * 0.55, s * 0.96);
+    }
+    B(g, len * 0.8, 0.03, 0.02, dark, 0, 0.5 + h * 0.78, s * 0.9);
+    // Door handles: small chrome bars on the shoulder line.
+    for (const dx of [len * 0.14, -len * 0.22]) {
+      B(g, 0.2, 0.04, 0.03, chromeM, dx, 0.5 + h * 0.82, s * 0.9);
+    }
+  }
+  // Fender flares: dark arches over each wheel, proud of the flank.
+  for (const [wx, wz] of [[len * 0.32, 0.93], [len * 0.32, -0.93], [-len * 0.32, 0.93], [-len * 0.32, -0.93]]) {
+    B(g, 0.78, 0.14, 0.06, rubberM, wx, 0.72, wz);
+  }
+  // Wheels: black tyre + LIGHT silver hubcap (the old small dark hub
+  // read as a beige donut). A dark centre cap keeps the hub from
+  // reading as a flat disc.
   const wheelGeo = new CG(0.34, 0.34, 0.24, 12);
+  const hubGeo = new CG(0.2, 0.2, 0.26, 12);
+  const capGeo = new CG(0.07, 0.07, 0.28, 8);
   for (const [wx, wz] of [[len * 0.32, 0.85], [len * 0.32, -0.85], [-len * 0.32, 0.85], [-len * 0.32, -0.85]]) {
     const wheel = new ME(wheelGeo, tyre);
     wheel.rotation.x = PI / 2;
     wheel.position.set(wx, 0.34, wz);
     g.add(wheel);
-    const hub = new ME(new CG(0.1, 0.1, 0.26, 8), VM(0x2a2a2a, 0.6));
+    const hub = new ME(hubGeo, chromeM);
     hub.rotation.x = PI / 2;
     hub.position.set(wx, 0.34, wz);
     g.add(hub);
+    const cap = new ME(capGeo, dark);
+    cap.rotation.x = PI / 2;
+    cap.position.set(wx, 0.34, wz);
+    g.add(cap);
   }
+  // Grille: chrome surround with a dark inset, on the front face.
+  const grilleSur = B(g, 0.04, 0.34, 1.3, chromeM, len / 2 + 0.01, 0.82, 0);
+  grilleSur.castShadow = false;
+  B(g, 0.05, 0.26, 1.2, dark, len / 2 + 0.02, 0.82, 0);
+  // Headlights (warm) and tail lights (red), set in chrome surrounds.
+  for (const s of [-0.6, 0.6]) {
+    B(g, 0.04, 0.2, 0.46, chromeM, len / 2 + 0.01, 0.85, s);
+    const hl = B(g, 0.06, 0.16, 0.4, VM(0xfff3c4, 0.3, 0xcc9900), len / 2 + 0.02, 0.85, s);
+    g.userData[`headlight${s > 0 ? 'R' : 'L'}`] = hl;
+    B(g, 0.06, 0.14, 0.4, VM(0xd32f2f, 0.3, 0xaa0000), -len / 2 - 0.01, 0.85, s);
+  }
+  // Bumpers: dark rubber with a chrome top strip.
+  for (const e of [1, -1]) {
+    B(g, 0.12, 0.22, 1.92, rubberM, e * (len / 2 + 0.02), 0.55, 0);
+    B(g, 0.13, 0.05, 1.92, chromeM, e * (len / 2 + 0.02), 0.68, 0);
+  }
+  // Side mirrors: a dark stalk + a chrome-backed mirror head.
+  for (const s of [-1, 1]) {
+    B(g, 0.06, 0.04, 0.22, dark, len * 0.3, 0.5 + h + 0.1, s * 0.95);
+    B(g, 0.1, 0.16, 0.06, chromeM, len * 0.3, 0.5 + h + 0.16, s * 1.02);
+  }
+  // Exhaust tip: chrome cylinder at the rear bottom.
+  const exh = new ME(new CG(0.06, 0.06, 0.18, 8), chromeM);
+  exh.rotation.z = PI / 2;
+  exh.position.set(-len / 2 - 0.05, 0.42, 0.5);
+  g.add(exh);
   const tall = model === 'van' || model === 'armored' || model === 'bus' || model === 'truck';
   if (!tall) {
-    // Cabin: dark glass band on top of the body.
-    const cabin = B(g, len * 0.52, 0.5, 1.7, glass, -len * 0.06, 0.5 + h + 0.25, 0);
+    // Glasshouse: a dark glass band with a PAINT roof, a sloped
+    // windshield and rear glass, chrome window trim and paint pillars
+    // so the glass reads as windows, not a black box on the roof.
+    const cabin = B(g, len * 0.5, 0.42, 1.66, glassM, -len * 0.06, 0.5 + h + 0.21, 0);
     cabin.castShadow = true;
     g.userData.cabin = cabin;
-  } else {
-    // Windshield + frame on the front face. The frame is dark and only
-    // slightly larger than the glass, so it reads as a dark border around
-    // the glass — the old light-grey frame (0.95 tall, 1.95 wide) read
-    // as one pure-white front panel on the black armored van.
-    const wy = model === 'armored' ? 1.85 : model === 'bus' ? 2.0 : 1.6;
-    const frame = B(g, 0.02, 0.8, 1.8, VM(0x1a1a1a, 0.5), len / 2 + 0.01, wy, 0);
-    g.userData.frame = frame;
-    const shield = B(g, 0.05, 0.7, 1.7, glass, len / 2 + 0.04, wy, 0);
+    B(g, len * 0.46, 0.05, 1.6, paint, -len * 0.06, 0.5 + h + 0.45, 0);
+    const shield = B(g, 0.05, 0.5, 1.6, glassM, len * 0.2, 0.5 + h + 0.22, 0);
+    shield.rotation.z = -0.38;
     g.userData.windshield = shield;
-    // Rear door panel — a slightly lighter slab on the rear face so the
-    // tailgate reads as a door, not a flat black slab with a slit (v42).
+    const rear = B(g, 0.05, 0.44, 1.6, glassM, -len * 0.32, 0.5 + h + 0.2, 0);
+    rear.rotation.z = 0.3;
+    // Chrome trim along the top and bottom edges of the side glass.
+    for (const s of [-1, 1]) {
+      B(g, len * 0.48, 0.03, 0.03, chromeM, -len * 0.06, 0.5 + h + 0.42, s * 0.84);
+      B(g, len * 0.48, 0.03, 0.03, chromeM, -len * 0.06, 0.5 + h + 0.02, s * 0.84);
+    }
+    // A- and C-pillars: paint strips breaking the glass band.
+    for (const dx of [len * 0.16, -len * 0.28]) {
+      for (const s of [-1, 1]) B(g, 0.08, 0.42, 0.04, paint, dx, 0.5 + h + 0.21, s * 0.84);
+    }
+  } else {
+    // Windshield + frame on the front face. The glass is reflective
+    // now (metalness 0.9) and the frame carries a chrome edge.
+    const wy = model === 'armored' ? 1.85 : model === 'bus' ? 2.0 : 1.6;
+    B(g, 0.04, 0.86, 1.86, chromeM, len / 2 + 0.01, wy, 0);
+    const frame = B(g, 0.02, 0.8, 1.8, VM(0x1a1a1a, 0.5), len / 2 + 0.02, wy, 0);
+    g.userData.frame = frame;
+    const shield = B(g, 0.05, 0.7, 1.7, glassM, len / 2 + 0.04, wy, 0);
+    g.userData.windshield = shield;
     B(g, 0.04, h - 0.25, 1.7, VM(0x3a4048, 0.6), -len / 2 - 0.01, 0.5 + h / 2, 0);
     if (model === 'bus') {
-      // Side glass strip.
-      B(g, len * 0.7, 0.5, 0.04, glass, -0.2, 1.9, 0.96);
-      B(g, len * 0.7, 0.5, 0.04, glass, -0.2, 1.9, -0.96);
+      B(g, len * 0.7, 0.5, 0.04, glassM, -0.2, 1.9, 0.96);
+      B(g, len * 0.7, 0.5, 0.04, glassM, -0.2, 1.9, -0.96);
     }
     if (model === 'truck') {
-      // Cargo box behind the cab.
       B(g, len * 0.55, 1.4, 1.9, VM(0x8a8f94, 0.7), -len * 0.2, 1.4, 0);
     }
   }
   if (model === 'pickup') {
-    // Open bed: low walls at the rear.
     B(g, 0.08, 0.5, 1.9, paint, -len * 0.42, 1.15, 0);
     B(g, len * 0.3, 0.5, 0.08, paint, -len * 0.3, 1.15, 0.92);
     B(g, len * 0.3, 0.5, 0.08, paint, -len * 0.3, 1.15, -0.92);
   }
   if (model === 'sport') {
-    // Spoiler.
     B(g, 0.5, 0.06, 1.7, dark, -len / 2 + 0.15, 0.5 + h + 0.28, 0);
     B(g, 0.06, 0.22, 0.08, dark, -len / 2 + 0.3, 0.5 + h + 0.16, 0.7);
     B(g, 0.06, 0.22, 0.08, dark, -len / 2 + 0.3, 0.5 + h + 0.16, -0.7);
   }
-  // Headlights (warm) and tail lights (red), slightly proud of the body.
-  for (const s of [-0.6, 0.6]) {
-    const hl = B(g, 0.06, 0.16, 0.4, VM(0xfff3c4, 0.3, 0xcc9900), len / 2 + 0.01, 0.85, s);
-    g.userData[`headlight${s > 0 ? 'R' : 'L'}`] = hl;
-    B(g, 0.06, 0.14, 0.4, VM(0xd32f2f, 0.3, 0xaa0000), -len / 2 - 0.01, 0.85, s);
-  }
-  // Bumpers.
-  B(g, 0.12, 0.22, 1.92, VM(0x333333, 0.6), len / 2 + 0.02, 0.55, 0);
-  B(g, 0.12, 0.22, 1.92, VM(0x333333, 0.6), -len / 2 - 0.02, 0.55, 0);
   if (model === 'taxi') {
-    // Roof sign, blank here — shots.js paints the TAXI text on it.
     const sign = B(g, 0.9, 0.24, 0.4, VM(0xffe14d, 0.5), -0.1, 0.5 + h + 0.62, 0);
     g.userData.roofSign = sign;
   }
   if (police) {
-    // Light bar: LOW profile (0.12 tall, not a tall black box), dark
-    // grey bar with the red/blue lenses sitting ON it, a visible gap
-    // between the two lenses so they read as two lights, not flat
-    // squares on a box (v42).
     const bar = B(g, 1.25, 0.12, 0.38, VM(0x2a2a2e, 0.6), -0.2, 0.5 + h + 0.44, 0);
     g.userData.lightBar = bar;
     const lr = B(g, 0.52, 0.16, 0.34, VM(0xff0000, 0.3, 0xff0000), -0.2, 0.5 + h + 0.54, 0.33);
