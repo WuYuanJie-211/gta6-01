@@ -457,6 +457,18 @@ function stageGunfight(game) {
   rifle.position.set(-0.55, 1.65, 0.55);
   rifle.rotation.set(0.16, 0.45, 0);
   rifle.scale.setScalar(1.3);
+  // v51: the LEFT arm reaches up-forward to the grip — the arm hung
+  // straight down while the rifle sat at chest height, so the gun
+  // floated with air under it. The arm pivots about its centre, so
+  // rotation.x -2.0 (up-forward) plus a raised centre puts its lower
+  // end on the grip (-0.55, 1.65, 0.65); the skin hand box on the
+  // rifle (player.js) covers the last centimetres. x -0.48 keeps the
+  // arm's inner face against the torso.
+  const armL = player.mesh.userData.armL;
+  if (armL) {
+    armL.position.set(-0.48, 1.52, 0.36);
+    armL.rotation.x = -2.0;
+  }
   // No steel tip: the light tip read as a detached floating handgun
   // (v42). The barrel is mid-grey now and the flash cone at the muzzle
   // anchor carries the shot.
@@ -489,10 +501,11 @@ function stageGunfight(game) {
   // Hide the gunmen's rifles — the barrel crossed the duellist's torso
   // and read as passing through him. The tracer + muzzle flash carry
   // the shooting; the duellist is the target. (Children 8-9 are the
-  // health bars, hidden for every enemy.)
+  // health bars, hidden for every enemy.) v51: also hide 15, the
+  // magazine — it would float where the rifle was.
   for (const e of game.combat.enemies) {
     e.mesh.children[8].visible = e.mesh.children[9].visible = false;
-    if (e.kind === 'gunman') for (const i of [12, 13, 14]) e.mesh.children[i].visible = false;
+    if (e.kind === 'gunman') for (const i of [12, 13, 14, 15]) e.mesh.children[i].visible = false;
   }
   // Ground shadows under all three men — big and dark with a core, so
   // the white dash under each pair of feet is visibly half-dark. The
@@ -579,6 +592,24 @@ function stageGunfight(game) {
   // black while the muzzle flash lights the centre (the shot-2
   // "vignetting" was a bright centre against dark edges).
   game.scene.add(new THREE.AmbientLight(0xffe0b8, 0.3));
+  // v51 P2: two soft cloud bands in the northern sky — stretched pool
+  // sprites (soft radial gradient, never hard-edged ellipsoids, which
+  // read as floating rocks). Shot-2-only; the live game has no clouds
+  // by design (city.js). Positions are probed screen coords: the
+  // first try (-260,55,120) / (-120,70,60) sat above the frame
+  // (FOV 40, pitch -0.06) and the top-left sky is blocked by the
+  // brick wall — only the top-right sky is free. Upper band
+  // (-250,88,-180) -> screen (1137,174), lower band (-280,70,-180)
+  // -> (1055,232).
+  const cloudTex = game.textures.pool;
+  if (cloudTex) {
+    for (const [cx, cy, cz, cw, ch] of [[-250, 88, -180, 80, 10], [-280, 70, -180, 70, 9]]) {
+      const cl = new THREE.Sprite(new THREE.SpriteMaterial({ map: cloudTex, color: 0xffffff, transparent: true, opacity: 0.3, depthWrite: false }));
+      cl.position.set(cx, cy, cz);
+      cl.scale.set(cw, ch, 1);
+      game.scene.add(cl);
+    }
+  }
   for (const c of game.police.state.cars) place(c, 0, 300, 0);
 }
 
@@ -636,7 +667,15 @@ function stageDowntown(game) {
     { x: 220, z: -183, prev: '300,-180', target: '240,-180', h: PI },
     { x: 0, z: 300, prev: '300,-180', target: '240,-180', h: PI },
     { x: 243, z: -200, prev: '240,-240', target: '240,-180', h: PI / 2 },
-    { x: 237, z: -160, prev: '240,-120', target: '240,-180', h: -PI / 2 },
+    // v51: the dark van sat 10 m from the parked armored van and the
+    // two merged into one 12 m double truck from the east camera.
+    // There is NO in-frame slot for it: the armored van spans screen
+    // x125-430, the blue car 703-845, the teal car 936-1048 — the
+    // van's 285 px width fits none of the gaps (tried -148: off the
+    // left edge; -177: overlaps the blue car at the same z). So it is
+    // parked out of frame like the two v47 deletions. Six vehicles
+    // stay in shot, all countable, none merged.
+    { x: 0, z: 300, prev: '240,-120', target: '240,-180', h: -PI / 2 },
   ];
   game.cars.traffic.slice(0, 6).forEach((t, i) => {
     place(t, spots[i].x, spots[i].z, spots[i].h);
@@ -732,11 +771,12 @@ function stageDowntown(game) {
   // end stops at screen y=520 with a rounded cap instead of running
   // to the bottom of the frame. The city builds it in 48 m segments;
   // the segment at cx=270 (x246-294) is hidden and replaced by a
-  // shorter one (x234-246) plus a vertical-cylinder rounded end cap
-  // at x=246. v45 fix: the first build ended the barrier at x=257
-  // (7.6 m from the camera) and the cap still landed at the bottom
-  // edge (y~680) — ending it at x=246 (18.6 m away) lifts the near
-  // end to ~y520.
+  // shorter one plus a vertical-cylinder rounded end cap.
+  // v51: 8 m (was 12), centre 238, cap at 242 — the 12 m end + cap at
+  // 246 sat 1 m from the taxi's west face and read as clipping into
+  // it from the east camera. Now 5 m clear. The 4 m gap to the hidden
+  // city segment reads as the turning gap at the intersection the
+  // taxi is turning through.
   for (const o of [...game.scene.children]) {
     if (o.isMesh && o.geometry && o.geometry.type === 'BoxGeometry' && o.position.z === -180 && (o.position.y === 0.15 || o.position.y === 0.35) && Math.abs(o.position.x - 270) < 0.5) o.visible = false;
   }
@@ -744,14 +784,14 @@ function stageDowntown(game) {
   const medTop = new MS({ color: 0x3a3a3a, roughness: 0.7 });
   // v48 P1-6: 0.30 m tall (was 0.5 m), matching the lowered city
   // median — the tall barrier cut diagonally across the foreground.
-  const med = new ME(new BX(12, 0.3, 0.5), medMat);
-  med.position.set(240, 0.15, -180);
+  const med = new ME(new BX(8, 0.3, 0.5), medMat);
+  med.position.set(238, 0.15, -180);
   game.scene.add(med);
-  const medT = new ME(new BX(12, 0.1, 0.3), medTop);
-  medT.position.set(240, 0.35, -180);
+  const medT = new ME(new BX(8, 0.1, 0.3), medTop);
+  medT.position.set(238, 0.35, -180);
   game.scene.add(medT);
   const medCap = new ME(new CG(0.25, 0.25, 0.3, 12), medMat);
-  medCap.position.set(246, 0.15, -180);
+  medCap.position.set(242, 0.15, -180);
   game.scene.add(medCap);
 }
 
@@ -848,21 +888,31 @@ function stageSunset(game) {
   // old points spread along local x (the car's width, i.e. depth
   // from this camera) so they piled into one cluster. Flame height
   // 45 px (0.55x car): sprites sit 0.6-1.8 m, size 0.25-0.6 m.
+  // v51: 40 per point (was 60), opacity 0.25-0.55 (was 0.55-0.95) so
+  // the cluster stops reading as one solid sticker; the 3 layers are
+  // STAGGERED in height (pale core tall + narrow, dark red low +
+  // wide) and each sprite tapers with height, so the flame reads as
+  // two layers of volume, not a flat sheet.
   const fireRng = mulberry32(44);
   const fireTex = game.textures.fireball;
   if (fireTex) {
     const fireCols = [0xfff0b0, 0xff8a20, 0x8a1e08];
     const firePts = [[0.3, 1.6], [-0.3, 1.1], [0.3, 0.4], [-0.3, -0.2], [0.3, -0.9], [-0.2, -1.4]];
     for (const [lx, lz] of firePts) {
-      for (let i = 0; i < 60; i += 1) {
+      for (let i = 0; i < 40; i += 1) {
+        const layer = i % 3;
         const s = new THREE.Sprite(new THREE.SpriteMaterial({
-          map: fireTex, color: fireCols[i % 3], transparent: true,
-          opacity: 0.55 + fireRng() * 0.4, blending: AB, depthWrite: false,
+          map: fireTex, color: fireCols[layer], transparent: true,
+          opacity: 0.25 + fireRng() * 0.3, blending: AB, depthWrite: false,
         }));
-        const h = 0.6 + fireRng() * 1.2;
-        s.position.set(lx + (fireRng() - 0.5) * 0.5, h, lz + (fireRng() - 0.5) * 0.6);
+        const hBase = [1.1, 0.7, 0.5][layer];
+        const h = hBase + fireRng() * (layer === 0 ? 0.9 : 0.8);
+        const spread = layer === 0 ? 0.3 : 0.6;
+        s.position.set(lx + (fireRng() - 0.5) * spread, h, lz + (fireRng() - 0.5) * spread);
         // v47: particle size -15% so the flame top drops back to y≈305.
-        const sz = (0.25 + fireRng() * 0.35) * 0.85;
+        // v51: taper with height — the top sprites are half the base size.
+        const taper = 1 - ((h - 0.5) / 1.5) * 0.5;
+        const sz = (0.25 + fireRng() * 0.35) * 0.85 * taper;
         s.scale.set(sz, sz * 1.4, 1);
         bc.mesh.add(s);
       }
@@ -914,16 +964,24 @@ function stageSunset(game) {
   // can occlude them; the disc is the brightest thing in the frame.
   const sunTex = game.textures.pool;
   if (sunTex) {
-    const sunDisc = new THREE.Sprite(new THREE.SpriteMaterial({ map: sunTex, color: 0xfff2c0, transparent: true, opacity: 0.95, depthWrite: false, depthTest: false }));
+    // v51 P2: warmer disc (was 0xfff2c0, near-white) + a bigger, softer
+    // halo and a faint outer halo, so the sun reads as a warm glare
+    // instead of a blown-out white blob.
+    const sunDisc = new THREE.Sprite(new THREE.SpriteMaterial({ map: sunTex, color: 0xffd9a0, transparent: true, opacity: 0.95, depthWrite: false, depthTest: false }));
     sunDisc.position.set(172, 27, -186);
     sunDisc.scale.set(6, 6, 1);
     sunDisc.renderOrder = 999;
     game.scene.add(sunDisc);
-    const sunHalo = new THREE.Sprite(new THREE.SpriteMaterial({ map: sunTex, color: 0xff9a2e, transparent: true, opacity: 0.35, depthWrite: false, depthTest: false }));
+    const sunHalo = new THREE.Sprite(new THREE.SpriteMaterial({ map: sunTex, color: 0xff9a2e, transparent: true, opacity: 0.25, depthWrite: false, depthTest: false }));
     sunHalo.position.set(172, 27, -186);
-    sunHalo.scale.set(18, 18, 1);
+    sunHalo.scale.set(26, 26, 1);
     sunHalo.renderOrder = 998;
     game.scene.add(sunHalo);
+    const sunOuter = new THREE.Sprite(new THREE.SpriteMaterial({ map: sunTex, color: 0xff7a2e, transparent: true, opacity: 0.12, depthWrite: false, depthTest: false }));
+    sunOuter.position.set(172, 27, -186);
+    sunOuter.scale.set(42, 42, 1);
+    sunOuter.renderOrder = 997;
+    game.scene.add(sunOuter);
   }
   // Foreground over-the-shoulder gunman (lower-right, x~980, y~560):
   // a 1.9 m figure ~4.2 m from the camera, back to camera, 45% of
@@ -939,7 +997,10 @@ function stageSunset(game) {
   // Torso turned 20 deg more (rotation +0.7) so his right side
   // opens to the camera and the rifle clears the torso outline.
   const fgGun = game.combat.spawnGunman(247.8, -181.2);
-  fgGun.mesh.children[8].visible = fgGun.mesh.children[9].visible = false;
+  // v51: hide the gunman's own rifle (children 12-15) as well as the
+  // health bars — the rebuilt fgRifle replaces it; leaving both
+  // doubled the barrel.
+  for (const i of [8, 9, 12, 13, 14, 15]) fgGun.mesh.children[i].visible = false;
   fgGun.mesh.rotation.y = PI / 2 + PI + 0.7;
   fgGun.mesh.scale.setScalar(0.75);
   // v48 P1-5: shadow centre 0.5 m north (screen-right 25 px) and
@@ -952,7 +1013,23 @@ function stageSunset(game) {
   // sticks out past the torso — >=60 px exposed, stock to shoulder.
   // The old rifle sat on his left (local -x) behind the torso and
   // was fully occluded from this camera.
-  const fgRifle = new ME(new BX(0.07, 0.07, 1.6), new MS({ color: 0x2a2a2a, roughness: 0.4 }));
+  // v51: the rifle was one thin 0.07 m box — a stick. Rebuilt as
+  // barrel + receiver + stock + magazine, same position/rotation.
+  const fgRifle = new THREE.Group();
+  const fgRifleMat = new MS({ color: 0x2a2a2a, roughness: 0.4 });
+  const fgRifleWood = new MS({ color: 0x3a2a1a, roughness: 0.8 });
+  const fgBarrel = new ME(new BX(0.06, 0.06, 0.9), fgRifleMat);
+  fgBarrel.position.set(0, 0.02, 0.55);
+  fgRifle.add(fgBarrel);
+  const fgRecv = new ME(new BX(0.09, 0.12, 0.5), fgRifleWood);
+  fgRecv.position.set(0, 0, 0.05);
+  fgRifle.add(fgRecv);
+  const fgStock = new ME(new BX(0.08, 0.1, 0.45), fgRifleWood);
+  fgStock.position.set(0, -0.01, -0.35);
+  fgRifle.add(fgStock);
+  const fgMag = new ME(new BX(0.05, 0.22, 0.09), fgRifleMat);
+  fgMag.position.set(0, -0.14, 0.1);
+  fgRifle.add(fgMag);
   fgRifle.position.set(0.45, 1.45, 0.35);
   fgRifle.rotation.set(0.25, 1.0, 0);
   fgGun.mesh.add(fgRifle);
@@ -1004,16 +1081,29 @@ function stageSunset(game) {
   // by the fire — the strongest clue the fire is ON the car.
   // v45: 0xFF7A28, intensity 3, range 6 m (10 Hz flicker is a live-game
   // effect; the still reads the steady value).
-  const fireLight = new THREE.PointLight(0xff7a28, 3, 6);
+  // v51: intensity 8, range 8 m — the v48 lights measured no effect on
+  // the car/road (ratio 1.00x), so the fire must also carry itself
+  // with sprites: the ground pool below does the warming the lights
+  // were supposed to do.
+  const fireLight = new THREE.PointLight(0xff7a28, 8, 8);
   fireLight.position.set(0, 2, 0);
   bc.mesh.add(fireLight);
   // v46: a second, closer light just above the body (y=1.2, range
   // 3 m) — the 6 m fire light alone left the charred body dark red
   // and the road unlit. This one rides low so it lights the body
   // panels and the asphalt right under the car, not the whole street.
-  const bodyLight = new THREE.PointLight(0xff7a28, 2, 3);
+  // v51: intensity 5, range 4 m.
+  const bodyLight = new THREE.PointLight(0xff7a28, 5, 4);
   bodyLight.position.set(0, 1.2, 0);
   bc.mesh.add(bodyLight);
+  // v51: orange ground glow pool under the burning car — the warm
+  // reflection on the asphalt that proves the fire lights the street.
+  // Small (r 2.8), low opacity (0.22), tinted orange; renderOrder 3
+  // so it draws over the car's dark blob shadow instead of under it.
+  // (The v42 pool was a big opaque beige blob — this one is a third
+  // the size and a quarter the opacity.)
+  const firePool = pool(game, 233, -177, 2.8, 0.22, 0.09);
+  if (firePool) { firePool.material.color.setHex(0xff6a20); firePool.renderOrder = 3; }
   // v45: the light bar must read red AND blue — the blue side was
   // unlit, so the bar read as one dark-red slab.
   if (bm.lightR) bm.lightR.material.emissive.setHex(0xff0000);
@@ -1082,13 +1172,25 @@ export function stageShot(name, game) {
   // dead centre on the horizon.
   if (game.missions.hideBeacon) game.missions.hideBeacon();
   if (game.city.collectibleMeshes) for (const gem of game.city.collectibleMeshes) gem.visible = false;
-  // One HUD for all four shots: $50, 17:31, 3 stars. The per-shot
-  // clock/cash/wanted sets are gone — a sunset at 18:12 with
-  // $2,000,000 next to three dusk shots at 17:31 with $50 read as four
-  // different games (v43).
-  game.cash = 50;
-  game.shotClockMin = 17 * 60 + 31;
-  game.police.state.wanted = 3;
+  // Per-shot HUD progression (v51): one evening's arc, not four
+  // different games — the clock advances 17:31 -> 17:42, the cash
+  // $50 -> $350 as the heist pays off, the heat 2 -> 4 stars. The
+  // v43 uniform HUD ($50 / 17:31 / 3 stars on all four) read as the
+  // same frozen moment four times; the v50 reviewers flagged the
+  // identical HUD, the 81 km/h next to "Fists" and the 0 km/h next
+  // to "Car 100%". (The clock/cash/wanted are display only in shot
+  // mode — runShot never steps the game, so no heli spawns and no
+  // mission logic reads them.)
+  const HUDS = {
+    chase: [50, 17 * 60 + 31, 2],
+    gunfight: [50, 17 * 60 + 34, 3],
+    downtown: [50, 17 * 60 + 38, 3],
+    sunset: [350, 17 * 60 + 42, 4],
+  };
+  const [shotCash, shotClock, shotWanted] = HUDS[name] || HUDS.downtown;
+  game.cash = shotCash;
+  game.shotClockMin = shotClock;
+  game.police.state.wanted = shotWanted;
   game.hud.setShotMode(true, true);
   game.hud.update();
 }

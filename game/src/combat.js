@@ -63,11 +63,14 @@ function createEnemyMesh(kind) {
   group.add(flash);
   group.userData.flash = flash;
   if (gunman) {
-    // 12 barrel, 13 body, 14 stock — the rifle.
+    // 12 barrel, 13 body, 14 stock, 15 magazine — the rifle.
     const barrel = B(group, 0.05, 0.05, 0.9, mt(0x222222, 0.4), 0.3, 1.45, 0.6);
     barrel.visible = true;
     B(group, 0.09, 0.14, 0.5, mt(0x3a2a1a, 0.8), 0.3, 1.42, 0.2);
     B(group, 0.07, 0.12, 0.3, mt(0x3a2a1a, 0.8), 0.3, 1.4, -0.15);
+    // v51: magazine under the receiver — the fourth segment, so the
+    // rifle reads as barrel + body + stock + magazine, not a bare rod.
+    B(group, 0.06, 0.22, 0.1, mt(0x222222, 0.4), 0.3, 1.28, 0.25);
   }
   group.userData.legL = legL;
   group.userData.legR = legR;
@@ -115,16 +118,26 @@ export function createCombat(game) {
   function addTracer(from, to, color = 0xffa040) {
     const dir = new V3().subVectors(to, from);
     const len = dir.length();
-    // Thin (0.03 m) and bright. Never shares a mesh with the flash.
-    const m = new ME(
-      new BX(0.03, 0.03, len),
-      new MB({ color, transparent: true, opacity: 0.85, blending: AB, depthWrite: false }),
-    );
-    m.position.copy(from).addScaledVector(dir, 0.5);
-    m.lookAt(to);
-    game.scene.add(m);
-    tracers.push({ mesh: m, life: 0.03 });
-    return m;
+    // v51: 0.08 m thick (was 0.03 — a hairline) in 3 segments fading
+    // toward the target (0.95 / 0.6 / 0.3), so the line reads as a
+    // bullet path with falloff, not a taut wire. Never shares a mesh
+    // with the flash.
+    const segs = [];
+    for (let i = 0; i < 3; i += 1) {
+      const segLen = len / 3;
+      const segFrom = from.clone().addScaledVector(dir, i / 3);
+      const segTo = from.clone().addScaledVector(dir, (i + 1) / 3);
+      const m = new ME(
+        new BX(0.08, 0.08, segLen),
+        new MB({ color, transparent: true, opacity: [0.95, 0.6, 0.3][i], blending: AB, depthWrite: false }),
+      );
+      m.position.copy(segFrom).addScaledVector(dir, 1 / 6);
+      m.lookAt(segTo);
+      game.scene.add(m);
+      tracers.push({ mesh: m, life: 0.03 });
+      segs.push(m);
+    }
+    return segs;
   }
 
   // Muzzle flash (v46): real tapered cone along the barrel, 28 px

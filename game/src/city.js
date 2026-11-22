@@ -388,11 +388,15 @@ export function buildCity(scene, rng, textures) {
       // call always runs (keeps the stream aligned); near the gunfight
       // the cell is forced to vary by grid position, so the shot-2
       // street is not one repeated orange brick (v42).
-      let cell = Math.floor(rng.range(0, 12));
+      // v51: style 0 (pane grid) only — the style-1 horizontal strip
+      // windows read as flat coloured slabs with thin bands on the
+      // tall towers (the "striped textures" the reviewers flagged).
+      // 6 palettes still vary, so the street is not one repeated cell.
+      let cell = Math.floor(rng.range(0, 6));
       if (Math.hypot(bx + 177, bz - 190) < 90) {
         const gx = Math.round(bx / 60);
         const gz = Math.round(bz / 60);
-        cell = ((gx + gz) % 6 + 6) % 6 * 2 + (Math.abs(gx) % 2);
+        cell = ((gx + gz) % 6 + 6) % 6;
       }
       const towerGeo = new BX(w, h, d);
       applyFacadeUVs(towerGeo, cell, w, h, d);
@@ -540,9 +544,14 @@ export function buildCity(scene, rng, textures) {
       if (h >= 14) {
         const floors = Math.min(4, Math.floor(h / 7));
         for (let f = 0; f < floors; f += 1) {
-          box(scene, w * 0.4, 0.25, 1.4, M(0x6a5a4a), x, 4 + f * 7, z + d / 2 + 0.7, true);
-          box(scene, w * 0.4, 0.7, 0.42, M(0xB8A48C, 0.7), x, 4 + f * 7 + 0.45, z + d / 2 + 1.35);
-          for (const s of [-1, 1]) box(scene, 0.06, 0.7, d * 0.4, M(0x8E5438+f*257,0.7), x + s * (w / 2 + 1.35), 4 + f * 7 + 0.45, z);
+          // v51: these three per-floor pieces floated 0.7-1.35 m off the
+          // wall with nothing under them (the shot-2 "floating ledges").
+          // They now sit ON the facade as bands/fins: the front bar is
+          // 0.2 deep at the wall face, the slab 0.42 deep at the face,
+          // the side fins 0.06 proud of the side walls.
+          box(scene, w * 0.4, 0.25, 0.2, M(0x6a5a4a), x, 4 + f * 7, z + d / 2 + 0.1, true);
+          box(scene, w * 0.4, 0.7, 0.42, M(0xB8A48C, 0.7), x, 4 + f * 7 + 0.45, z + d / 2 + 0.21);
+          for (const s of [-1, 1]) box(scene, 0.06, 0.7, d * 0.4, M(0x8E5438+f*257,0.7), x + s * (w / 2 + 0.03), 4 + f * 7 + 0.45, z);
         }
       }
       if (h < 16 && rng.chance(0.8)) {
@@ -610,10 +619,18 @@ export function buildCity(scene, rng, textures) {
   heroTowers.forEach((t, i) => {
     const name = SIGN_NAMES[i % SIGN_NAMES.length];
     const bg = SIGN_COLORS[i % SIGN_COLORS.length];
-    const signW = Math.min(14, t.w * 0.8);
+    // v51: CINEMA 18 m (was min(14, w*0.8) = 13.7) — its tower sits
+    // ~100 m from the shot-1 camera, so its type read a quarter of
+    // GYM's. 18 m gives ~2.5 m letters, about half GYM's on screen.
+    // The tower is 17.1 m wide, so the overhang is 0.45 m a side.
+    const signW = name === 'CINEMA' ? 18 : Math.min(14, t.w * 0.8);
     const sign = makeV31Sign(name, bg, '#FFFFFF', signW, signW * 0.25);
+    // v51: SUITES +0.4 m forward — stands the face proud of the wall
+    // so the lamp post clears it (on top of the v48 +0.25 in
+    // stageDowntown). SUITES is i=1, east face, so it applies here.
+    const fwd = name === 'SUITES' ? 0.4 : 0;
     if (i % 2) {
-      sign.position.set(t.x + (t.w + 1.5) / 2 + 0.15, 7.0, t.z);
+      sign.position.set(t.x + (t.w + 1.5) / 2 + 0.15 + fwd, 7.0, t.z);
       sign.rotation.y = PI / 2;
     } else {
       sign.position.set(t.x, 7.0, t.z + (t.d + 1.5) / 2 + 0.15);
@@ -639,6 +656,10 @@ export function buildCity(scene, rng, textures) {
     if (east) {
       box(scene, 0.12, 4.5, pd, M(panelCol, 0.9), t.x + pw / 2 + 0.08, 2.25, t.z);
       box(scene, 0.08, 2.2, pd * 0.6, M(glassCol, 0.3, { emissive: glassCol }), t.x + pw / 2 + 0.18, 1.6, t.z);
+      // v51: upper window band — the podium above the glass (y 2.7-4.5)
+      // was a blank slab (the "blank panel under BAR"). Same glass,
+      // same width, at y 3.6, so every shop front reads finished.
+      box(scene, 0.08, 0.9, pd * 0.6, M(glassCol, 0.3, { emissive: glassCol }), t.x + pw / 2 + 0.18, 3.6, t.z);
       // Awning with a valance lip: a 0.2-thick slab plus a hanging front
       // strip, so it reads as a real awning, not a pure black flat
       // plate (v42).
@@ -649,6 +670,8 @@ export function buildCity(scene, rng, textures) {
     } else {
       box(scene, pw, 4.5, 0.12, M(panelCol, 0.9), t.x, 2.25, t.z + pd / 2 + 0.08);
       box(scene, pw * 0.6, 2.2, 0.08, M(glassCol, 0.3, { emissive: glassCol }), t.x, 1.6, t.z + pd / 2 + 0.18);
+      // v51: upper window band, south face (see east branch above).
+      box(scene, pw * 0.6, 0.9, 0.08, M(glassCol, 0.3, { emissive: glassCol }), t.x, 3.6, t.z + pd / 2 + 0.18);
       if (i % 4 < 2) {
         box(scene, pw * 0.6, 0.2, 1.4, M(SHOP_AWN[i % SHOP_AWN.length], 0.85), t.x, 2.95, t.z + pd / 2 + 0.7); // v47: sunk 0.35
         box(scene, pw * 0.6, 0.5, 0.08, M(SHOP_AWN[i % SHOP_AWN.length], 0.85), t.x, 2.7, t.z + pd / 2 + 1.36);
@@ -856,7 +879,10 @@ export function buildCity(scene, rng, textures) {
     scene.add(shelterRoof);
     // Route board, bigger (3.2x1.4) so it reads at distance, not a
     // clipped tiny blue sign (v42 shot 4).
-    const rb = makeSign('1路 5路 12路', '#ffffff', '#1a3a5f', 3.2, 1.4);
+    // v51: English — the CJK glyphs rendered garbled/overlapping in
+    // the headless renderer (no CJK font), so the board read as
+    // broken marks. Same weight, size and baseline as before.
+    const rb = makeSign('ROUTES 1 · 5 · 12', '#ffffff', '#1a3a5f', 3.2, 1.4);
     rb.position.set(stop.x, 1.7, stop.z - 1.2);
     scene.add(rb);
     const rbPost = new ME(new CG(0.06, 0.06, 1.1, 6), M(0x2e3338, 0.7));

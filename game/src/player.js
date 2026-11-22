@@ -41,6 +41,10 @@ export function createPlayerMesh() {
   B(rifle, 0.09, 0.14, 0.5, mt(0x3a2a1a, 0.8), 0, 0, 0.1);
   B(rifle, 0.07, 0.12, 0.28, mt(0x3a2a1a, 0.8), 0, 0, -0.28);
   B(rifle, 0.05, 0.2, 0.06, mt(0x3a3a3a, 0.4), 0, -0.12, 0.15);
+  // v51: a skin hand ON the grip — the rifle floated above the arm
+  // with air between it and the hand. The hand rides the rifle, so
+  // the grip always reads held even when the arm pose is approximate.
+  B(rifle, 0.12, 0.12, 0.14, skin, 0, -0.1, 0.1);
   // Muzzle anchor: an empty group at the barrel tip. The flash, its
   // light and the tracer all anchor here, so the fire provably comes
   // from the muzzle, never from the waist (v42).
