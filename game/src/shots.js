@@ -813,6 +813,184 @@ function contactPass(game) {
   game.scene.traverse((o) => { if (o.userData && o.userData.v58contact) counts[o.userData.v58contact] = (counts[o.userData.v58contact] || 0) + 1; });
   console.log('[v58.2] contactPass counts: ' + JSON.stringify(counts));
 }
+// v58.3 — Material response on cars, glass and metal (Superbot v58
+// plan, fix 3). The v57 paint is a flat colour at one roughness, so
+// every car returns light the same way and the glass is a flat dark
+// slab. This pass gives each car a clearcoat (a horizon band + a hot
+// highlight in the paint texture), the glass a sky gradient with an
+// interior silhouette, the headlights/taillights a small additive
+// bloom, and the tyres a sidewall bulge. All in shots.js
+// (dossier-free). Runs once, at the end of stageShot, after the
+// stage functions have placed and recoloured the cars — the van's
+// paint is customised in stageChase, so the clearcoat must read the
+// colour AFTER staging.
+
+// Clearcoat paint texture for one paint colour (hex). Base = the
+// paint colour; a lighter horizon band (sky reflection) across the
+// upper-middle; a hot highlight (the sun's specular) upper-centre;
+// faint vertical streaks (panel variation). Cached per hex.
+const _v58PaintTex = new Map();
+function v58PaintTex(hex) {
+  if (_v58PaintTex.has(hex)) return _v58PaintTex.get(hex);
+  const c = document.createElement('canvas');
+  c.width = 256; c.height = 256;
+  const x = c.getContext('2d');
+  const base = `#${hex.toString(16).padStart(6, '0')}`;
+  x.fillStyle = base;
+  x.fillRect(0, 0, 256, 256);
+  // Faint vertical streaks (panel / brushed variation), low alpha.
+  const rnd = mulberry32(hex ^ 0x5f3a);
+  for (let i = 0; i < 14; i += 1) {
+    const sx = rnd() * 256;
+    const sw = 4 + rnd() * 14;
+    x.fillStyle = rnd() < 0.5 ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)';
+    x.fillRect(sx, 0, sw, 256);
+  }
+  // Horizon band: the sky reflected in the paint, lighter and warmer,
+  // soft edges, across the upper-middle of the face.
+  const band = x.createLinearGradient(0, 70, 0, 150);
+  band.addColorStop(0, 'rgba(255,255,255,0)');
+  band.addColorStop(0.35, 'rgba(242,210,160,0.5)');
+  band.addColorStop(0.6, 'rgba(255,240,210,0.55)');
+  band.addColorStop(1, 'rgba(255,255,255,0)');
+  x.fillStyle = band;
+  x.fillRect(0, 70, 256, 80);
+  // Hot highlight: the sun's specular, a bright soft ellipse.
+  const hl = x.createRadialGradient(150, 95, 4, 150, 95, 55);
+  hl.addColorStop(0, 'rgba(255,255,240,0.85)');
+  hl.addColorStop(0.4, 'rgba(255,240,200,0.4)');
+  hl.addColorStop(1, 'rgba(255,240,200,0)');
+  x.fillStyle = hl;
+  x.fillRect(80, 30, 140, 130);
+  const t = new CT(c);
+  t.colorSpace = SC;
+  _v58PaintTex.set(hex, t);
+  return t;
+}
+
+// Glass texture: sky gradient + interior silhouette. Top = pale cool
+// sky, middle = the bright warm sunset horizon, bottom = dark
+// interior with two headrest silhouettes and a dashboard line. One
+// texture for every car's glass (the gradient reads on the side glass
+// and the sloped windshield alike).
+let _v58GlassTex = null;
+function v58GlassTex() {
+  if (_v58GlassTex) return _v58GlassTex;
+  const c = document.createElement('canvas');
+  c.width = 256; c.height = 256;
+  const x = c.getContext('2d');
+  const sky = x.createLinearGradient(0, 0, 0, 150);
+  sky.addColorStop(0, '#9fb2c4');
+  sky.addColorStop(0.55, '#c8ccd0');
+  sky.addColorStop(0.8, '#f2c98a');
+  sky.addColorStop(1, '#f7ddae');
+  x.fillStyle = sky;
+  x.fillRect(0, 0, 256, 150);
+  // Interior: near-black, with two headrest silhouettes and a dash.
+  x.fillStyle = '#0d1118';
+  x.fillRect(0, 150, 256, 106);
+  x.fillStyle = '#1c2634';
+  x.beginPath(); x.ellipse(70, 185, 26, 22, 0, 0, PI * 2); x.fill();
+  x.beginPath(); x.ellipse(186, 185, 26, 22, 0, 0, PI * 2); x.fill();
+  x.fillStyle = '#161d29';
+  x.fillRect(0, 232, 256, 24);
+  const t = new CT(c);
+  t.colorSpace = SC;
+  _v58GlassTex = t;
+  return t;
+}
+
+// The v58.3 pass. Runs once, at the end of stageShot.
+let _v58MaterialDone = false;
+function materialPass(game) {
+  if (_v58MaterialDone) return;
+  _v58MaterialDone = true;
+  const focus = (game.player && game.player.car && game.player.car.pos)
+    || (game.player && game.player.pos) || { x: 240, z: -180 };
+  const near = (x, z, r) => Math.hypot(x - focus.x, z - focus.z) < r;
+  const tmp = new V3();
+  let cars = 0, glass = 0, blooms = 0, bulges = 0;
+  game.scene.traverse((o) => {
+    if (!o.isGroup || !o.userData || !o.userData.paint) return;
+    const gp = o.getWorldPosition(tmp);
+    if (!near(gp.x, gp.z, 70)) return;
+    cars += 1;
+    const paint = o.userData.paint;
+    // Clearcoat: a horizon band + hot highlight in the paint texture.
+    // The paint colour is the base; the material colour goes white so
+    // the texture shows true. (red-paint / taxi-paint were never
+    // shipped, so no car has a paint map to preserve.)
+    if (!paint.userData.v58paint) {
+      const hex = paint.color.getHex();
+      paint.map = v58PaintTex(hex);
+      paint.color.set(0xffffff);
+      paint.roughness = 0.25;
+      paint.needsUpdate = true;
+      paint.userData.v58paint = true;
+    }
+    for (const child of [...o.children]) {
+      if (!child.isMesh || !child.material) continue;
+      const m = child.material;
+      // Glass: sky gradient + interior silhouette on the per-car
+      // glassM (colour 0x18242e, roughness 0.12 — the shared VM glass
+      // at 0.08 is never used, so this only touches this car's glass).
+      if (m.isMeshStandardMaterial && m.color && m.color.getHex() === 0x18242e && Math.abs(m.roughness - 0.12) < 0.01) {
+        if (!m.userData.v58glass) {
+          m.map = v58GlassTex();
+          m.color.set(0xffffff);
+          m.roughness = 0.08;
+          m.needsUpdate = true;
+          m.userData.v58glass = true;
+          glass += 1;
+        }
+      }
+      // Tyre bulge: a torus ring at the outer face of each wheel
+      // (cylinder r 0.34), so the sidewall reads as rubber bulging
+      // out past the hub instead of a flat disc. The torus lies in
+      // the XY plane by default, which is the wheel's face plane
+      // (the wheel cylinder is rotated x=PI/2, axis along Z).
+      if (child.geometry && child.geometry.type === 'CylinderGeometry') {
+        const p = child.geometry.parameters;
+        if (p && Math.abs((p.radiusTop || 0) - 0.34) < 0.01) {
+          const s = Math.sign(child.position.z) || 1;
+          const bulge = new ME(new THREE.TorusGeometry(0.30, 0.045, 8, 24), new MS({ color: 0x0a0a0a, roughness: 1 }));
+          bulge.position.set(child.position.x, child.position.y, child.position.z + s * 0.13);
+          bulge.userData.v58material = 'bulge';
+          o.add(bulge);
+          bulges += 1;
+        }
+      }
+    }
+    // Headlight bloom: an additive halo sprite just in front of each
+    // lens (the lenses are already emissive; the sprite is the bloom).
+    for (const key of ['headlightL', 'headlightR']) {
+      const hl = o.userData[key];
+      if (!hl) continue;
+      const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: flashHaloTex(), color: 0xfff2cc, blending: AB, transparent: true, opacity: 0.7, depthWrite: false }));
+      spr.position.set(hl.position.x + 0.08, hl.position.y, hl.position.z);
+      spr.scale.set(0.9, 0.9, 1);
+      spr.userData.v58material = 'bloom';
+      o.add(spr);
+      blooms += 1;
+    }
+    // Taillight bloom: find the red emissive lenses (not in userData)
+    // and put a smaller red halo just behind each. The shared VM
+    // material is NOT modified — only a sprite is added.
+    for (const child of [...o.children]) {
+      if (!child.isMesh || !child.material) continue;
+      const m = child.material;
+      if (m.emissive && m.emissive.getHex && m.emissive.getHex() === 0xaa0000) {
+        const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: flashHaloTex(), color: 0xff2a2a, blending: AB, transparent: true, opacity: 0.5, depthWrite: false }));
+        spr.position.set(child.position.x - 0.08, child.position.y, child.position.z);
+        spr.scale.set(0.6, 0.6, 1);
+        spr.userData.v58material = 'bloom';
+        o.add(spr);
+        blooms += 1;
+      }
+    }
+  });
+  console.log(`[v58.3] materialPass: ${cars} cars, ${glass} glass mats, ${blooms} blooms, ${bulges} bulges`);
+}
 let _v58GroundDone = false;
 function enhanceGround(game) {
   if (_v58GroundDone) return;
@@ -2285,4 +2463,8 @@ export function stageShot(name, game) {
   // function has placed its cars and people — it reads the wheel and
   // foot positions off the meshes themselves.
   contactPass(game);
+  // v58.3: the material pass runs after the contact pass, so the
+  // clearcoat reads the van's customised paint colour (set in
+  // stageChase) rather than the original.
+  materialPass(game);
 }
