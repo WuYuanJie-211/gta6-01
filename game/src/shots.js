@@ -416,7 +416,17 @@ function v58PatchDraw(x, px, py, pw, ph, rot, col, a, blobs, speck, pad, union) 
   // fix and the tone all stay — only the shape changes (no straight
   // edges anywhere). pad is a parameter: the road gets 160 px
   // (~1.9 m across, ~1.25 m along), the sidewalk keeps 64 px.
-  const A = 0.98;
+  // v59.1 (dual-Neon verification of v59, NOT READY on the road):
+  // the v59 round cut the patch alpha parameter a (0.75/0.7 -> 0.55/
+  // 0.5) but a only feeds the interior blobs/speck — the FILL here
+  // was still A = 0.98, so the dark patches stayed dead-black
+  // ellipses and both reviewers saw almost no change. The fill IS
+  // the blotch layer. Cut A to 0.2: a dark patch composites to ~73
+  // over the ~78 base (a subtle repair, not a black hole) and a
+  // light patch to ~98 (still visibly pale); the interior blobs
+  // and grain keep the worn read. A = 0.2 is the 70-80% cut both
+  // reviewers asked for (Neon-2: 0.12-0.18 on the layer alpha).
+  const A = 0.2;
   const S = (t) => t * t * t;
   for (const b of union) {
     const R = b.r + pad;
@@ -745,9 +755,18 @@ function v58RoadRough(base) {
   // polished strips throw a discrete specular segment per polished
   // stretch, and the colour map's warm tint makes it read in the
   // pixels as well.
+  // v59.1 (dual-Neon verification of v59, NOT READY on the road):
+  // the v59 round fixed the v31.js base roughness (oil 45 -> 180,
+  // tracks 150/120/95 -> 180/165/150) but THIS layer re-polishes
+  // the strips to 25 and the oil to 40 on top of the 242 base, so
+  // the rendered shots kept their mirror bands and both reviewers
+  // saw no change in the ice. The base is already 242 (0.95); the
+  // ice is made here. Lift the strips to 225 (0.88, Neon's matte
+  // range 0.88-0.95) and the oil to 200 (0.78, a damp sheen, not
+  // a mirror) so the warm charcoal base actually shows.
   for (const cx of [2.2 * m, 3.8 * m, 8.2 * m, 9.8 * m]) {
     v58Wrap(x, () => {
-      x.fillStyle = 'rgb(25,25,25)';
+      x.fillStyle = 'rgb(225,225,225)';
       x.fillRect(cx - 0.25 * m, 0, 0.5 * m, 1024);
     });
   }
@@ -760,10 +779,13 @@ function v58RoadRough(base) {
     });
   }
   // New oil spots go near-gloss, matching the colour map.
+  // v59.1: rgb 40 was a mirror (0.16) — the ice in the gunfight /
+  // chase shots. Lift to 200 (0.78): a damp sheen, not a mirror.
+  // The colour map still draws the dark stain; only the gloss goes.
   for (const s of v58OilSpots()) {
     v58Wrap(x, () => {
       x.save(); x.translate(s.x, s.y); x.rotate(s.rot);
-      x.fillStyle = 'rgb(40,40,40)';
+      x.fillStyle = 'rgb(200,200,200)';
       x.beginPath(); x.ellipse(0, 0, s.w, s.h, 0, 0, PI * 2); x.fill();
       x.restore();
     });
