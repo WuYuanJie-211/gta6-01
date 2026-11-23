@@ -7,7 +7,7 @@
 // against the reviewer's verdicts (van angle, heli height, gunman shadow,
 // signal halo). Do not "tidy" a number without re-rendering.
 import * as THREE from 'three';
-import { BX, CG, CN, MB, MS, ME, V3, PI, AB, PG, CT, DS, SH, CI, SC } from './geo.js';
+import { BX, CG, CN, MB, MS, ME, V3, PI, AB, PG, CT, DS, SH, CI, SC, RW } from './geo.js';
 import { STEP } from './config.js';
 import { enterCar, spawnPoliceCar } from './vehicles.js';
 import { ACTION_SHOOT } from './input.js';
@@ -301,6 +301,307 @@ function vanChromeTex() {
   const t = new CT(c);
   t.colorSpace = SC;
   return t;
+}
+
+// v58.1 — Ground and paving system (Superbot v58 plan, fix 1).
+// The v57 road texture already carries fine speckle, but at 320 px
+// the road reads as a flat dark fill: the speckle is sub-pixel past
+// ~10 m and the large tonal patches are 0.06 alpha. This pass draws
+// a second layer ON TOP of the existing baked texture (the lane
+// markings are preserved exactly) with features big and contrasty
+// enough to read at thumbnail size: repair patches, cracks, oil
+// stains, stronger mottling, and tyre wear broken into segments.
+// The roughness map gets the same treatment so the sun's specular
+// band on the road breaks into segments instead of one clean band.
+// The sidewalk gets stronger tile variation, grime and stains.
+// Everything lives here in shots.js (dossier-free) and the seeds
+// are fixed, so the result is identical on every load.
+const V58_ROAD_SEED = 5801;
+const V58_WALK_SEED = 5802;
+
+// Draw fn at (0,0) and at the four wrapped offsets so the tile stays
+// seamless: the road texture repeats every 8 m along the road.
+function v58Wrap(x, fn) {
+  for (const [dx, dy] of [[0, 0], [-1024, 0], [1024, 0], [0, -1024], [0, 1024]]) {
+    x.save(); x.translate(dx, dy); fn(); x.restore();
+  }
+}
+
+// Tyre-track segments shared by the colour and roughness maps, so
+// the visual break and the specular break line up. Fixed seed, so
+// the array is identical every time it is built. band is the track
+// centre in metres across the road; y0/len are px along the 8 m tile.
+function v58TrackSegments() {
+  const rnd = mulberry32(V58_ROAD_SEED + 7);
+  const segs = [];
+  for (const band of [2.2, 3.8, 8.2, 9.8]) {
+    let y = rnd() * 300;
+    while (y < 1024) {
+      const len = 110 + rnd() * 90;
+      segs.push({ band, y0: y, len });
+      y += len + 150 + rnd() * 120;
+    }
+  }
+  return segs;
+}
+
+// Oil spots shared by the colour and roughness maps (fixed seed).
+function v58OilSpots() {
+  const rnd = mulberry32(V58_ROAD_SEED + 11);
+  const spots = [];
+  for (let i = 0; i < 7; i += 1) {
+    spots.push({ x: (1 + rnd() * 10) * (1024 / 12), y: rnd() * 1024, w: 34 + rnd() * 40, h: 22 + rnd() * 26, rot: rnd() * PI });
+  }
+  return spots;
+}
+
+// Road colour layer: base canvas in, enhanced canvas out. 1024 px =
+// 12 m across, 8 m along (85.3 px/m across, 128 px/m along).
+function v58RoadColour(base) {
+  const c = document.createElement('canvas');
+  c.width = 1024; c.height = 1024;
+  const x = c.getContext('2d');
+  x.drawImage(base, 0, 0);
+  const rnd = mulberry32(V58_ROAD_SEED);
+  const m = 1024 / 12;
+  const along = 1024 / 8;
+  // v58.1b: the road renders very dark (mean L 20-50 in the shots),
+  // so dark-on-dark detail has no room to read. Lift the whole base
+  // a notch first — same asphalt family, just enough headroom for
+  // the patches below to show against it.
+  v58Wrap(x, () => {
+    x.fillStyle = 'rgba(110,114,120,0.22)';
+    x.fillRect(0, 0, 1024, 1024);
+  });
+  // Stronger large mottling: soft 5-10 m tone shifts, dark and light.
+  // v58.1c: the render crushes texture contrast (road base ~90 in
+  // texture reads ~12-18 on screen), so these alphas are high — the
+  // texture has to shout for the render to whisper.
+  for (let i = 0; i < 12; i += 1) {
+    const px = rnd() * 1024; const py = rnd() * 1024;
+    const pw = 200 + rnd() * 320; const ph = 160 + rnd() * 260;
+    const dark = rnd() < 0.6;
+    const a = dark ? 0.18 + rnd() * 0.08 : 0.12 + rnd() * 0.06;
+    const rot = rnd() * PI;
+    v58Wrap(x, () => {
+      x.fillStyle = dark ? `rgba(0,0,0,${a})` : `rgba(255,255,255,${a})`;
+      x.beginPath(); x.ellipse(px, py, pw, ph, rot, 0, PI * 2); x.fill();
+    });
+  }
+  // Repair patches: rectangles of fresh/darker asphalt with a darker
+  // border, so they read as a patch and not a blur. 2.5-4.5 m wide,
+  // 3-5 m long — big enough to survive at 320 px. Half of them are
+  // LIGHT (worn pale asphalt) so the road has light features, not
+  // only dark. v58.1c: near-white / near-black at high alpha — the
+  // render crushes texture contrast, so the patches must be strong
+  // in the texture to read at all on screen.
+  for (let i = 0; i < 10; i += 1) {
+    const px = (0.8 + rnd() * 10.4) * m;
+    const py = rnd() * 1024;
+    const pw = (2.5 + rnd() * 2) * m;
+    const ph = (3 + rnd() * 2) * along;
+    const rot = (rnd() - 0.5) * 0.14;
+    const light = rnd() < 0.5;
+    v58Wrap(x, () => {
+      x.save(); x.translate(px, py); x.rotate(rot);
+      x.fillStyle = light ? 'rgba(184,188,194,0.75)' : 'rgba(42,44,48,0.7)';
+      x.fillRect(-pw / 2, -ph / 2, pw, ph);
+      x.strokeStyle = 'rgba(0,0,0,0.45)'; x.lineWidth = 3;
+      x.strokeRect(-pw / 2, -ph / 2, pw, ph);
+      x.restore();
+    });
+  }
+  // Cracks: short thin dark polylines, mostly cross-lane or diagonal.
+  // A crack running along the view direction stretches into a block
+  // at a grazing angle (v42), so these stay short and thin. Points
+  // are computed first, then drawn — the wrap must not mutate them.
+  for (let i = 0; i < 8; i += 1) {
+    const pts = [];
+    let px = (0.5 + rnd() * 11) * m;
+    let py = rnd() * 1024;
+    pts.push([px, py]);
+    let a = (rnd() - 0.5) * PI * 0.9 + (rnd() < 0.5 ? 0 : PI / 2);
+    const segs = 4 + Math.floor(rnd() * 3);
+    for (let s = 0; s < segs; s += 1) {
+      a += (rnd() - 0.5) * 0.9;
+      const len = (0.3 + rnd() * 0.5) * m;
+      px += Math.cos(a) * len; py += Math.sin(a) * len;
+      pts.push([px, py]);
+    }
+    const w = 1.5 + rnd() * 1;
+    const al = 0.4 + rnd() * 0.1;
+    v58Wrap(x, () => {
+      x.strokeStyle = `rgba(10,10,12,${al})`;
+      x.lineWidth = w;
+      x.beginPath(); x.moveTo(pts[0][0], pts[0][1]);
+      for (let s = 1; s < pts.length; s += 1) x.lineTo(pts[s][0], pts[s][1]);
+      x.stroke();
+    });
+  }
+  // Oil stains: dark glossy blobs with a soft outer halo.
+  for (const s of v58OilSpots()) {
+    v58Wrap(x, () => {
+      x.save(); x.translate(s.x, s.y); x.rotate(s.rot);
+      x.fillStyle = 'rgba(8,8,10,0.14)';
+      x.beginPath(); x.ellipse(0, 0, s.w * 1.5, s.h * 1.5, 0, 0, PI * 2); x.fill();
+      x.fillStyle = 'rgba(8,8,10,0.38)';
+      x.beginPath(); x.ellipse(0, 0, s.w, s.h, 0, 0, PI * 2); x.fill();
+      x.restore();
+    });
+  }
+  // Tyre-band wear: paint base asphalt across each polished track in
+  // segments, so the continuous dark band breaks into pieces. The
+  // same segments are drawn rough in the roughness map below.
+  for (const s of v58TrackSegments()) {
+    v58Wrap(x, () => {
+      x.fillStyle = 'rgba(84,88,93,0.55)';
+      x.fillRect(s.band * m - 0.28 * m, s.y0, 0.56 * m, s.len);
+    });
+  }
+  return c;
+}
+
+// Road roughness layer: base canvas in, enhanced canvas out. White =
+// rough, dark = polished. Same layout as the colour map.
+function v58RoadRough(base) {
+  const c = document.createElement('canvas');
+  c.width = 1024; c.height = 1024;
+  const x = c.getContext('2d');
+  x.drawImage(base, 0, 0);
+  const rnd = mulberry32(V58_ROAD_SEED + 3);
+  const m = 1024 / 12;
+  // v58.1c: polish the track centres hard (value ~40, roughness
+  // ~0.16) so the sun has something to reflect off — the v57 tracks
+  // at 95-150 are still too rough to throw a visible specular band.
+  // The rough segments below then break that band into pieces.
+  for (const cx of [2.2 * m, 3.8 * m, 8.2 * m, 9.8 * m]) {
+    v58Wrap(x, () => {
+      x.fillStyle = 'rgb(40,40,40)';
+      x.fillRect(cx - 0.09 * m, 0, 0.18 * m, 1024);
+    });
+  }
+  // Segment the tyre tracks: rough bars across the polished bands,
+  // so the sun's specular band splits into segments.
+  for (const s of v58TrackSegments()) {
+    v58Wrap(x, () => {
+      x.fillStyle = 'rgb(215,215,215)';
+      x.fillRect(s.band * m - 0.28 * m, s.y0, 0.56 * m, s.len);
+    });
+  }
+  // New oil spots go near-gloss, matching the colour map.
+  for (const s of v58OilSpots()) {
+    v58Wrap(x, () => {
+      x.save(); x.translate(s.x, s.y); x.rotate(s.rot);
+      x.fillStyle = 'rgb(40,40,40)';
+      x.beginPath(); x.ellipse(0, 0, s.w, s.h, 0, 0, PI * 2); x.fill();
+      x.restore();
+    });
+  }
+  // Fine roughness noise so the specular varies at small scale too.
+  for (let i = 0; i < 3000; i += 1) {
+    const v = 180 + Math.floor(rnd() * 62);
+    x.fillStyle = `rgb(${v},${v},${v})`;
+    x.fillRect(rnd() * 1024, rnd() * 1024, 1 + rnd() * 1.5, 1 + rnd() * 1.5);
+  }
+  return c;
+}
+
+// Sidewalk layer: base canvas in, enhanced canvas out. 1024 px =
+// 16 m, 64 px per 1 m tile.
+function v58Sidewalk(base) {
+  const c = document.createElement('canvas');
+  c.width = 1024; c.height = 1024;
+  const x = c.getContext('2d');
+  x.drawImage(base, 0, 0);
+  const rnd = mulberry32(V58_WALK_SEED);
+  // Stronger per-tile variation: a few tiles read clearly lighter
+  // or darker than their neighbours.
+  for (let i = 0; i < 48; i += 1) {
+    const tx = Math.floor(rnd() * 16); const ty = Math.floor(rnd() * 16);
+    const v = rnd() * 18;
+    x.fillStyle = rnd() < 0.5 ? `rgba(255,255,255,${v / 100})` : `rgba(0,0,0,${v / 100})`;
+    x.fillRect(tx * 64, ty * 64, 64, 64);
+  }
+  // More grime streaks along the seams.
+  for (let i = 0; i < 40; i += 1) {
+    const gx = rnd() * 1024; const gy = rnd() * 1024;
+    const gl = 40 + rnd() * 140;
+    x.strokeStyle = `rgba(60,50,35,${0.06 + rnd() * 0.09})`;
+    x.lineWidth = 3 + rnd() * 8;
+    x.beginPath(); x.moveTo(gx, gy);
+    x.lineTo(gx + (rnd() - 0.5) * 30, gy + gl); x.stroke();
+  }
+  // Stains: dark soft blobs pressed into the tiles.
+  for (let i = 0; i < 12; i += 1) {
+    const px = rnd() * 1024; const py = rnd() * 1024;
+    const pr = 20 + rnd() * 50;
+    x.fillStyle = `rgba(40,32,24,${0.15 + rnd() * 0.12})`;
+    x.beginPath(); x.ellipse(px, py, pr, pr * (0.6 + rnd() * 0.6), rnd() * PI, 0, PI * 2); x.fill();
+  }
+  // A few seams redrawn darker and wider, so the joint depth reads.
+  for (let i = 0; i < 12; i += 1) {
+    const vertical = rnd() < 0.5;
+    const at = Math.floor(rnd() * 17) * 64;
+    x.strokeStyle = 'rgba(60,50,35,0.45)';
+    x.lineWidth = 4;
+    x.beginPath();
+    if (vertical) { x.moveTo(at, 0); x.lineTo(at, 1024); } else { x.moveTo(0, at); x.lineTo(1024, at); }
+    x.stroke();
+  }
+  return c;
+}
+
+// Apply the v58.1 ground pass to the built city. Runs once per page
+// load; finds the road and sidewalk planes by geometry and swaps
+// their maps for the enhanced versions (same repeat, same wrap, same
+// anisotropy, so nothing else in the scene changes).
+let _v58GroundDone = false;
+function enhanceGround(game) {
+  if (_v58GroundDone) return;
+  _v58GroundDone = true;
+  const colourCache = new Map();
+  const roughCache = new Map();
+  let walkDone = false;
+  game.scene.traverse((o) => {
+    if (!o.isMesh || !o.geometry || !o.geometry.parameters || !o.material) return;
+    const p = o.geometry.parameters;
+    const isRoad = p.width === 12 && (p.height === 600 || p.height === 720);
+    const isWalk = p.width === 800 && p.height === 680;
+    if (!isRoad && !isWalk) return;
+    const mat = o.material;
+    if (mat.userData.v58ground) return;
+    const map = mat.map;
+    if (!map || !map.image || map.image.width !== 1024 || map.image.height !== 1024) return;
+    if (isRoad) {
+      if (!colourCache.has(map.image)) colourCache.set(map.image, v58RoadColour(map.image));
+      const tex = new CT(colourCache.get(map.image));
+      tex.colorSpace = SC;
+      tex.wrapT = RW;
+      tex.repeat.copy(map.repeat);
+      tex.anisotropy = map.anisotropy;
+      mat.map = tex;
+      const rough = mat.roughnessMap;
+      if (rough && rough.image && rough.image.width === 1024 && rough.image.height === 1024) {
+        if (!roughCache.has(rough.image)) roughCache.set(rough.image, v58RoadRough(rough.image));
+        const rtex = new CT(roughCache.get(rough.image));
+        rtex.wrapT = RW;
+        rtex.repeat.copy(rough.repeat);
+        rtex.anisotropy = rough.anisotropy;
+        mat.roughnessMap = rtex;
+      }
+      mat.needsUpdate = true;
+    } else if (!walkDone) {
+      const tex = new CT(v58Sidewalk(map.image));
+      tex.colorSpace = SC;
+      tex.wrapT = RW;
+      tex.repeat.copy(map.repeat);
+      tex.anisotropy = map.anisotropy;
+      mat.map = tex;
+      mat.needsUpdate = true;
+      walkDone = true;
+    }
+    mat.userData.v58ground = true;
+  });
 }
 
 function steerCarToward(game, tx, tz) {
@@ -626,7 +927,14 @@ function stageChase(game) {
   game.cameraAngle = -0.15;
   game.camDist = 8;
   game.camPitch = 0.11;
-  game.camLookOff = 1.5;
+  // v58.1: the van sat dead centre and plain — shift the look target
+  // east so the van sits off-centre (left) and the east cruiser /
+  // helicopter carry the right of the frame. camX shifts camera and
+  // lookAt together, so it cannot do this; camLookOff can.
+  // v58.1b: 3.9 put the van at ~36% but hid c2 behind it and cut the
+  // GYM sign — 2.8 lands the van at ~42% and keeps both cruisers
+  // flanking it.
+  game.camLookOff = 2.8;
   game.camX = -1.0;
   setFov(game, 44);
   game.lastDragAt = game.time;
@@ -1677,6 +1985,9 @@ export function stageShot(name, game) {
   game.screen = 'playing';
   game.camX = 0;
   game.hud.showMenu(false);
+  // v58.1: the ground pass runs first, before any stage function
+  // places cars or people — it only swaps ground textures.
+  enhanceGround(game);
   if (name === 'chase') stageChase(game);
   else if (name === 'gunfight') stageGunfight(game);
   else if (name === 'sunset') stageSunset(game);
