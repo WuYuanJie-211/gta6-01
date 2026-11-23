@@ -111,9 +111,10 @@ export function makeRoadTexture(aniso) {
       x.restore();
     }
   };
-  // Base asphalt: mid grey (sRGB ~0.33) so a pure-black shadow has
-  // room to drop visibly — on near-black asphalt no shadow can read.
-  x.fillStyle = '#54585d';
+  // Base asphalt: warm mid-dark charcoal (v59: was cold #54585d, read
+  // as blue-grey ice under the sunset key). Same mid grey value, so
+  // a pure-black shadow still has room to drop visibly.
+  x.fillStyle = '#4e4a45';
   x.fillRect(0, 0, 1024, 1024);
   // Large soft tonal patches (repairs, wear) — faint, so they never
   // read as blurry white polygons at a grazing angle.
@@ -231,17 +232,19 @@ export function makeRoadRoughnessTexture(aniso) {
   x.fillRect(0, 0, 1024, 1024);
   const m = 1024 / 12;
   for (const cx of [2.2 * m, 3.8 * m, 8.2 * m, 9.8 * m]) {
-    for (const [w, v] of [[0.55 * m, 150], [0.35 * m, 120], [0.18 * m, 95]]) {
+    for (const [w, v] of [[0.55 * m, 180], [0.35 * m, 165], [0.18 * m, 150]]) {
       wrap(() => {
         x.fillStyle = `rgb(${v},${v},${v})`;
         x.fillRect(cx - w / 2, 0, w, 1024);
       });
     }
   }
-  // Oil patches: near-gloss. Same fixed positions as the colour map.
+  // Oil patches: faint sheen now, not gloss (v59: rgb 45 was a
+  // mirror — the ice-white specular on the road). Same positions
+  // as the colour map.
   for (const [ox, oy, ow, oh] of [[2.6, 180, 55, 30], [8.9, 420, 40, 26], [3.4, 700, 48, 34], [9.5, 880, 38, 22], [5.2, 950, 44, 28]]) {
     wrap(() => {
-      x.fillStyle = 'rgb(45,45,45)';
+      x.fillStyle = 'rgb(180,180,180)';
       x.beginPath();
       x.ellipse(ox * m, oy, ow, oh, 0.4, 0, PI * 2);
       x.fill();
@@ -357,8 +360,8 @@ export function makeZebraTexture(aniso) {
 
 const PALETTES = [
   { bg: '#d8c49a', win: '#2a3a4a', trim: '#b09a6a' },
-  { bg: '#a85a4a', win: '#22303e', trim: '#7a3a30' },
-  { bg: '#5a7a9a', win: '#1c2836', trim: '#3a5a7a' },
+  { bg: '#96685c', win: '#22303e', trim: '#6e4a42' },
+  { bg: '#5f6d7a', win: '#1c2836', trim: '#4a5a68' },
   { bg: '#c2a878', win: '#22303e', trim: '#9a7f52' },
   { bg: '#e0d8c0', win: '#2a3a4a', trim: '#b8ac88' },
   { bg: '#4a4f55', win: '#12181f', trim: '#2e3338' },
@@ -449,7 +452,7 @@ export function makeFacadeAtlas() {
     const row = Math.floor(cell / 4);
     paintFacadeCell(x, col * 256, row * 256, PALETTES[i], 1, rnd);
   }
-  const shopBg = ['#2a6a3a', '#7a3a1a', '#1a3a5f', '#2a1a4a'];
+  const shopBg = ['#3a5a44', '#6e5238', '#2e3d4d', '#3a3248'];
   for (let i = 0; i < 4; i += 1) {
     const cell = 12 + i;
     const col = cell % 4;

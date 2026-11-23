@@ -584,8 +584,12 @@ function v58RoadColour(base) {
   // so dark-on-dark detail has no room to read. Lift the whole base
   // a notch first — same asphalt family, just enough headroom for
   // the patches below to show against it.
+  // v59 (dual-Neon #1): the road read as oil stains + ice — the
+  // mottling ellipses and the patches were too high-contrast and
+  // too cold. Warm the lift toward charcoal and cut the mottling
+  // contrast ~65%: the patches still carry the worn-asphalt read.
   v58Wrap(x, () => {
-    x.fillStyle = 'rgba(110,114,120,0.22)';
+    x.fillStyle = 'rgba(104,98,92,0.22)';
     x.fillRect(0, 0, 1024, 1024);
   });
   // Stronger large mottling: soft 5-10 m tone shifts, dark and light.
@@ -596,7 +600,7 @@ function v58RoadColour(base) {
     const px = rnd() * 1024; const py = rnd() * 1024;
     const pw = 200 + rnd() * 320; const ph = 160 + rnd() * 260;
     const dark = rnd() < 0.6;
-    const a = dark ? 0.18 + rnd() * 0.08 : 0.12 + rnd() * 0.06;
+    const a = dark ? 0.07 + rnd() * 0.03 : 0.05 + rnd() * 0.02;
     const rot = rnd() * PI;
     v58Wrap(x, () => {
       x.fillStyle = dark ? `rgba(0,0,0,${a})` : `rgba(255,255,255,${a})`;
@@ -661,8 +665,8 @@ function v58RoadColour(base) {
     if (Math.abs(rot) < 0.17) rot = 0.17 * (rot < 0 ? -1 : 1);
     let light = rnd() < 0.5;
     placed.push({ x: px, y: py, light });
-    const col = light ? '184,188,194' : '42,44,48';
-    const a = light ? 0.75 : 0.7;
+    const col = light ? '176,172,166' : '52,50,48';
+    const a = light ? 0.55 : 0.5;
     const { blobs, speck } = v58PatchBlobs(rnd, pw, ph, a, m, along);
     const union = v58PatchUnion(px, py, pw, ph);
     v58Wrap(x, () => { v58PatchDraw(x, px, py, pw, ph, rot, col, a, blobs, speck, 160, union); });
@@ -1802,7 +1806,7 @@ function stageChase(game) {
   // the v45 sign (y=5.0) overlapped the heli's belly/skids and read
   // as a sign hung ON the helicopter. Now the sign's letters sit at
   // screen y~200-280 and the skids clear it by >=30 px.
-  const gym = makeV31Sign('GYM', '#1a3a5f', '#FFFFFF', 6, 3.5);
+  const gym = makeV31Sign('GYM', '#2e3d4d', '#FFFFFF', 6, 3.5);
   gym.position.set(233, 2.75, -220); // v47: down 0.25 m, skid gap 33 -> ~44 px
   gym.rotation.y = 0;
   game.scene.add(gym);
@@ -1814,7 +1818,7 @@ function stageChase(game) {
   // z -263.0, glass spans x 264.6-280.8). A lettered band over the
   // glass, a door on the podium's left strip, mullions dividing the
   // glass into panes, and a shadow line under the main sign.
-  const barBand = makeV31Sign('BAR', '#1a3a5f', '#FFFFFF', 8, 0.9);
+  const barBand = makeV31Sign('BAR', '#2e3d4d', '#FFFFFF', 8, 0.9);
   barBand.position.set(272.7, 3.6, -262.0);
   barBand.rotation.y = 0;
   game.scene.add(barBand);
@@ -2644,7 +2648,7 @@ function stageSunset(game) {
   // its x, so it had to move NORTH to clear the corner. At z=-170
   // the hero palm at (232.5,-175) hid the final S, so that palm
   // moved south to (232.5,-168).)
-  const suites4 = makeV31Sign('SUITES', '#1a3a5f', '#FFFFFF', 10, 2.5);
+  const suites4 = makeV31Sign('SUITES', '#2e3d4d', '#FFFFFF', 10, 2.5);
   suites4.position.set(188, 9.5, -170);
   suites4.rotation.y = PI / 2;
   game.scene.add(suites4);

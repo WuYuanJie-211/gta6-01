@@ -24,7 +24,7 @@ import {
 
 export const HERO_ZONE = { minX: 220, maxX: 260, minZ: -200, maxZ: -160, cx: 240, cz: -180 };
 const SIGN_NAMES = ['BODEGA', 'SUITES', 'HOTEL', 'CASINO', 'MALL', 'BANK', 'PIZZA', 'TACOS', 'GYM', 'CINEMA', 'BAR', '24H'];
-const SIGN_COLORS = ['#e67e22', '#1a3a5f', '#8a1a1a', '#2a1a4a', '#2a6a3a', '#c0392b', '#d35400', '#16a085', '#6e5a6e', '#8e4840', '#1a5f8a', '#333333'];
+const SIGN_COLORS = ['#a87a4e', '#2e3d4d', '#6e3535', '#3a3248', '#3a5a44', '#8a4a40', '#9a5a38', '#4a7a70', '#625a62', '#7a5248', '#3a5a6e', '#333333'];
 
 const M = (c, r = 0.9, extra = {}) => new MS({ color: c, roughness: r, ...extra });
 const SM = (o) => new MS(o);

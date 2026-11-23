@@ -75,10 +75,10 @@ class Game {
     this.scene.add(this.sunBillboard);
     // Warm haze, pushed out (450/1200) so the midground is not washed
     // into sky colour. The dome is unfogged.
-    // v57.2 Fix 2 (Superbot synthesis): fog is desaturated blue-grey
-    // #8E97A6, start pushed out — shot 1's amber midground haze was
-    // the largest single contributor to the wash.
-    this.scene.fog = new THREE.Fog(0x8e97a6, 450, 1200);
+    // v59: fog warmed a touch toward mauve (was desaturated blue-grey
+    // #8E97A6) so the midground eats some of the sunset instead of
+    // fighting it; distance unchanged — the v57.2 wash stays fixed.
+    this.scene.fog = new THREE.Fog(0x998e96, 450, 1200);
     this.camera = new THREE.PerspectiveCamera(60, 1, 0.1, 1500);
     // v57.2 Fix 2: key desaturated ~12% (0xffd9a0 -> 0xf2d2a0) so the
     // warm sun stops pushing every lit surface toward amber.
@@ -108,9 +108,10 @@ class Game {
     fill.position.set(-80, 40, -60);
     this.scene.add(fill);
     this.scene.add(fill.target);
-    // Hemisphere: cool blue-grey sky, WARM GREY ground — shadows go
-    // blue from the sky light, warm bounce only from below.
-    this.scene.add(new THREE.HemisphereLight(0x8fa6c4, 0x6b625a, 0.7));
+    // Hemisphere: cool blue-grey sky, WARM BROWN-GREY ground (v59:
+    // was #6B625A — warmed so shadow faces get warm bounce from
+    // below and dark cars stop melting into the blue shadows).
+    this.scene.add(new THREE.HemisphereLight(0x8fa6c4, 0x75685a, 0.7));
     this.sun = sun;
     this.roads = buildRoads();
     this.city = buildCity(this.scene, this.rng, textures);
