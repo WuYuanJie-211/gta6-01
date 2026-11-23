@@ -372,15 +372,83 @@ function v58OilSpots() {
 // not a skipped dark-patch path). Alpha stays 0.75.
 // blobs is a precomputed array so wrapped copies are identical:
 // {x, y, w, h, a, r}.
-function v58PatchDraw(x, px, py, pw, ph, rot, col, a, blobs, speck) {
+function v58PatchDraw(x, px, py, pw, ph, rot, col, a, blobs, speck, pad) {
   x.save(); x.translate(px, py); x.rotate(rot);
-  const steps = [[64, 0.04], [56, 0.08], [48, 0.13], [40, 0.20], [32, 0.30], [24, 0.42], [16, 0.58], [8, 0.78]];
-  for (const [pad, fa] of steps) {
-    x.fillStyle = `rgba(${col},${(a * fa).toFixed(3)})`;
-    x.fillRect(-pw / 2 - pad, -ph / 2 - pad, pw + pad * 2, ph + pad * 2);
+  // v58.7 (Quick v58.6 fixes 1-2): the 8-step nested-rect ramp was
+  // the problem, not the width alone. Its 8 large steps (alpha jumps
+  // ~0.1) rendered as discrete terraces (the banding), and the 64 px
+  // pad compressed to a 3-5 px transition at 1x in the mid-foreground
+  // (the texture is heavily minified along the road at a grazing
+  // angle). Now: 64 nested rects over a wider pad with a CUBIC alpha
+  // profile — each rect adds only the incremental composite needed
+  // to reach T*S(j/N), so the edge is a true gradient with no
+  // discrete steps. The cubic profile stays faint in the outer
+  // feather (so the road between patches keeps its light base tone)
+  // and rises steeply near the patch; a linear profile was tried and
+  // washed the whole road dark (mean 15.9), a quadratic reintroduced
+  // banding (max step 10). The ramp reaches composite 0.95 at the
+  // inner edge; the fill then brings the interior to ~0.97, the
+  // v58.6 tone, so patch L values stay. pad is a parameter: the road
+  // gets 160 px (~1.9 m across, ~1.25 m along), the sidewalk keeps
+  // 64 px. NOTE: the transition WIDTH at the mid-foreground dark
+  // patch is still ~3-5 px at 1x — the texture is minified ~29x
+  // along the road at that distance, so no reasonable pad width
+  // reaches 15-20 px there without washing the road out. What the
+  // smooth gradient DOES fix is the hard cliff (max single-px step
+  // 18L in v58.6 -> 9L) and the terraces, so the patches no longer
+  // read as tiles.
+  const N = 64;
+  const T = 0.95;
+  const S = (t) => t * t * t;
+  for (let j = 1; j <= N; j += 1) {
+    const t0 = (j - 1) / N;
+    const t1 = j / N;
+    const A0 = T * S(t0);
+    const A1 = T * S(t1);
+    const aj = (A1 - A0) / (1 - A0);
+    const e = pad * (1 - t0);
+    x.fillStyle = `rgba(${col},${aj.toFixed(4)})`;
+    x.fillRect(-pw / 2 - e, -ph / 2 - e, pw + e * 2, ph + e * 2);
   }
   x.fillStyle = `rgba(${col},${a})`;
   x.fillRect(-pw / 2, -ph / 2, pw, ph);
+  // v58.7 (Quick v58.6 fix 3): the dark-patch interiors were flat
+  // 32-33L over ~100 px — the blobs and speckles are all the patch
+  // colour, so they only darken, never lighten. Add interior grain:
+  // soft blotches (radial gradients, 12-45 tex px) plus small dots,
+  // half a few L lighter and half a few L darker than the patch, so
+  // the interior has real variation at both the near and the
+  // minified mid-foreground scales. Seeded from the patch centre so
+  // it is deterministic. The contrasting tones are derived from the
+  // patch luminance, like the speckles below.
+  const gparts = col.split(',').map(Number);
+  const glum = 0.2126 * gparts[0] + 0.7152 * gparts[1] + 0.0722 * gparts[2];
+  const gdark = glum < 128;
+  const gLightCol = gdark ? '96,98,102' : '224,226,230';
+  const gDarkCol = gdark ? '12,14,16' : '138,142,148';
+  const grnd = mulberry32((Math.floor(px) * 1024 + Math.floor(py)) >>> 0);
+  for (let g = 0; g < 10; g += 1) {
+    const bx = (grnd() - 0.5) * pw * 0.8;
+    const by = (grnd() - 0.5) * ph * 0.8;
+    const br = 12 + grnd() * 33;
+    const bc = grnd() < 0.5 ? gLightCol : gDarkCol;
+    const ba = 0.08 + grnd() * 0.08;
+    x.save(); x.translate(bx, by);
+    const gg = x.createRadialGradient(0, 0, 0, 0, 0, br);
+    gg.addColorStop(0, `rgba(${bc},${ba.toFixed(3)})`);
+    gg.addColorStop(1, `rgba(${bc},0)`);
+    x.fillStyle = gg;
+    x.beginPath(); x.arc(0, 0, br, 0, PI * 2); x.fill();
+    x.restore();
+  }
+  for (let g = 0; g < 120; g += 1) {
+    const dx = (grnd() - 0.5) * pw * 0.92;
+    const dy = (grnd() - 0.5) * ph * 0.92;
+    const dr = 1 + grnd() * 2.5;
+    const dc = grnd() < 0.5 ? gLightCol : gDarkCol;
+    x.fillStyle = `rgba(${dc},${(0.10 + grnd() * 0.12).toFixed(3)})`;
+    x.beginPath(); x.arc(dx, dy, dr, 0, PI * 2); x.fill();
+  }
   for (const b of blobs) {
     // v58.6 (Quick v58.5 fix 3): radial gradient instead of a hard
     // circle, so the scalloped/lumpy outlines go away. Scale the
@@ -540,7 +608,7 @@ function v58RoadColour(base) {
     const col = light ? '184,188,194' : '42,44,48';
     const a = light ? 0.75 : 0.7;
     const { blobs, speck } = v58PatchBlobs(rnd, pw, ph, a, m, along);
-    v58Wrap(x, () => { v58PatchDraw(x, px, py, pw, ph, rot, col, a, blobs, speck); });
+    v58Wrap(x, () => { v58PatchDraw(x, px, py, pw, ph, rot, col, a, blobs, speck, 160); });
   }
   // Cracks: short thin dark polylines, mostly cross-lane or diagonal.
   // A crack running along the view direction stretches into a block
@@ -752,7 +820,7 @@ function v58Sidewalk(base) {
       const col = light ? '235,235,235' : '20,20,20';
       const a = light ? 0.35 : 0.55;
       const { blobs, speck } = v58PatchBlobs(rnd, pw, ph, a, sm, sm);
-      v58PatchDraw(x, px, py, pw, ph, rot, col, a, blobs, speck);
+      v58PatchDraw(x, px, py, pw, ph, rot, col, a, blobs, speck, 64);
     }
     // 3 cracks: short thin dark polylines.
     for (let i = 0; i < 3; i += 1) {
