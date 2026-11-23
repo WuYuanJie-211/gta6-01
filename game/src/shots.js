@@ -362,22 +362,19 @@ function v58OilSpots() {
   return spots;
 }
 
-// v58.5 (Quick v58.4 blocker): the v58.4 "feather" was a single
-// hard-edged halo rect (20 px at 0.25 alpha) PLUS two dark
-// strokeRect outlines — a crisp rectangular border around every
-// patch, which is exactly what reads as tiles on the road. The
-// halo's hard outer edge and the 0.5-alpha black stroke were the
-// tile outline; the interior blobs at ±10% alpha were too faint to
-// break the flat fill (shot 3 patch C sigma 0.3). This version:
-// no strokeRect at all, and the edge is a 6-step gradient ramp
-// (alpha 0.05 -> 0.50 over 30 px, ~25-35 cm) under the fill, so the
-// contrast fades instead of stepping. The final step (0.50 -> 1.0)
-// spans only 6 px (~5-7 cm). Alpha stays 0.75 (0.65 was invisible).
+// v58.6 (Quick v58.5 fix 1): the v58.5 ramp (30 px, ~23-35 cm) was
+// too narrow to show once the texture is minified at road distance,
+// and the dark patches still read as hard-edged tiles. Widen the
+// ramp to ~50-75 cm in world units (64 px pad: 64/85.3 = 0.75 m
+// across, 64/128 = 0.5 m along), with 8 steps so no single step to
+// the fill is larger than ~0.22 alpha. The ramp applies to BOTH
+// tones (the v58.5 code already did this — the width was the problem,
+// not a skipped dark-patch path). Alpha stays 0.75.
 // blobs is a precomputed array so wrapped copies are identical:
 // {x, y, w, h, a, r}.
 function v58PatchDraw(x, px, py, pw, ph, rot, col, a, blobs, speck) {
   x.save(); x.translate(px, py); x.rotate(rot);
-  const steps = [[30, 0.05], [24, 0.10], [18, 0.18], [12, 0.30], [6, 0.50]];
+  const steps = [[64, 0.04], [56, 0.08], [48, 0.13], [40, 0.20], [32, 0.30], [24, 0.42], [16, 0.58], [8, 0.78]];
   for (const [pad, fa] of steps) {
     x.fillStyle = `rgba(${col},${(a * fa).toFixed(3)})`;
     x.fillRect(-pw / 2 - pad, -ph / 2 - pad, pw + pad * 2, ph + pad * 2);
@@ -385,21 +382,29 @@ function v58PatchDraw(x, px, py, pw, ph, rot, col, a, blobs, speck) {
   x.fillStyle = `rgba(${col},${a})`;
   x.fillRect(-pw / 2, -ph / 2, pw, ph);
   for (const b of blobs) {
-    x.fillStyle = `rgba(${col},${b.a.toFixed(3)})`;
-    x.beginPath(); x.ellipse(b.x, b.y, b.w, b.h, b.r, 0, PI * 2); x.fill();
+    // v58.6 (Quick v58.5 fix 3): radial gradient instead of a hard
+    // circle, so the scalloped/lumpy outlines go away. Scale the
+    // local frame so the ellipse becomes a unit circle, then a
+    // radial gradient fading to 0 at radius 1 (= the ellipse edge).
+    x.save(); x.translate(b.x, b.y); x.rotate(b.r); x.scale(b.w, b.h);
+    const grad = x.createRadialGradient(0, 0, 0, 0, 0, 1);
+    grad.addColorStop(0, `rgba(${col},${b.a.toFixed(3)})`);
+    grad.addColorStop(1, `rgba(${col},0)`);
+    x.fillStyle = grad;
+    x.beginPath(); x.arc(0, 0, 1, 0, PI * 2); x.fill();
+    x.restore();
   }
-  // v58.5: fine speckle so no 1 m2 of patch interior is flat. The
-  // dots use a CONTRASTING tone, not the patch colour at low alpha:
-  // the patch colour at low alpha over its own fill barely moves
-  // the luminance (a light patch's own colour is lighter than its
-  // fill result, so the dot reads almost the same). Dark dots in a
-  // light patch, light dots in a dark patch. ~80 dots per patch, so
-  // every 1 m2 holds several.
+  // v58.6 (Quick v58.5 fix 2): speckles were even-spread round dots
+  // of similar size at high contrast — read as polka dots /
+  // perforated sheet metal. Now clustered, mostly 1-3 px with a few
+  // 4-6 px, contrast about half (alpha 0.14-0.24). The speck array
+  // now carries the FINAL alpha in s.a; the contrasting tone
+  // (dark dots in a light patch, light dots in a dark patch) is kept.
   const parts = col.split(',').map(Number);
   const lum = 0.2126 * parts[0] + 0.7152 * parts[1] + 0.0722 * parts[2];
   const scol = lum > 128 ? '28,28,30' : '168,170,172';
   for (const s of speck) {
-    x.fillStyle = `rgba(${scol},${(0.3 + s.a * 0.4).toFixed(3)})`;
+    x.fillStyle = `rgba(${scol},${s.a.toFixed(3)})`;
     x.beginPath(); x.ellipse(s.x, s.y, s.r, s.r, 0, 0, PI * 2); x.fill();
   }
   x.restore();
@@ -412,10 +417,14 @@ function v58PatchDraw(x, px, py, pw, ph, rot, col, a, blobs, speck) {
 // blobs at ±10% covered ~25% of the patch and left flat 1 m2 windows
 // (shot 3 patch C sigma 0.3); random placement left gaps even with
 // 6 blobs, so the grid guarantees no flat interior larger than ~1 m2.
-// Plus ~80 fine speckles so no 1 m2 of patch interior is flat at
-// all: each dot is drawn at 0.25-0.5x the patch alpha, so it reads
-// darker than a light patch and lighter than a dark patch — a
-// visible grain in both. Returns {blobs, speck}.
+// Plus clustered fine speckles so no 1 m2 of patch interior is flat
+// at all. v58.6 (Quick v58.5 fix 2): the v58.5 speckles were ~80
+// even-spread round dots of similar size (r 4-8 px) at high contrast
+// (alpha ~0.37-0.45) — they read as polka dots / perforated sheet
+// metal. Now: 8-12 cluster centres per patch, 4-10 dots grouped
+// around each with a gaussian-ish spread, sizes mostly 1-3 px with
+// ~12% at 4-6 px, contrast about half (final alpha 0.14-0.24, stored
+// directly in s.a). Returns {blobs, speck}.
 function v58PatchBlobs(rnd, pw, ph, a, m, along) {
   const blobs = [];
   for (let gy = 0; gy < 2; gy += 1) {
@@ -433,13 +442,23 @@ function v58PatchBlobs(rnd, pw, ph, a, m, along) {
     }
   }
   const speck = [];
-  for (let i = 0; i < 80; i += 1) {
-    speck.push({
-      x: (rnd() - 0.5) * pw * 0.9,
-      y: (rnd() - 0.5) * ph * 0.9,
-      r: 4 + rnd() * 4,
-      a: a * (0.25 + rnd() * 0.25),
-    });
+  const nClusters = 8 + Math.floor(rnd() * 5);
+  for (let c = 0; c < nClusters; c += 1) {
+    const cx = (rnd() - 0.5) * pw * 0.85;
+    const cy = (rnd() - 0.5) * ph * 0.85;
+    const nDots = 4 + Math.floor(rnd() * 7);
+    const spread = (0.08 + rnd() * 0.12) * Math.min(pw, ph);
+    for (let d = 0; d < nDots; d += 1) {
+      const ox = (rnd() + rnd() - 1) * spread;
+      const oy = (rnd() + rnd() - 1) * spread;
+      const big = rnd() < 0.12;
+      speck.push({
+        x: cx + ox,
+        y: cy + oy,
+        r: big ? 4 + rnd() * 2 : 1 + rnd() * 2,
+        a: 0.14 + rnd() * 0.10,
+      });
+    }
   }
   return { blobs, speck };
 }
