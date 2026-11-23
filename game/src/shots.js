@@ -331,15 +331,22 @@ function v58Wrap(x, fn) {
 // the visual break and the specular break line up. Fixed seed, so
 // the array is identical every time it is built. band is the track
 // centre in metres across the road; y0/len are px along the 8 m tile.
+// v58.4 (a): these are the ROUGH bars (the dark gaps in the sun
+// chain). Each bar is 0.6-1.2 m long (77-154 px) and the polished
+// stretch after it is 1.5-3 m (192-384 px), so the sun's reflection
+// resolves into 5-7 discrete segments 1.5-3 m long with 0.6-1.2 m
+// gaps — the v58.1 bars were 0.86-1.56 m with 1.17-2.1 m gaps, which
+// put the bright pieces too short and too far apart to read as a
+// chain, and the band came out as one diffuse wash.
 function v58TrackSegments() {
   const rnd = mulberry32(V58_ROAD_SEED + 7);
   const segs = [];
   for (const band of [2.2, 3.8, 8.2, 9.8]) {
     let y = rnd() * 300;
     while (y < 1024) {
-      const len = 110 + rnd() * 90;
+      const len = 77 + rnd() * 77;
       segs.push({ band, y0: y, len });
-      y += len + 150 + rnd() * 120;
+      y += len + 192 + rnd() * 192;
     }
   }
   return segs;
@@ -353,6 +360,49 @@ function v58OilSpots() {
     spots.push({ x: (1 + rnd() * 10) * (1024 / 12), y: rnd() * 1024, w: 34 + rnd() * 40, h: 22 + rnd() * 26, rot: rnd() * PI });
   }
   return spots;
+}
+
+// v58.4 (g): one feathered repair patch. The v58.1 patches were
+// hard-edged rectangles at high contrast, so the road read as tiles.
+// A patch now gets a soft halo (a larger, low-alpha rect behind the
+// fill) so the edge fades over ~15-25 cm, a soft two-pass border (a
+// wide faint stroke + a narrow 40-60% stroke) instead of one hard
+// line, and 2-3 irregular interior blobs so no patch has a flat
+// interior. Alpha stays 0.75 (0.65 was invisible). blobs is a
+// precomputed array so wrapped copies are identical: {x, y, w, h, a, r}.
+function v58PatchDraw(x, px, py, pw, ph, rot, col, a, blobs) {
+  x.save(); x.translate(px, py); x.rotate(rot);
+  x.fillStyle = `rgba(${col},${(a * 0.25).toFixed(3)})`;
+  x.fillRect(-pw / 2 - 20, -ph / 2 - 20, pw + 40, ph + 40);
+  x.fillStyle = `rgba(${col},${a})`;
+  x.fillRect(-pw / 2, -ph / 2, pw, ph);
+  x.strokeStyle = 'rgba(0,0,0,0.2)'; x.lineWidth = 10;
+  x.strokeRect(-pw / 2, -ph / 2, pw, ph);
+  x.strokeStyle = 'rgba(0,0,0,0.5)'; x.lineWidth = 3;
+  x.strokeRect(-pw / 2, -ph / 2, pw, ph);
+  for (const b of blobs) {
+    x.fillStyle = `rgba(${col},${b.a.toFixed(3)})`;
+    x.beginPath(); x.ellipse(b.x, b.y, b.w, b.h, b.r, 0, PI * 2); x.fill();
+  }
+  x.restore();
+}
+
+// Precompute 3 interior blobs for a patch of size pw x ph. m is px
+// per metre across, along is px per metre along the patch. Each blob
+// is 0.6-1.2 m across, at ±10% alpha, so the patch interior varies.
+function v58PatchBlobs(rnd, pw, ph, a, m, along) {
+  const blobs = [];
+  for (let b = 0; b < 3; b += 1) {
+    blobs.push({
+      x: (rnd() - 0.5) * pw * 0.5,
+      y: (rnd() - 0.5) * ph * 0.5,
+      w: (0.6 + rnd() * 0.6) * m * 0.5,
+      h: (0.6 + rnd() * 0.6) * along * 0.5,
+      a: a * (rnd() < 0.5 ? 0.9 : 1.1),
+      r: (rnd() - 0.5) * 1.2,
+    });
+  }
+  return blobs;
 }
 
 // Road colour layer: base canvas in, enhanced canvas out. 1024 px =
@@ -388,28 +438,46 @@ function v58RoadColour(base) {
       x.beginPath(); x.ellipse(px, py, pw, ph, rot, 0, PI * 2); x.fill();
     });
   }
-  // Repair patches: rectangles of fresh/darker asphalt with a darker
-  // border, so they read as a patch and not a blur. 2.5-4.5 m wide,
-  // 3-5 m long — big enough to survive at 320 px. Half of them are
-  // LIGHT (worn pale asphalt) so the road has light features, not
-  // only dark. v58.1c: near-white / near-black at high alpha — the
-  // render crushes texture contrast, so the patches must be strong
-  // in the texture to read at all on screen.
+  // Repair patches: rectangles of fresh/darker asphalt with a
+  // feathered edge and a varied interior, so they read as patches
+  // and not tiles. 2.5-4.5 m wide, 3-5 m long — big enough to
+  // survive at 320 px. Half of them are LIGHT (worn pale asphalt)
+  // so the road has light features, not only dark. v58.1c:
+  // near-white / near-black at high alpha — the render crushes
+  // texture contrast, so the patches must be strong in the texture
+  // to read at all on screen. Alpha stays 0.75.
+  // v58.4 (g): tones alternate — a new patch flips when its nearest
+  // neighbour within 4 m is the same tone, so a light patch never
+  // abuts another light patch and a dark one never abuts a dark
+  // one. That adjacency plus the flat fill is what made shot 3 read
+  // as tiles; the L values themselves are correct and stay.
+  const placed = [];
   for (let i = 0; i < 10; i += 1) {
-    const px = (0.8 + rnd() * 10.4) * m;
-    const py = rnd() * 1024;
+    let px = (0.8 + rnd() * 10.4) * m;
+    let py = rnd() * 1024;
+    for (let tries = 0; tries < 8; tries += 1) {
+      let ok = true;
+      for (const q of placed) {
+        if (Math.hypot(px - q.x, py - q.y) < 1.5 * m) { ok = false; break; }
+      }
+      if (ok) break;
+      px = (0.8 + rnd() * 10.4) * m; py = rnd() * 1024;
+    }
     const pw = (2.5 + rnd() * 2) * m;
     const ph = (3 + rnd() * 2) * along;
     const rot = (rnd() - 0.5) * 0.14;
-    const light = rnd() < 0.5;
-    v58Wrap(x, () => {
-      x.save(); x.translate(px, py); x.rotate(rot);
-      x.fillStyle = light ? 'rgba(184,188,194,0.75)' : 'rgba(42,44,48,0.7)';
-      x.fillRect(-pw / 2, -ph / 2, pw, ph);
-      x.strokeStyle = 'rgba(0,0,0,0.45)'; x.lineWidth = 3;
-      x.strokeRect(-pw / 2, -ph / 2, pw, ph);
-      x.restore();
-    });
+    let light = rnd() < 0.5;
+    let best = null; let bestD = 1e9;
+    for (const q of placed) {
+      const d = Math.hypot(px - q.x, py - q.y);
+      if (d < bestD) { bestD = d; best = q; }
+    }
+    if (best && bestD < 4 * m && best.light === light) light = !light;
+    placed.push({ x: px, y: py, light });
+    const col = light ? '184,188,194' : '42,44,48';
+    const a = light ? 0.75 : 0.7;
+    const blobs = v58PatchBlobs(rnd, pw, ph, a, m, along);
+    v58Wrap(x, () => { v58PatchDraw(x, px, py, pw, ph, rot, col, a, blobs); });
   }
   // Cracks: short thin dark polylines, mostly cross-lane or diagonal.
   // A crack running along the view direction stretches into a block
@@ -458,6 +526,46 @@ function v58RoadColour(base) {
       x.fillRect(s.band * m - 0.28 * m, s.y0, 0.56 * m, s.len);
     });
   }
+  // v58.4 (a): sun segments in the pixels. The polished stretches
+  // between the rough bars get a warm brightening, so the sun's
+  // reflection resolves into discrete segments in the render, not
+  // only in the roughness map. Each stretch is a polished segment
+  // 1.5-3 m long; the tint fades at its ends so the segments read
+  // as separate bright pieces, and the chain fades with distance
+  // by perspective. The tint is drawn per band so it lines up with
+  // the polished strips in the roughness map.
+  // v58.4 (a) second attempt (continuation builder): the first
+  // attempt's 0.15 tint read as a diffuse warm glow near the
+  // horizon, not as countable segments — the segments were too
+  // faint against the dark road to separate. Raise the tint to
+  // 0.30 and sharpen the end fades (0.12/0.88 instead of 0.2/0.8)
+  // so each segment has a flat bright top and a clean gap, and the
+  // chain reads as discrete pieces in the pixels.
+  {
+    const segs = v58TrackSegments();
+    for (const band of [2.2, 3.8, 8.2, 9.8]) {
+      const bars = segs.filter((s) => s.band === band).sort((p, q) => p.y0 - q.y0);
+      let prevEnd = 0;
+      const stretches = [];
+      for (const b of bars) {
+        if (b.y0 > prevEnd) stretches.push({ y0: prevEnd, len: b.y0 - prevEnd });
+        prevEnd = Math.max(prevEnd, b.y0 + b.len);
+      }
+      if (prevEnd < 1024) stretches.push({ y0: prevEnd, len: 1024 - prevEnd });
+      for (const s of stretches) {
+        if (s.len < 120) continue;
+        v58Wrap(x, () => {
+          const g = x.createLinearGradient(0, s.y0, 0, s.y0 + s.len);
+          g.addColorStop(0, 'rgba(255,220,160,0)');
+          g.addColorStop(0.12, 'rgba(255,220,160,0.30)');
+          g.addColorStop(0.88, 'rgba(255,220,160,0.30)');
+          g.addColorStop(1, 'rgba(255,220,160,0)');
+          x.fillStyle = g;
+          x.fillRect(band * m - 0.25 * m, s.y0, 0.5 * m, s.len);
+        });
+      }
+    }
+  }
   return c;
 }
 
@@ -474,10 +582,16 @@ function v58RoadRough(base) {
   // ~0.16) so the sun has something to reflect off — the v57 tracks
   // at 95-150 are still too rough to throw a visible specular band.
   // The rough segments below then break that band into pieces.
+  // v58.4 (a): polish harder (rgb 25, ~0.10) and WIDER (0.5 m, not
+  // 0.18 m) — the thin strips did not resolve into segments in the
+  // render; the band came out as one diffuse wash. The wider, more
+  // polished strips throw a discrete specular segment per polished
+  // stretch, and the colour map's warm tint makes it read in the
+  // pixels as well.
   for (const cx of [2.2 * m, 3.8 * m, 8.2 * m, 9.8 * m]) {
     v58Wrap(x, () => {
-      x.fillStyle = 'rgb(40,40,40)';
-      x.fillRect(cx - 0.09 * m, 0, 0.18 * m, 1024);
+      x.fillStyle = 'rgb(25,25,25)';
+      x.fillRect(cx - 0.25 * m, 0, 0.5 * m, 1024);
     });
   }
   // Segment the tyre tracks: rough bars across the polished bands,
@@ -548,6 +662,77 @@ function v58Sidewalk(base) {
     if (vertical) { x.moveTo(at, 0); x.lineTo(at, 1024); } else { x.moveTo(0, at); x.lineTo(1024, at); }
     x.stroke();
   }
+  // v58.4 (e): shot 2's ground — the sidewalk gets the same overlay
+  // density as the road, in its own (lighter) range: 3 patches, 3
+  // cracks, 2 oil stains and one tyre-wear band inside the visible
+  // 12 m. Light patches L 62-74, dark L 28-40 on screen (the
+  // sidewalk is a lighter material than the road, so the patch
+  // tones are lighter than the road's). Same feathering and
+  // alternation as the road patches.
+  {
+    const sm = 64; // 1024 px = 16 m, 64 px per metre
+    const splaced = [];
+    for (let i = 0; i < 3; i += 1) {
+      const px = (1 + rnd() * 14) * sm;
+      const py = (1 + rnd() * 14) * sm;
+      const pw = (2.5 + rnd() * 2) * sm;
+      const ph = (3 + rnd() * 2) * sm;
+      const rot = (rnd() - 0.5) * 0.14;
+      let light = rnd() < 0.5;
+      let best = null; let bestD = 1e9;
+      for (const q of splaced) {
+        const d = Math.hypot(px - q.x, py - q.y);
+        if (d < bestD) { bestD = d; best = q; }
+      }
+      if (best && bestD < 4 * sm && best.light === light) light = !light;
+      splaced.push({ x: px, y: py, light });
+      const col = light ? '235,235,235' : '20,20,20';
+      const a = light ? 0.35 : 0.55;
+      const blobs = v58PatchBlobs(rnd, pw, ph, a, sm, sm);
+      v58PatchDraw(x, px, py, pw, ph, rot, col, a, blobs);
+    }
+    // 3 cracks: short thin dark polylines.
+    for (let i = 0; i < 3; i += 1) {
+      const pts = [];
+      let px = (0.5 + rnd() * 15) * sm;
+      let py = rnd() * 1024;
+      pts.push([px, py]);
+      let a = (rnd() - 0.5) * PI * 0.9 + (rnd() < 0.5 ? 0 : PI / 2);
+      const segs = 4 + Math.floor(rnd() * 3);
+      for (let s = 0; s < segs; s += 1) {
+        a += (rnd() - 0.5) * 0.9;
+        const len = (0.3 + rnd() * 0.5) * sm;
+        px += Math.cos(a) * len; py += Math.sin(a) * len;
+        pts.push([px, py]);
+      }
+      x.strokeStyle = `rgba(15,12,10,${0.4 + rnd() * 0.1})`;
+      x.lineWidth = 1.5 + rnd() * 1;
+      x.beginPath(); x.moveTo(pts[0][0], pts[0][1]);
+      for (let s = 1; s < pts.length; s += 1) x.lineTo(pts[s][0], pts[s][1]);
+      x.stroke();
+    }
+    // 2 oil stains: dark soft blobs.
+    for (let i = 0; i < 2; i += 1) {
+      const px = rnd() * 1024; const py = rnd() * 1024;
+      const pr = 25 + rnd() * 45;
+      x.fillStyle = `rgba(15,12,10,${0.12 + rnd() * 0.1})`;
+      x.beginPath(); x.ellipse(px, py, pr * 1.4, pr, rnd() * PI, 0, PI * 2); x.fill();
+      x.fillStyle = `rgba(15,12,10,${0.3 + rnd() * 0.1})`;
+      x.beginPath(); x.ellipse(px, py, pr, pr * 0.7, rnd() * PI, 0, PI * 2); x.fill();
+    }
+    // 1 tyre-wear band: where tyres mount the kerb, a darker strip
+    // across the sidewalk with soft edges.
+    {
+      const by = 580 + rnd() * 120;
+      const g = x.createLinearGradient(0, by - 20, 0, by + 20);
+      g.addColorStop(0, 'rgba(30,26,22,0)');
+      g.addColorStop(0.3, 'rgba(30,26,22,0.28)');
+      g.addColorStop(0.7, 'rgba(30,26,22,0.28)');
+      g.addColorStop(1, 'rgba(30,26,22,0)');
+      x.fillStyle = g;
+      x.fillRect(0, by - 20, 1024, 40);
+    }
+  }
   return c;
 }
 
@@ -588,14 +773,21 @@ function v58ContactTex() {
   _v58ContactTex = new CT(c);
   return _v58ContactTex;
 }
-// Solid dark blue-grey + radial alphaMap: the contact shadow material.
+// v58.4 (f): NEUTRAL contact colour. The v58.2 solid blue-grey
+// (0x101624) read as a blue glow on light pavement (shot 2). A
+// near-neutral dark (R, G, B within ~3 units) reads as an absence of
+// light, not a cool tint. Same alpha, same geometry.
+// v58.4 (b): the core opacity is 0.70, not 0.85 — the v58.3 core
+// measured 43% darker, 3 points over the 25-40% band; 0.70 lands
+// it at ~35% (34.8 -> ~22.6 against unshadowed ground).
 function v58ContactMat(o) {
-  return new MB({ color: 0x101624, transparent: true, opacity: o, alphaMap: v58ContactTex(), depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -4 });
+  return new MB({ color: 0x1a1a1c, transparent: true, opacity: o, alphaMap: v58ContactTex(), depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -4 });
 }
 
 // Dense contact core: a small, very dark ellipse right at the
 // contact point. renderOrder 3, like the v45 dash cores.
-function contactCore(g, x, z, w, d, o = 0.85) {
+// v58.4 (b): default opacity 0.70 (was 0.85) — 35%, inside the band.
+function contactCore(g, x, z, w, d, o = 0.70) {
   const s = new ME(new PG(w, d), v58ContactMat(o));
   s.userData.v58contact = 'core';
   s.rotation.x = -PI / 2;
@@ -718,7 +910,7 @@ function contactPass(game) {
       if (child.geometry.type !== 'CylinderGeometry') continue;
       if (Math.abs((p.radiusTop || 0) - 0.34) > 0.01) continue;
       child.getWorldPosition(tmp);
-      contactCore(game, tmp.x, tmp.z, 1.2, 1.2, 0.85);
+      contactCore(game, tmp.x, tmp.z, 1.2, 1.2, 0.70);
       contactBand(game, tmp.x, tmp.z, 2.0, 2.0, 0.42);
     }
     // Arch shadows above the four wheels (local coords, as built).
@@ -734,7 +926,7 @@ function contactPass(game) {
   for (const p of game.peds || []) {
     if (!p.mesh || !p.mesh.visible || !p.pos) continue;
     if (!near(p.pos.x, p.pos.z, 70)) continue;
-    contactCore(game, p.pos.x, p.pos.z, 0.9, 0.7, 0.85);
+    contactCore(game, p.pos.x, p.pos.z, 0.9, 0.7, 0.70);
     contactBand(game, p.pos.x, p.pos.z, 1.4, 1.2, 0.42);
   }
   // The staged gunmen and thugs are NOT peds — they are combat
@@ -745,12 +937,12 @@ function contactPass(game) {
   for (const e of (game.combat && game.combat.enemies) || []) {
     if (!e.mesh || !e.mesh.visible || !e.pos) continue;
     if (!near(e.pos.x, e.pos.z, 70)) continue;
-    contactCore(game, e.pos.x, e.pos.z, 0.9, 0.7, 0.85);
+    contactCore(game, e.pos.x, e.pos.z, 0.9, 0.7, 0.70);
     contactBand(game, e.pos.x, e.pos.z, 1.4, 1.2, 0.42);
   }
   if (game.player && game.player.mesh && game.player.mesh.visible
     && !(game.player.car) && game.player.pos) {
-    contactCore(game, game.player.pos.x, game.player.pos.z, 0.9, 0.7, 0.85);
+    contactCore(game, game.player.pos.x, game.player.pos.z, 0.9, 0.7, 0.70);
     contactBand(game, game.player.pos.x, game.player.pos.z, 1.4, 1.2, 0.42);
   }
   // Kerb bases: a dark band along the kerb where it meets the road
@@ -909,7 +1101,7 @@ function materialPass(game) {
     || (game.player && game.player.pos) || { x: 240, z: -180 };
   const near = (x, z, r) => Math.hypot(x - focus.x, z - focus.z) < r;
   const tmp = new V3();
-  let cars = 0, glass = 0, blooms = 0, bulges = 0;
+  let cars = 0, glass = 0, blooms = 0, bulges = 0, treads = 0, hubs = 0;
   game.scene.traverse((o) => {
     if (!o.isGroup || !o.userData || !o.userData.paint) return;
     const gp = o.getWorldPosition(tmp);
@@ -949,26 +1141,56 @@ function materialPass(game) {
       // out past the hub instead of a flat disc. The torus lies in
       // the XY plane by default, which is the wheel's face plane
       // (the wheel cylinder is rotated x=PI/2, axis along Z).
+      // v58.4 (d): tube 0.05 and a lighter rubber (0x1e1e1e) so the
+      // bulge survives the 320 px downsample — the v58.3 bulge
+      // (0.045, 0x0a0a0a) was the same dark as the tyre and vanished.
       if (child.geometry && child.geometry.type === 'CylinderGeometry') {
         const p = child.geometry.parameters;
         if (p && Math.abs((p.radiusTop || 0) - 0.34) < 0.01) {
           const s = Math.sign(child.position.z) || 1;
-          const bulge = new ME(new THREE.TorusGeometry(0.30, 0.045, 8, 24), new MS({ color: 0x0a0a0a, roughness: 1 }));
+          const bulge = new ME(new THREE.TorusGeometry(0.30, 0.05, 8, 24), new MS({ color: 0x1e1e1e, roughness: 0.85 }));
           bulge.position.set(child.position.x, child.position.y, child.position.z + s * 0.13);
           bulge.userData.v58material = 'bulge';
           o.add(bulge);
           bulges += 1;
+          // v58.4 (d): tread band — a raised ring around the tyre's
+          // outer circumference, 3-4 cm across, so the tread reads
+          // as rubber instead of a flat dark disc. Slightly lighter
+          // than the tyre so the ring catches light, rough so it
+          // stays matte. Rubber roughness stays 0.75-0.9.
+          const tread = new ME(new THREE.TorusGeometry(0.335, 0.02, 8, 24), new MS({ color: 0x232323, roughness: 0.9 }));
+          tread.position.set(child.position.x, child.position.y, child.position.z);
+          tread.userData.v58material = 'tread';
+          o.add(tread);
+          treads += 1;
+        }
+        // v58.4 (d): hub — the stock chrome hubcap (radius 0.2,
+        // height 0.26) is the brightest thing on the wheel. Swap it
+        // for dark steel, close to the sidewall value, so the wheel
+        // reads as rubber with a steel hub, not a dark disc with a
+        // white centre. (The van's own chrome rim rings are radius
+        // 0.26 and are left alone — a deliberate chrome accent.)
+        if (p && Math.abs((p.radiusTop || 0) - 0.2) < 0.01 && Math.abs((p.height || 0) - 0.26) < 0.01) {
+          if (!child.userData.v58hub) {
+            child.material = new MS({ color: 0x181818, roughness: 0.6, metalness: 0.3 });
+            child.userData.v58hub = true;
+            hubs += 1;
+          }
         }
       }
     }
     // Headlight bloom: an additive halo sprite just in front of each
     // lens (the lenses are already emissive; the sprite is the bloom).
+    // v58.4 (i): scale 0.55 (was 0.9) and opacity 0.45 (was 0.7) —
+    // the taxi's front-right halo spilled well past the car onto the
+    // crosswalk; pulled back so its outer edge stops within ~15 cm
+    // of the bodywork, and ~35% dimmer, the spill goes with it.
     for (const key of ['headlightL', 'headlightR']) {
       const hl = o.userData[key];
       if (!hl) continue;
-      const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: flashHaloTex(), color: 0xfff2cc, blending: AB, transparent: true, opacity: 0.7, depthWrite: false }));
+      const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: flashHaloTex(), color: 0xfff2cc, blending: AB, transparent: true, opacity: 0.45, depthWrite: false }));
       spr.position.set(hl.position.x + 0.08, hl.position.y, hl.position.z);
-      spr.scale.set(0.9, 0.9, 1);
+      spr.scale.set(0.55, 0.55, 1);
       spr.userData.v58material = 'bloom';
       o.add(spr);
       blooms += 1;
@@ -989,7 +1211,7 @@ function materialPass(game) {
       }
     }
   });
-  console.log(`[v58.3] materialPass: ${cars} cars, ${glass} glass mats, ${blooms} blooms, ${bulges} bulges`);
+  console.log(`[v58.3] materialPass: ${cars} cars, ${glass} glass mats, ${blooms} blooms, ${bulges} bulges, ${treads} treads, ${hubs} hubs`);
 }
 let _v58GroundDone = false;
 function enhanceGround(game) {
@@ -1391,7 +1613,12 @@ function stageChase(game) {
     // north + 2.5 m east, 0.5 m lower. At 1.6x the rotor tips cut 57 px
     // past the top edge and the tail rotor sat at x=54 (v43). The
     // rotor is parked at 45 deg so the four blades read as an X.
-    heli.position.set(vx - 2, 9.5, vz - 26);
+    // v58.4 (h): east 3 m and down 1.2 m (was vx-2, 9.5) — the
+    // v58.3 tail and rotor ran out of the top-left corner (x~40-100).
+    // The whole aircraft must sit inside the frame with >=20 px
+    // clearance from the top and left edges. The van stays ~40%
+    // from the left, both cruisers flanking, GYM readable.
+    heli.position.set(vx + 1, 8.3, vz - 26);
     heli.scale.setScalar(1.15);
     heli.rotation.y = PI / 2 - 0.2;
     // Rotor parked at a diagonal so the 4 blades read as an X, never a
