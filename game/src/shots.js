@@ -362,47 +362,86 @@ function v58OilSpots() {
   return spots;
 }
 
-// v58.4 (g): one feathered repair patch. The v58.1 patches were
-// hard-edged rectangles at high contrast, so the road read as tiles.
-// A patch now gets a soft halo (a larger, low-alpha rect behind the
-// fill) so the edge fades over ~15-25 cm, a soft two-pass border (a
-// wide faint stroke + a narrow 40-60% stroke) instead of one hard
-// line, and 2-3 irregular interior blobs so no patch has a flat
-// interior. Alpha stays 0.75 (0.65 was invisible). blobs is a
-// precomputed array so wrapped copies are identical: {x, y, w, h, a, r}.
-function v58PatchDraw(x, px, py, pw, ph, rot, col, a, blobs) {
+// v58.5 (Quick v58.4 blocker): the v58.4 "feather" was a single
+// hard-edged halo rect (20 px at 0.25 alpha) PLUS two dark
+// strokeRect outlines — a crisp rectangular border around every
+// patch, which is exactly what reads as tiles on the road. The
+// halo's hard outer edge and the 0.5-alpha black stroke were the
+// tile outline; the interior blobs at ±10% alpha were too faint to
+// break the flat fill (shot 3 patch C sigma 0.3). This version:
+// no strokeRect at all, and the edge is a 6-step gradient ramp
+// (alpha 0.05 -> 0.50 over 30 px, ~25-35 cm) under the fill, so the
+// contrast fades instead of stepping. The final step (0.50 -> 1.0)
+// spans only 6 px (~5-7 cm). Alpha stays 0.75 (0.65 was invisible).
+// blobs is a precomputed array so wrapped copies are identical:
+// {x, y, w, h, a, r}.
+function v58PatchDraw(x, px, py, pw, ph, rot, col, a, blobs, speck) {
   x.save(); x.translate(px, py); x.rotate(rot);
-  x.fillStyle = `rgba(${col},${(a * 0.25).toFixed(3)})`;
-  x.fillRect(-pw / 2 - 20, -ph / 2 - 20, pw + 40, ph + 40);
+  const steps = [[30, 0.05], [24, 0.10], [18, 0.18], [12, 0.30], [6, 0.50]];
+  for (const [pad, fa] of steps) {
+    x.fillStyle = `rgba(${col},${(a * fa).toFixed(3)})`;
+    x.fillRect(-pw / 2 - pad, -ph / 2 - pad, pw + pad * 2, ph + pad * 2);
+  }
   x.fillStyle = `rgba(${col},${a})`;
   x.fillRect(-pw / 2, -ph / 2, pw, ph);
-  x.strokeStyle = 'rgba(0,0,0,0.2)'; x.lineWidth = 10;
-  x.strokeRect(-pw / 2, -ph / 2, pw, ph);
-  x.strokeStyle = 'rgba(0,0,0,0.5)'; x.lineWidth = 3;
-  x.strokeRect(-pw / 2, -ph / 2, pw, ph);
   for (const b of blobs) {
     x.fillStyle = `rgba(${col},${b.a.toFixed(3)})`;
     x.beginPath(); x.ellipse(b.x, b.y, b.w, b.h, b.r, 0, PI * 2); x.fill();
   }
+  // v58.5: fine speckle so no 1 m2 of patch interior is flat. The
+  // dots use a CONTRASTING tone, not the patch colour at low alpha:
+  // the patch colour at low alpha over its own fill barely moves
+  // the luminance (a light patch's own colour is lighter than its
+  // fill result, so the dot reads almost the same). Dark dots in a
+  // light patch, light dots in a dark patch. ~80 dots per patch, so
+  // every 1 m2 holds several.
+  const parts = col.split(',').map(Number);
+  const lum = 0.2126 * parts[0] + 0.7152 * parts[1] + 0.0722 * parts[2];
+  const scol = lum > 128 ? '28,28,30' : '168,170,172';
+  for (const s of speck) {
+    x.fillStyle = `rgba(${scol},${(0.3 + s.a * 0.4).toFixed(3)})`;
+    x.beginPath(); x.ellipse(s.x, s.y, s.r, s.r, 0, 0, PI * 2); x.fill();
+  }
   x.restore();
 }
 
-// Precompute 3 interior blobs for a patch of size pw x ph. m is px
-// per metre across, along is px per metre along the patch. Each blob
-// is 0.6-1.2 m across, at ±10% alpha, so the patch interior varies.
+// Precompute 6 interior blobs for a patch of size pw x ph, placed on
+// a jittered 2x3 grid so they cover the patch evenly. m is px per
+// metre across, along is px per metre along the patch. Each blob is
+// 1.0-1.8 m across, at 0.55-1.35x the patch alpha. v58.4's 3 random
+// blobs at ±10% covered ~25% of the patch and left flat 1 m2 windows
+// (shot 3 patch C sigma 0.3); random placement left gaps even with
+// 6 blobs, so the grid guarantees no flat interior larger than ~1 m2.
+// Plus ~80 fine speckles so no 1 m2 of patch interior is flat at
+// all: each dot is drawn at 0.25-0.5x the patch alpha, so it reads
+// darker than a light patch and lighter than a dark patch — a
+// visible grain in both. Returns {blobs, speck}.
 function v58PatchBlobs(rnd, pw, ph, a, m, along) {
   const blobs = [];
-  for (let b = 0; b < 3; b += 1) {
-    blobs.push({
-      x: (rnd() - 0.5) * pw * 0.5,
-      y: (rnd() - 0.5) * ph * 0.5,
-      w: (0.6 + rnd() * 0.6) * m * 0.5,
-      h: (0.6 + rnd() * 0.6) * along * 0.5,
-      a: a * (rnd() < 0.5 ? 0.9 : 1.1),
-      r: (rnd() - 0.5) * 1.2,
+  for (let gy = 0; gy < 2; gy += 1) {
+    for (let gx = 0; gx < 3; gx += 1) {
+      const cx = (gx - 1) * pw / 3 + (rnd() - 0.5) * pw / 3 * 0.6;
+      const cy = (gy - 0.5) * ph / 2 + (rnd() - 0.5) * ph / 2 * 0.6;
+      blobs.push({
+        x: cx,
+        y: cy,
+        w: (1.0 + rnd() * 0.8) * m * 0.5,
+        h: (1.0 + rnd() * 0.8) * along * 0.5,
+        a: a * (0.55 + rnd() * 0.8),
+        r: (rnd() - 0.5) * 1.2,
+      });
+    }
+  }
+  const speck = [];
+  for (let i = 0; i < 80; i += 1) {
+    speck.push({
+      x: (rnd() - 0.5) * pw * 0.9,
+      y: (rnd() - 0.5) * ph * 0.9,
+      r: 4 + rnd() * 4,
+      a: a * (0.25 + rnd() * 0.25),
     });
   }
-  return blobs;
+  return { blobs, speck };
 }
 
 // Road colour layer: base canvas in, enhanced canvas out. 1024 px =
@@ -451,6 +490,11 @@ function v58RoadColour(base) {
   // abuts another light patch and a dark one never abuts a dark
   // one. That adjacency plus the flat fill is what made shot 3 read
   // as tiles; the L values themselves are correct and stay.
+  // v58.5: min centre separation 1.5 m -> 2.5 m, so patch edges
+  // keep a mid-tone gap instead of touching. With the soft
+  // feathered edges, patches that merely come close now blend
+  // instead of tiling; the 2.5 m floor keeps light and dark
+  // patches from abutting.
   const placed = [];
   for (let i = 0; i < 10; i += 1) {
     let px = (0.8 + rnd() * 10.4) * m;
@@ -458,7 +502,7 @@ function v58RoadColour(base) {
     for (let tries = 0; tries < 8; tries += 1) {
       let ok = true;
       for (const q of placed) {
-        if (Math.hypot(px - q.x, py - q.y) < 1.5 * m) { ok = false; break; }
+        if (Math.hypot(px - q.x, py - q.y) < 2.5 * m) { ok = false; break; }
       }
       if (ok) break;
       px = (0.8 + rnd() * 10.4) * m; py = rnd() * 1024;
@@ -476,8 +520,8 @@ function v58RoadColour(base) {
     placed.push({ x: px, y: py, light });
     const col = light ? '184,188,194' : '42,44,48';
     const a = light ? 0.75 : 0.7;
-    const blobs = v58PatchBlobs(rnd, pw, ph, a, m, along);
-    v58Wrap(x, () => { v58PatchDraw(x, px, py, pw, ph, rot, col, a, blobs); });
+    const { blobs, speck } = v58PatchBlobs(rnd, pw, ph, a, m, along);
+    v58Wrap(x, () => { v58PatchDraw(x, px, py, pw, ph, rot, col, a, blobs, speck); });
   }
   // Cracks: short thin dark polylines, mostly cross-lane or diagonal.
   // A crack running along the view direction stretches into a block
@@ -688,8 +732,8 @@ function v58Sidewalk(base) {
       splaced.push({ x: px, y: py, light });
       const col = light ? '235,235,235' : '20,20,20';
       const a = light ? 0.35 : 0.55;
-      const blobs = v58PatchBlobs(rnd, pw, ph, a, sm, sm);
-      v58PatchDraw(x, px, py, pw, ph, rot, col, a, blobs);
+      const { blobs, speck } = v58PatchBlobs(rnd, pw, ph, a, sm, sm);
+      v58PatchDraw(x, px, py, pw, ph, rot, col, a, blobs, speck);
     }
     // 3 cracks: short thin dark polylines.
     for (let i = 0; i < 3; i += 1) {
@@ -1618,7 +1662,10 @@ function stageChase(game) {
     // The whole aircraft must sit inside the frame with >=20 px
     // clearance from the top and left edges. The van stays ~40%
     // from the left, both cruisers flanking, GYM readable.
-    heli.position.set(vx + 1, 8.3, vz - 26);
+    // v58.5 (Quick fix 5, optional): down another 0.3 m (8.3 -> 8.0),
+    // ~10 px on screen — top clearance was exactly 20 px (the
+    // minimum), now ~30 px. The beam glow drops with it.
+    heli.position.set(vx + 1, 8.0, vz - 26);
     heli.scale.setScalar(1.15);
     heli.rotation.y = PI / 2 - 0.2;
     // Rotor parked at a diagonal so the 4 blades read as an X, never a
@@ -1632,7 +1679,7 @@ function stageChase(game) {
     // One faint wide glow only: a soft shaft with no core, no edge.
     // The shaft hangs under the heli, not under the van.
     const bg = new THREE.Sprite(new THREE.SpriteMaterial({ map: game.textures.pool, transparent: true, opacity: 0.14, blending: AB, depthWrite: false }));
-    bg.position.set(vx - 5, 6.8, vz - 25);
+    bg.position.set(vx - 5, 6.5, vz - 25);
     bg.scale.set(5, 9, 1);
     game.scene.add(bg);
     const rl = new THREE.PointLight(0xffd9a0, 1.4, 3.5);
