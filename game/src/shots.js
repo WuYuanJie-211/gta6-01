@@ -551,10 +551,268 @@ function v58Sidewalk(base) {
   return c;
 }
 
-// Apply the v58.1 ground pass to the built city. Runs once per page
-// load; finds the road and sidewalk planes by geometry and swaps
-// their maps for the enhanced versions (same repeat, same wrap, same
-// anisotropy, so nothing else in the scene changes).
+// v58.2 — Contact shadow and occlusion pass (Superbot v58 plan,
+// fix 2). The v57 blobs give every car and person one soft shadow,
+// but the contact line itself — where a wheel, a foot, a kerb or a
+// wall meets the ground — stays clean, so objects still read as
+// cut-outs pasted on the road. This pass adds a two-step darkening
+// at every contact: a dense core right at the contact point and a
+// 10-20 cm band around it, plus crevice occlusion in the wheel
+// arches, under the bumpers, at wall bases and under the helicopter.
+// Everything lives here in shots.js (dossier-free). It runs once,
+// at the end of stageShot, after every stage function has placed
+// its cars and people — the wheel positions are read off the tyre
+// meshes themselves, so no heading math is needed.
+
+// The contact pass needs a soft radial falloff AND a truly dark
+// colour. A dark radial texture used as `map` does NOT darken
+// (measured 0%): its dark RGB is read as linear data and renders
+// light, so the blend is a no-op. A solid dark colour DOES darken
+// (63% in the core, 19% in the band) but has a hard rectangular
+// edge. So the colour is solid dark and the falloff comes from an
+// alphaMap: a white radial gradient whose green channel is the
+// alpha (255 centre -> 0 edge). The shared blob texture is untouched.
+let _v58ContactTex = null;
+function v58ContactTex() {
+  if (_v58ContactTex) return _v58ContactTex;
+  const c = document.createElement('canvas');
+  c.width = 256; c.height = 256;
+  const x = c.getContext('2d');
+  const g = x.createRadialGradient(128, 128, 8, 128, 128, 128);
+  g.addColorStop(0, '#ffffff');
+  g.addColorStop(0.55, '#ffffff');
+  g.addColorStop(0.8, '#888888');
+  g.addColorStop(1, '#000000');
+  x.fillStyle = g;
+  x.fillRect(0, 0, 256, 256);
+  _v58ContactTex = new CT(c);
+  return _v58ContactTex;
+}
+// Solid dark blue-grey + radial alphaMap: the contact shadow material.
+function v58ContactMat(o) {
+  return new MB({ color: 0x101624, transparent: true, opacity: o, alphaMap: v58ContactTex(), depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -4 });
+}
+
+// Dense contact core: a small, very dark ellipse right at the
+// contact point. renderOrder 3, like the v45 dash cores.
+function contactCore(g, x, z, w, d, o = 0.85) {
+  const s = new ME(new PG(w, d), v58ContactMat(o));
+  s.userData.v58contact = 'core';
+  s.rotation.x = -PI / 2;
+  s.position.set(x, 0.13, z);
+  s.renderOrder = 3;
+  g.scene.add(s);
+  return s;
+}
+
+// Contact band: a wider, softer ellipse extending 10-20 cm past the
+// core, so the darkening steps down instead of ending in a hard edge.
+function contactBand(g, x, z, w, d, o = 0.42) {
+  const s = new ME(new PG(w, d), v58ContactMat(o));
+  s.userData.v58contact = 'band';
+  s.rotation.x = -PI / 2;
+  s.position.set(x, 0.125, z);
+  s.renderOrder = 3;
+  g.scene.add(s);
+  return s;
+}
+
+// A symmetric dark-to-transparent gradient texture, for the kerb
+// and wall base bands: dark at the contact line, fading out ~0.35 m
+// to each side. The gradient runs along V (the plane's width), so it
+// is symmetric — no orientation math, the band is dark at the line
+// whatever way it is rotated. (The first version used a one-sided
+// gradient along U, which faded along the band's LENGTH instead of
+// across it.)
+let _v58GradTex = null;
+function v58GradTex() {
+  if (_v58GradTex) return _v58GradTex;
+  const c = document.createElement('canvas');
+  c.width = 16; c.height = 64;
+  const x = c.getContext('2d');
+  const gr = x.createLinearGradient(0, 0, 0, 64);
+  gr.addColorStop(0, 'rgba(0,0,0,0)');
+  gr.addColorStop(0.3, 'rgba(0,0,0,0.5)');
+  gr.addColorStop(0.5, 'rgba(0,0,0,0.55)');
+  gr.addColorStop(0.7, 'rgba(0,0,0,0.5)');
+  gr.addColorStop(1, 'rgba(0,0,0,0)');
+  x.fillStyle = gr;
+  x.fillRect(0, 0, 16, 64);
+  _v58GradTex = new CT(c);
+  _v58GradTex.colorSpace = SC;
+  return _v58GradTex;
+}
+
+// A dark band along a straight base line (kerb or wall), from
+// (x0,z0) to (x1,z1), w metres wide, dark at the line and fading out
+// to each side. Symmetric, so it covers the ground on both sides of
+// the line (road + sidewalk for a kerb; the half inside a wall is
+// hidden by the wall itself).
+function v58BaseBand(game, x0, z0, x1, z1, w) {
+  const dx = x1 - x0; const dz = z1 - z0;
+  const len = Math.hypot(dx, dz);
+  if (len < 0.1) return;
+  const mat = new MB({ map: v58GradTex(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -4 });
+  const p = new ME(new PG(len, w), mat);
+  p.userData.v58contact = 'baseband';
+  p.rotation.x = -PI / 2;
+  // Align the plane's length with the line. Local X maps to world
+  // (cos ang, 0, -sin ang) after the X-rotation, so ang is chosen
+  // to make that the line direction.
+  p.rotation.z = Math.atan2(-dz, dx);
+  p.position.set((x0 + x1) / 2, 0.06, (z0 + z1) / 2);
+  p.renderOrder = 1;
+  game.scene.add(p);
+  return p;
+}
+
+// Wheel-arch crevice: a dark vertical ellipse on the car's flank
+// just above a wheel, so the arch reads as a cut with shadow inside
+// it, not a painted stripe. wx/wz are the wheel's local coords.
+function v58ArchShadow(carGroup, wx, wz) {
+  const s = new ME(new PG(0.85, 0.5), v58ContactMat(0.55));
+  s.userData.v58contact = 'arch';
+  s.position.set(wx, 0.72, wz + (wz > 0 ? 0.03 : -0.03));
+  s.renderOrder = 1;
+  carGroup.add(s);
+  return s;
+}
+
+// Bumper crevice: a dark horizontal plane under a bumper overhang,
+// so the area beneath the bumper reads as shadow, not body colour.
+function v58BumperShadow(carGroup, len, front) {
+  const s = new ME(new PG(0.5, 1.7), v58ContactMat(0.6));
+  s.userData.v58contact = 'bumper';
+  s.rotation.x = -PI / 2;
+  s.position.set(front ? len / 2 - 0.1 : -len / 2 + 0.1, 0.42, 0);
+  s.renderOrder = 1;
+  carGroup.add(s);
+  return s;
+}
+
+// The v58.2 pass. Runs once, at the end of stageShot.
+let _v58ContactDone = false;
+function contactPass(game) {
+  if (_v58ContactDone) return;
+  _v58ContactDone = true;
+  // The focus is the car when the player is driving and the player
+  // when on foot. player.pos is (0,0) while the player is in a car
+  // (it only tracks on-foot position), so player.pos alone put the
+  // pass 300 m from the chase — the car must come first.
+  const focus = (game.player && game.player.car && game.player.car.pos)
+    || (game.player && game.player.pos) || { x: 240, z: -180 };
+  const near = (x, z, r) => Math.hypot(x - focus.x, z - focus.z) < r;
+  // Cars: every car group in the hero zone gets a contact core +
+  // band at each wheel (read off the tyre meshes), an arch shadow
+  // above each wheel, and a shadow under each bumper. A car group
+  // is identified by userData.paint (one paint instance per car).
+  const tmp = new V3();
+  game.scene.traverse((o) => {
+    if (!o.isGroup || !o.userData || !o.userData.paint) return;
+    const gp = o.getWorldPosition(tmp);
+    if (!near(gp.x, gp.z, 70)) return;
+    const len = o.userData.bodyLen || 4.4;
+    for (const child of [...o.children]) {
+      if (!child.isMesh || !child.geometry || !child.geometry.parameters) continue;
+      const p = child.geometry.parameters;
+      if (child.geometry.type !== 'CylinderGeometry') continue;
+      if (Math.abs((p.radiusTop || 0) - 0.34) > 0.01) continue;
+      child.getWorldPosition(tmp);
+      contactCore(game, tmp.x, tmp.z, 1.2, 1.2, 0.85);
+      contactBand(game, tmp.x, tmp.z, 2.0, 2.0, 0.42);
+    }
+    // Arch shadows above the four wheels (local coords, as built).
+    for (const [wx, wz] of [[len * 0.32, 0.93], [len * 0.32, -0.93], [-len * 0.32, 0.93], [-len * 0.32, -0.93]]) {
+      v58ArchShadow(o, wx, wz);
+    }
+    v58BumperShadow(o, len, true);
+    v58BumperShadow(o, len, false);
+  });
+  // Feet: every visible pedestrian in the hero zone gets a contact
+  // core + band at the feet, so no one shares the ground's luminance
+  // at the contact line.
+  for (const p of game.peds || []) {
+    if (!p.mesh || !p.mesh.visible || !p.pos) continue;
+    if (!near(p.pos.x, p.pos.z, 70)) continue;
+    contactCore(game, p.pos.x, p.pos.z, 0.9, 0.7, 0.85);
+    contactBand(game, p.pos.x, p.pos.z, 1.4, 1.2, 0.42);
+  }
+  // The staged gunmen and thugs are NOT peds — they are combat
+  // enemies (game.combat.enemies) — and the player on foot is not
+  // either. Give them the same foot contact. (The stage function
+  // already puts a blob + core under the three gunfight men, so this
+  // is a second, tighter core right at the feet.)
+  for (const e of (game.combat && game.combat.enemies) || []) {
+    if (!e.mesh || !e.mesh.visible || !e.pos) continue;
+    if (!near(e.pos.x, e.pos.z, 70)) continue;
+    contactCore(game, e.pos.x, e.pos.z, 0.9, 0.7, 0.85);
+    contactBand(game, e.pos.x, e.pos.z, 1.4, 1.2, 0.42);
+  }
+  if (game.player && game.player.mesh && game.player.mesh.visible
+    && !(game.player.car) && game.player.pos) {
+    contactCore(game, game.player.pos.x, game.player.pos.z, 0.9, 0.7, 0.85);
+    contactBand(game, game.player.pos.x, game.player.pos.z, 1.4, 1.2, 0.42);
+  }
+  // Kerb bases: a dark band along the kerb where it meets the road
+  // and where it meets the sidewalk, on the roads nearest the focus.
+  // The city grid is 60 m, so the nearest avenue/street line is the
+  // focus rounded to the grid; the camera sees about one block, so
+  // the lines one step away get a band too. (The first version
+  // hard-coded the downtown lines, so the gunfight shot's own kerbs
+  // got nothing.)
+  const grid = (v) => Math.round(v / 60) * 60;
+  const ax = grid(focus.x); const sz = grid(focus.z);
+  for (const lx of [ax - 60, ax, ax + 60]) {
+    for (const side of [-1, 1]) {
+      const kx = lx + side * 6.18;
+      v58BaseBand(game, kx, focus.z - 60, kx, focus.z + 60, 0.7);
+    }
+  }
+  for (const lz of [sz - 60, sz, sz + 60]) {
+    for (const side of [-1, 1]) {
+      const kz = lz + side * 6.18;
+      v58BaseBand(game, focus.x - 60, kz, focus.x + 60, kz, 0.7);
+    }
+  }
+  // Wall bases: a dark band along the base of every large building
+  // in the hero zone, so the wall meets the ground in shadow, not in
+  // a hard bright edge. Buildings are boxes taller than 5 m; the band
+  // runs along the face nearest the focus.
+  game.scene.traverse((o) => {
+    if (!o.isMesh || !o.geometry || o.geometry.type !== 'BoxGeometry') return;
+    const p = o.geometry.parameters;
+    if (!p || p.height < 5 || p.width < 3 || p.depth < 3) return;
+    const wp = o.getWorldPosition(tmp);
+    if (!near(wp.x, wp.z, 60)) return;
+    // The mesh is centred, so its base is at wp.y - height/2.
+    if (Math.abs(wp.y - p.height / 2) > 0.5) return;
+    const hw = p.width / 2; const hd = p.depth / 2;
+    // Face nearest the focus gets the band.
+    const dx = focus.x - wp.x; const dz = focus.z - wp.z;
+    if (Math.abs(dx) > Math.abs(dz)) {
+      const s = dx > 0 ? 1 : -1;
+      v58BaseBand(game, wp.x + s * hw, wp.z - hd, wp.x + s * hw, wp.z + hd, 0.8);
+    } else {
+      const s = dz > 0 ? 1 : -1;
+      v58BaseBand(game, wp.x - hw, wp.z + s * hd, wp.x + hw, wp.z + s * hd, 0.8);
+    }
+  });
+  // Helicopter: a large soft ground shadow under it, so the airframe
+  // grounds into the scene even at 9.5 m up.
+  const heli = game.police && game.police.heli;
+  if (heli && heli.visible) {
+    const hp = heli.getWorldPosition(tmp);
+    const sh = new ME(new PG(9, 6), v58ContactMat(0.35));
+    sh.userData.v58contact = 'heli';
+    sh.rotation.x = -PI / 2;
+    sh.position.set(hp.x, 0.11, hp.z);
+    sh.renderOrder = 2;
+    game.scene.add(sh);
+  }
+  const counts = {};
+  game.scene.traverse((o) => { if (o.userData && o.userData.v58contact) counts[o.userData.v58contact] = (counts[o.userData.v58contact] || 0) + 1; });
+  console.log('[v58.2] contactPass counts: ' + JSON.stringify(counts));
+}
 let _v58GroundDone = false;
 function enhanceGround(game) {
   if (_v58GroundDone) return;
@@ -2023,4 +2281,8 @@ export function stageShot(name, game) {
   game.police.state.wanted = shotWanted;
   game.hud.setShotMode(true, true);
   game.hud.update();
+  // v58.2: the contact/occlusion pass runs last, after every stage
+  // function has placed its cars and people — it reads the wheel and
+  // foot positions off the meshes themselves.
+  contactPass(game);
 }
