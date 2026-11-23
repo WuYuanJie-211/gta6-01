@@ -362,57 +362,36 @@ function v58OilSpots() {
   return spots;
 }
 
-// v58.8 (Quick v58.7 fix 1): the v58.7 gradient was correct but could
-// not hide the SHAPE — the patches are still rectangles with straight
-// sides and right-angle corners, in neat rows, so the road reads as
-// tiles. Give each patch an irregular outline: a 12-vertex polygon
-// whose radius is the rectangle-edge radius in that direction times
-// a low-frequency wobble (2- and 3-lobed sines) plus per-vertex
-// jitter, so the corners become asymmetric bulges and the edges wave.
-// The outline is a radius function of angle, so it is star-shaped
-// about the centre: expanding each vertex radially by e (v58PolyPath)
-// never self-intersects, and the cubic ramp follows the new outline
-// exactly. The wobble averages to 1.0, so the mean patch area — and
-// the road brightness/tone — stays. The outline's randomness comes
-// from its OWN seed (the patch centre, like the interior grain), NOT
-// the shared rnd stream, so the patch layout (positions, tones) stays
-// exactly as v58.7's and only the shape changes — otherwise the
-// outline's 26 rnd calls per patch would re-roll the whole layout
-// and shift the road tone. Returns [[x, y], ...] in the patch local
-// frame, before rotation.
-function v58PatchOutline(px, py, pw, ph) {
+// v58.9 (Quick v58.8 fix 3): the v58.8 12-vertex polygon outline IS
+// blobby in the texture, but the render still shows rectangles.
+// The texture is minified ~29x along the road at a grazing angle,
+// which crushes the outline's wobble along the road direction, so
+// the patch's top/bottom edges read straight. The patches-off test
+// proved the rectangles ARE the patches (they vanish with patches
+// off); the base tyre-wear/sun-tint bands are soft and do not read
+// as tiles on their own. Fix: give each patch NO straight edges at
+// all — a union of 3 overlapping circles. A circle stays curved
+// when squashed by minification, so the union reads as a blobby
+// cluster from every angle. Each circle gets a radial-gradient ramp
+// with the same cubic falloff over the same pad as v58.7, so the
+// smooth gradient, the banding fix and the tone all stay. Seeded
+// from the patch centre (like the v58.8 outline), NOT the shared
+// rnd stream, so the patch layout (positions, tones) stays exactly
+// as v58.8's and only the shape changes. Returns [{dx, dy, r}] in
+// the patch local frame, before rotation.
+function v58PatchUnion(px, py, pw, ph) {
   const rnd = mulberry32((Math.floor(px) * 1024 + Math.floor(py) + 0x9e3779b9) >>> 0);
-  const K = 12;
-  const p1 = rnd() * PI * 2;
-  const p2 = rnd() * PI * 2;
-  const pts = [];
-  for (let k = 0; k < K; k += 1) {
-    const th = (k / K) * PI * 2 + (rnd() - 0.5) * 0.28;
-    const c = Math.cos(th); const s = Math.sin(th);
-    const hx = pw / 2; const hy = ph / 2;
-    // Rectangle-edge radius in this direction (guard near axis).
-    const rx = Math.abs(c) > 1e-6 ? hx / Math.abs(c) : 1e9;
-    const ry = Math.abs(s) > 1e-6 ? hy / Math.abs(s) : 1e9;
-    const r0 = Math.min(rx, ry);
-    const wob = 1 + 0.18 * Math.sin(2 * th + p1) + 0.12 * Math.sin(3 * th + p2) + (rnd() - 0.5) * 0.24;
-    const r = r0 * wob;
-    pts.push([c * r, s * r]);
+  const hw = pw / 2; const hh = ph / 2;
+  const m = Math.min(hw, hh);
+  const blobs = [];
+  // Anchor blob near the centre, then two satellites — the union
+  // stays connected and covers most of the patch area, but with a
+  // wavy, corner-free outline.
+  blobs.push({ dx: (rnd() - 0.5) * 0.2 * hw, dy: (rnd() - 0.5) * 0.2 * hh, r: (0.6 + rnd() * 0.2) * m });
+  for (let i = 0; i < 2; i += 1) {
+    blobs.push({ dx: (rnd() - 0.5) * 0.8 * hw, dy: (rnd() - 0.5) * 0.8 * hh, r: (0.5 + rnd() * 0.25) * m });
   }
-  return pts;
-}
-
-// Build the polygon path for an outline, expanding each vertex
-// radially outward by `expand` px (0 = the outline itself).
-function v58PolyPath(x, pts, expand) {
-  x.beginPath();
-  for (let i = 0; i < pts.length; i += 1) {
-    const vx = pts[i][0]; const vy = pts[i][1];
-    const d = Math.hypot(vx, vy) || 1;
-    const f = 1 + expand / d;
-    if (i === 0) x.moveTo(vx * f, vy * f);
-    else x.lineTo(vx * f, vy * f);
-  }
-  x.closePath();
+  return blobs;
 }
 
 // v58.6 (Quick v58.5 fix 1): the v58.5 ramp (30 px, ~23-35 cm) was
@@ -425,59 +404,38 @@ function v58PolyPath(x, pts, expand) {
 // not a skipped dark-patch path). Alpha stays 0.75.
 // blobs is a precomputed array so wrapped copies are identical:
 // {x, y, w, h, a, r}.
-function v58PatchDraw(x, px, py, pw, ph, rot, col, a, blobs, speck, pad, outline) {
+function v58PatchDraw(x, px, py, pw, ph, rot, col, a, blobs, speck, pad, union) {
   x.save(); x.translate(px, py); x.rotate(rot);
-  // v58.7 (Quick v58.6 fixes 1-2): the 8-step nested-rect ramp was
-  // the problem, not the width alone. Its 8 large steps (alpha jumps
-  // ~0.1) rendered as discrete terraces (the banding), and the 64 px
-  // pad compressed to a 3-5 px transition at 1x in the mid-foreground
-  // (the texture is heavily minified along the road at a grazing
-  // angle). Now: 64 nested rects over a wider pad with a CUBIC alpha
-  // profile — each rect adds only the incremental composite needed
-  // to reach T*S(j/N), so the edge is a true gradient with no
-  // discrete steps. The cubic profile stays faint in the outer
-  // feather (so the road between patches keeps its light base tone)
-  // and rises steeply near the patch; a linear profile was tried and
-  // washed the whole road dark (mean 15.9), a quadratic reintroduced
-  // banding (max step 10). The ramp reaches composite 0.95 at the
-  // inner edge; the fill then brings the interior to ~0.97, the
-  // v58.6 tone, so patch L values stay. pad is a parameter: the road
-  // gets 160 px (~1.9 m across, ~1.25 m along), the sidewalk keeps
-  // 64 px. NOTE: the transition WIDTH at the mid-foreground dark
-  // patch is still ~3-5 px at 1x — the texture is minified ~29x
-  // along the road at that distance, so no reasonable pad width
-  // reaches 15-20 px there without washing the road out. What the
-  // smooth gradient DOES fix is the hard cliff (max single-px step
-  // 18L in v58.6 -> 9L) and the terraces, so the patches no longer
-  // read as tiles.
-  // v58.8: the ramp now follows the irregular outline — each nested
-  // polygon is the outline expanded radially by e, adding only the
-  // incremental composite to reach T*S(j/N). Same cubic profile and
-  // pad as v58.7, so the smooth gradient, the banding fix and the
-  // tone all stay; only the shape changes.
-  const N = 64;
-  const T = 0.95;
+  // v58.9 (Quick v58.8 fix 3): each patch is a union of 3 overlapping
+  // circles, each drawn as a radial gradient — flat patch tone inside
+  // the circle, cubic falloff to 0 over the pad outside it. The
+  // v58.7/58.8 ramp+fill layered to an interior composite of ~0.97,
+  // so one gradient per blob uses inner alpha A = 0.98 to keep the
+  // patch tone. The falloff follows the same cubic profile S(t) = t^3
+  // over the same pad as v58.7, so the smooth gradient, the banding
+  // fix and the tone all stay — only the shape changes (no straight
+  // edges anywhere). pad is a parameter: the road gets 160 px
+  // (~1.9 m across, ~1.25 m along), the sidewalk keeps 64 px.
+  const A = 0.98;
   const S = (t) => t * t * t;
-  for (let j = 1; j <= N; j += 1) {
-    const t0 = (j - 1) / N;
-    const t1 = j / N;
-    const A0 = T * S(t0);
-    const A1 = T * S(t1);
-    const aj = (A1 - A0) / (1 - A0);
-    const e = pad * (1 - t0);
-    x.fillStyle = `rgba(${col},${aj.toFixed(4)})`;
-    v58PolyPath(x, outline, e);
-    x.fill();
+  for (const b of union) {
+    const R = b.r + pad;
+    const u0 = b.r / R;
+    const g = x.createRadialGradient(b.dx, b.dy, 0, b.dx, b.dy, R);
+    g.addColorStop(0, `rgba(${col},${A})`);
+    g.addColorStop(u0, `rgba(${col},${A})`);
+    g.addColorStop(u0 + 0.25 * (1 - u0), `rgba(${col},${(A * (1 - S(0.25))).toFixed(3)})`);
+    g.addColorStop(u0 + 0.5 * (1 - u0), `rgba(${col},${(A * (1 - S(0.5))).toFixed(3)})`);
+    g.addColorStop(u0 + 0.75 * (1 - u0), `rgba(${col},${(A * (1 - S(0.75))).toFixed(3)})`);
+    g.addColorStop(1, `rgba(${col},0)`);
+    x.fillStyle = g;
+    x.beginPath(); x.arc(b.dx, b.dy, R, 0, PI * 2); x.fill();
   }
-  x.fillStyle = `rgba(${col},${a})`;
-  v58PolyPath(x, outline, 0);
-  x.fill();
-  // v58.8: clip the interior detail to the irregular outline, so no
-  // blob or grain dot spills past the patch edge into the feather.
-  // The blobs/speckles are placed in the pw x ph rectangle, and the
-  // outline pulls in up to ~40% at some angles.
+  // v58.9: clip the interior detail to the blob union, so no blob or
+  // grain dot spills past the patch edge into the feather.
   x.save();
-  v58PolyPath(x, outline, 0);
+  x.beginPath();
+  for (const b of union) { x.moveTo(b.dx + b.r, b.dy); x.arc(b.dx, b.dy, b.r, 0, PI * 2); }
   x.clip();
   // v58.7 (Quick v58.6 fix 3): the dark-patch interiors were flat
   // 32-33L over ~100 px — the blobs and speckles are all the patch
@@ -493,27 +451,40 @@ function v58PatchDraw(x, px, py, pw, ph, rot, col, a, blobs, speck, pad, outline
   const gdark = glum < 128;
   const gLightCol = gdark ? '96,98,102' : '224,226,230';
   const gDarkCol = gdark ? '12,14,16' : '138,142,148';
+  // v58.9 grain fix (round 2): random blotches left gaps — an 80x40
+  // render window inside a light patch interior still measured
+  // std 0.07. The render crushes texture contrast ~3x, so the
+  // 0.08-0.16 blotch alphas were too faint on screen. Use a GRID
+  // of soft blotches (spacing ~70 tex px, so every 80x40 render
+  // window contains blotch gradient) at higher alpha 0.15-0.30,
+  // plus denser fine dots. Local grnd seed only; the shared rnd
+  // stream and the patch layout do not change.
   const grnd = mulberry32((Math.floor(px) * 1024 + Math.floor(py)) >>> 0);
-  for (let g = 0; g < 10; g += 1) {
-    const bx = (grnd() - 0.5) * pw * 0.8;
-    const by = (grnd() - 0.5) * ph * 0.8;
-    const br = 12 + grnd() * 33;
-    const bc = grnd() < 0.5 ? gLightCol : gDarkCol;
-    const ba = 0.08 + grnd() * 0.08;
-    x.save(); x.translate(bx, by);
-    const gg = x.createRadialGradient(0, 0, 0, 0, 0, br);
-    gg.addColorStop(0, `rgba(${bc},${ba.toFixed(3)})`);
-    gg.addColorStop(1, `rgba(${bc},0)`);
-    x.fillStyle = gg;
-    x.beginPath(); x.arc(0, 0, br, 0, PI * 2); x.fill();
-    x.restore();
+  {
+    const step = 70;
+    for (let gy = -ph / 2; gy <= ph / 2; gy += step) {
+      for (let gx = -pw / 2; gx <= pw / 2; gx += step) {
+        const bx = gx + (grnd() - 0.5) * step * 0.5;
+        const by = gy + (grnd() - 0.5) * step * 0.5;
+        const br = 35 + grnd() * 25;
+        const bc = grnd() < 0.5 ? gLightCol : gDarkCol;
+        const ba = 0.15 + grnd() * 0.15;
+        x.save(); x.translate(bx, by);
+        const gg = x.createRadialGradient(0, 0, 0, 0, 0, br);
+        gg.addColorStop(0, `rgba(${bc},${ba.toFixed(3)})`);
+        gg.addColorStop(1, `rgba(${bc},0)`);
+        x.fillStyle = gg;
+        x.beginPath(); x.arc(0, 0, br, 0, PI * 2); x.fill();
+        x.restore();
+      }
+    }
   }
-  for (let g = 0; g < 120; g += 1) {
+  for (let g = 0; g < 500; g += 1) {
     const dx = (grnd() - 0.5) * pw * 0.92;
     const dy = (grnd() - 0.5) * ph * 0.92;
-    const dr = 1 + grnd() * 2.5;
+    const dr = 1.5 + grnd() * 3;
     const dc = grnd() < 0.5 ? gLightCol : gDarkCol;
-    x.fillStyle = `rgba(${dc},${(0.10 + grnd() * 0.12).toFixed(3)})`;
+    x.fillStyle = `rgba(${dc},${(0.15 + grnd() * 0.15).toFixed(3)})`;
     x.beginPath(); x.arc(dx, dy, dr, 0, PI * 2); x.fill();
   }
   for (const b of blobs) {
@@ -542,7 +513,7 @@ function v58PatchDraw(x, px, py, pw, ph, rot, col, a, blobs, speck, pad, outline
     x.fillStyle = `rgba(${scol},${s.a.toFixed(3)})`;
     x.beginPath(); x.ellipse(s.x, s.y, s.r, s.r, 0, 0, PI * 2); x.fill();
   }
-  x.restore(); // end the v58.8 outline clip
+  x.restore(); // end the v58.9 union clip
   x.restore();
 }
 
@@ -640,64 +611,61 @@ function v58RoadColour(base) {
   // near-white / near-black at high alpha — the render crushes
   // texture contrast, so the patches must be strong in the texture
   // to read at all on screen. Alpha stays 0.75.
-  // v58.4 (g): tones alternate — a new patch flips when its nearest
-  // neighbour within 4 m is the same tone, so a light patch never
-  // abuts another light patch and a dark one never abuts a dark
-  // one. That adjacency plus the flat fill is what made shot 3 read
-  // as tiles; the L values themselves are correct and stay.
+  // v58.4 (g): tones alternated — a new patch flipped when its nearest
+  // neighbour within 4 m was the same tone. SUPERSEDED by v58.9: the
+  // strict alternation laid the patches out as a checkerboard, which
+  // is what read as tiles; tones are now random 50/50 so same-tone
+  // neighbours merge into organic regions.
   // v58.5: min centre separation 1.5 m -> 2.5 m, so patch edges
   // keep a mid-tone gap instead of touching. With the soft
   // feathered edges, patches that merely come close now blend
   // instead of tiling; the 2.5 m floor keeps light and dark
   // patches from abutting.
+  // v58.9 (Quick v58.8 fixes 1+2): the patches-off test proved the
+  // rectangles ARE the patches, and the single-patch test proved ONE
+  // blobby patch renders as a blob — so the rectangles come from the
+  // patches PACKING the tile, not from any single patch's shape.
+  // Ten large patches (2-5.5 m) in a 12x8 m tile cover ~100% of it
+  // with a 1.5 m separation floor, and the v58.4 tone-alternation
+  // rule (a light patch never abuts a light one) lays them out as a
+  // checkerboard: similar sizes, regular spacing, strict light/dark
+  // alternation. That IS a tile pattern, however blobby each cell is.
+  // Fix the ARRANGEMENT, not just the shape: 5 patches (not 10), so
+  // base asphalt shows between them and each reads as one repair,
+  // not a cell in a pavement; size 1.5-5.0 m (wider spread, some
+  // small, some large); separation floor back to 2.5 m; rotation
+  // 10-30 deg magnitude (was 5-15 deg), still ONE rnd call so the
+  // shared stream stays; and the tone-alternation rule is REMOVED —
+  // tones are random 50/50, so same-tone neighbours merge into
+  // organic regions instead of alternating like a checkerboard.
+  // The first 5 patches keep v58.8's positions (same rnd sequence);
+  // the overlap branch (i>=8) is gone with the lower count.
   const placed = [];
-  for (let i = 0; i < 10; i += 1) {
+  for (let i = 0; i < 5; i += 1) {
     let px; let py;
-    if (i >= 8 && placed.length > 0) {
-      // v58.8 (Quick v58.7 fix 2): overlap the last two patches onto
-      // existing ones, so they merge into irregular multi-tone shapes
-      // instead of standing as separate rectangles. The tone flip
-      // below makes the overlap a different tone, so the merged patch
-      // reads as one irregular two-tone shape.
-      const q = placed[Math.floor(rnd() * placed.length)];
-      px = q.x + (rnd() - 0.5) * 2.0 * m;
-      py = q.y + (rnd() - 0.5) * 2.0 * along;
-    } else {
+    {
       px = (0.8 + rnd() * 10.4) * m;
       py = rnd() * 1024;
       for (let tries = 0; tries < 8; tries += 1) {
         let ok = true;
         for (const q of placed) {
-          if (Math.hypot(px - q.x, py - q.y) < 1.5 * m) { ok = false; break; }
+          if (Math.hypot(px - q.x, py - q.y) < 2.5 * m) { ok = false; break; }
         }
         if (ok) break;
         px = (0.8 + rnd() * 10.4) * m; py = rnd() * 1024;
       }
     }
-    // v58.8 (Quick v58.7 fix 2): break the grid rhythm — patch size
-    // now varies by ~±45% (was ±25-29%), rotation is a 5-15 deg
-    // magnitude (was ±4 deg), and the 1.5 m separation floor (down
-    // from 2.5 m) lets patches come close without touching, so they
-    // stop lining up in neat rows. The rotation uses ONE rnd call
-    // with a 5 deg floor (same count as v58.7's ±4 deg), so the
-    // shared rnd stream — and the patch positions/tones — stay.
-    const pw = (2.0 + rnd() * 3.5) * m;
-    const ph = (2.2 + rnd() * 3.3) * along;
-    let rot = (rnd() - 0.5) * 0.52;
-    if (Math.abs(rot) < 0.087) rot = 0.087 * (rot < 0 ? -1 : 1);
+    const pw = (1.5 + rnd() * 3.5) * m;
+    const ph = (1.8 + rnd() * 3.2) * along;
+    let rot = (rnd() - 0.5) * 1.05;
+    if (Math.abs(rot) < 0.17) rot = 0.17 * (rot < 0 ? -1 : 1);
     let light = rnd() < 0.5;
-    let best = null; let bestD = 1e9;
-    for (const q of placed) {
-      const d = Math.hypot(px - q.x, py - q.y);
-      if (d < bestD) { bestD = d; best = q; }
-    }
-    if (best && bestD < 4 * m && best.light === light) light = !light;
     placed.push({ x: px, y: py, light });
     const col = light ? '184,188,194' : '42,44,48';
     const a = light ? 0.75 : 0.7;
     const { blobs, speck } = v58PatchBlobs(rnd, pw, ph, a, m, along);
-    const outline = v58PatchOutline(px, py, pw, ph);
-    v58Wrap(x, () => { v58PatchDraw(x, px, py, pw, ph, rot, col, a, blobs, speck, 160, outline); });
+    const union = v58PatchUnion(px, py, pw, ph);
+    v58Wrap(x, () => { v58PatchDraw(x, px, py, pw, ph, rot, col, a, blobs, speck, 160, union); });
   }
   // Cracks: short thin dark polylines, mostly cross-lane or diagonal.
   // A crack running along the view direction stretches into a block
@@ -737,55 +705,20 @@ function v58RoadColour(base) {
       x.restore();
     });
   }
-  // Tyre-band wear: paint base asphalt across each polished track in
-  // segments, so the continuous dark band breaks into pieces. The
-  // same segments are drawn rough in the roughness map below.
-  for (const s of v58TrackSegments()) {
-    v58Wrap(x, () => {
-      x.fillStyle = 'rgba(84,88,93,0.55)';
-      x.fillRect(s.band * m - 0.28 * m, s.y0, 0.56 * m, s.len);
-    });
-  }
-  // v58.4 (a): sun segments in the pixels. The polished stretches
-  // between the rough bars get a warm brightening, so the sun's
-  // reflection resolves into discrete segments in the render, not
-  // only in the roughness map. Each stretch is a polished segment
-  // 1.5-3 m long; the tint fades at its ends so the segments read
-  // as separate bright pieces, and the chain fades with distance
-  // by perspective. The tint is drawn per band so it lines up with
-  // the polished strips in the roughness map.
-  // v58.4 (a) second attempt (continuation builder): the first
-  // attempt's 0.15 tint read as a diffuse warm glow near the
-  // horizon, not as countable segments — the segments were too
-  // faint against the dark road to separate. Raise the tint to
-  // 0.30 and sharpen the end fades (0.12/0.88 instead of 0.2/0.8)
-  // so each segment has a flat bright top and a clean gap, and the
-  // chain reads as discrete pieces in the pixels.
-  {
-    const segs = v58TrackSegments();
-    for (const band of [2.2, 3.8, 8.2, 9.8]) {
-      const bars = segs.filter((s) => s.band === band).sort((p, q) => p.y0 - q.y0);
-      let prevEnd = 0;
-      const stretches = [];
-      for (const b of bars) {
-        if (b.y0 > prevEnd) stretches.push({ y0: prevEnd, len: b.y0 - prevEnd });
-        prevEnd = Math.max(prevEnd, b.y0 + b.len);
-      }
-      if (prevEnd < 1024) stretches.push({ y0: prevEnd, len: 1024 - prevEnd });
-      for (const s of stretches) {
-        if (s.len < 120) continue;
-        v58Wrap(x, () => {
-          const g = x.createLinearGradient(0, s.y0, 0, s.y0 + s.len);
-          g.addColorStop(0, 'rgba(255,220,160,0)');
-          g.addColorStop(0.12, 'rgba(255,220,160,0.30)');
-          g.addColorStop(0.88, 'rgba(255,220,160,0.30)');
-          g.addColorStop(1, 'rgba(255,220,160,0)');
-          x.fillStyle = g;
-          x.fillRect(band * m - 0.25 * m, s.y0, 0.5 * m, s.len);
-        });
-      }
-    }
-  }
+  // v58.9 (Quick v58.8 fix 2): the tyre-band wear and sun-tint
+  // rectangles are REMOVED from the colour map. The patches-off and
+  // bands-off tests proved the dark rectangles in the render are
+  // these hard-edged fillRects drawn over the flat patch interiors:
+  // a grey/tan rect over a light patch reads as a dark rectangle,
+  // and over a dark patch as a light one — with straight sides and
+  // sharp corners, in a row along the lane. On the dark base alone
+  // they are soft and harmless, but the flat patches expose their
+  // edges. The sun tint served the sun-segment claim, which was
+  // DROPPED (no claim), so it carries no requirement. The ROUGHNESS
+  // map keeps the same track segments (polished strips + rough bars),
+  // so the specular segmentation of the tyre tracks survives; only
+  // the colour rectangles are gone. The road keeps its tyre-track
+  // cue from the roughness specular, the mottling and the patches.
   return c;
 }
 
@@ -910,8 +843,8 @@ function v58Sidewalk(base) {
       const col = light ? '235,235,235' : '20,20,20';
       const a = light ? 0.35 : 0.55;
       const { blobs, speck } = v58PatchBlobs(rnd, pw, ph, a, sm, sm);
-      const outline = v58PatchOutline(px, py, pw, ph);
-      v58PatchDraw(x, px, py, pw, ph, rot, col, a, blobs, speck, 64, outline);
+      const union = v58PatchUnion(px, py, pw, ph);
+      v58PatchDraw(x, px, py, pw, ph, rot, col, a, blobs, speck, 64, union);
     }
     // 3 cracks: short thin dark polylines.
     for (let i = 0; i < 3; i += 1) {
