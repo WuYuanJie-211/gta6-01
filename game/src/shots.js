@@ -362,6 +362,59 @@ function v58OilSpots() {
   return spots;
 }
 
+// v58.8 (Quick v58.7 fix 1): the v58.7 gradient was correct but could
+// not hide the SHAPE — the patches are still rectangles with straight
+// sides and right-angle corners, in neat rows, so the road reads as
+// tiles. Give each patch an irregular outline: a 12-vertex polygon
+// whose radius is the rectangle-edge radius in that direction times
+// a low-frequency wobble (2- and 3-lobed sines) plus per-vertex
+// jitter, so the corners become asymmetric bulges and the edges wave.
+// The outline is a radius function of angle, so it is star-shaped
+// about the centre: expanding each vertex radially by e (v58PolyPath)
+// never self-intersects, and the cubic ramp follows the new outline
+// exactly. The wobble averages to 1.0, so the mean patch area — and
+// the road brightness/tone — stays. The outline's randomness comes
+// from its OWN seed (the patch centre, like the interior grain), NOT
+// the shared rnd stream, so the patch layout (positions, tones) stays
+// exactly as v58.7's and only the shape changes — otherwise the
+// outline's 26 rnd calls per patch would re-roll the whole layout
+// and shift the road tone. Returns [[x, y], ...] in the patch local
+// frame, before rotation.
+function v58PatchOutline(px, py, pw, ph) {
+  const rnd = mulberry32((Math.floor(px) * 1024 + Math.floor(py) + 0x9e3779b9) >>> 0);
+  const K = 12;
+  const p1 = rnd() * PI * 2;
+  const p2 = rnd() * PI * 2;
+  const pts = [];
+  for (let k = 0; k < K; k += 1) {
+    const th = (k / K) * PI * 2 + (rnd() - 0.5) * 0.28;
+    const c = Math.cos(th); const s = Math.sin(th);
+    const hx = pw / 2; const hy = ph / 2;
+    // Rectangle-edge radius in this direction (guard near axis).
+    const rx = Math.abs(c) > 1e-6 ? hx / Math.abs(c) : 1e9;
+    const ry = Math.abs(s) > 1e-6 ? hy / Math.abs(s) : 1e9;
+    const r0 = Math.min(rx, ry);
+    const wob = 1 + 0.18 * Math.sin(2 * th + p1) + 0.12 * Math.sin(3 * th + p2) + (rnd() - 0.5) * 0.24;
+    const r = r0 * wob;
+    pts.push([c * r, s * r]);
+  }
+  return pts;
+}
+
+// Build the polygon path for an outline, expanding each vertex
+// radially outward by `expand` px (0 = the outline itself).
+function v58PolyPath(x, pts, expand) {
+  x.beginPath();
+  for (let i = 0; i < pts.length; i += 1) {
+    const vx = pts[i][0]; const vy = pts[i][1];
+    const d = Math.hypot(vx, vy) || 1;
+    const f = 1 + expand / d;
+    if (i === 0) x.moveTo(vx * f, vy * f);
+    else x.lineTo(vx * f, vy * f);
+  }
+  x.closePath();
+}
+
 // v58.6 (Quick v58.5 fix 1): the v58.5 ramp (30 px, ~23-35 cm) was
 // too narrow to show once the texture is minified at road distance,
 // and the dark patches still read as hard-edged tiles. Widen the
@@ -372,7 +425,7 @@ function v58OilSpots() {
 // not a skipped dark-patch path). Alpha stays 0.75.
 // blobs is a precomputed array so wrapped copies are identical:
 // {x, y, w, h, a, r}.
-function v58PatchDraw(x, px, py, pw, ph, rot, col, a, blobs, speck, pad) {
+function v58PatchDraw(x, px, py, pw, ph, rot, col, a, blobs, speck, pad, outline) {
   x.save(); x.translate(px, py); x.rotate(rot);
   // v58.7 (Quick v58.6 fixes 1-2): the 8-step nested-rect ramp was
   // the problem, not the width alone. Its 8 large steps (alpha jumps
@@ -397,6 +450,11 @@ function v58PatchDraw(x, px, py, pw, ph, rot, col, a, blobs, speck, pad) {
   // smooth gradient DOES fix is the hard cliff (max single-px step
   // 18L in v58.6 -> 9L) and the terraces, so the patches no longer
   // read as tiles.
+  // v58.8: the ramp now follows the irregular outline — each nested
+  // polygon is the outline expanded radially by e, adding only the
+  // incremental composite to reach T*S(j/N). Same cubic profile and
+  // pad as v58.7, so the smooth gradient, the banding fix and the
+  // tone all stay; only the shape changes.
   const N = 64;
   const T = 0.95;
   const S = (t) => t * t * t;
@@ -408,10 +466,19 @@ function v58PatchDraw(x, px, py, pw, ph, rot, col, a, blobs, speck, pad) {
     const aj = (A1 - A0) / (1 - A0);
     const e = pad * (1 - t0);
     x.fillStyle = `rgba(${col},${aj.toFixed(4)})`;
-    x.fillRect(-pw / 2 - e, -ph / 2 - e, pw + e * 2, ph + e * 2);
+    v58PolyPath(x, outline, e);
+    x.fill();
   }
   x.fillStyle = `rgba(${col},${a})`;
-  x.fillRect(-pw / 2, -ph / 2, pw, ph);
+  v58PolyPath(x, outline, 0);
+  x.fill();
+  // v58.8: clip the interior detail to the irregular outline, so no
+  // blob or grain dot spills past the patch edge into the feather.
+  // The blobs/speckles are placed in the pw x ph rectangle, and the
+  // outline pulls in up to ~40% at some angles.
+  x.save();
+  v58PolyPath(x, outline, 0);
+  x.clip();
   // v58.7 (Quick v58.6 fix 3): the dark-patch interiors were flat
   // 32-33L over ~100 px — the blobs and speckles are all the patch
   // colour, so they only darken, never lighten. Add interior grain:
@@ -475,6 +542,7 @@ function v58PatchDraw(x, px, py, pw, ph, rot, col, a, blobs, speck, pad) {
     x.fillStyle = `rgba(${scol},${s.a.toFixed(3)})`;
     x.beginPath(); x.ellipse(s.x, s.y, s.r, s.r, 0, 0, PI * 2); x.fill();
   }
+  x.restore(); // end the v58.8 outline clip
   x.restore();
 }
 
@@ -584,19 +652,39 @@ function v58RoadColour(base) {
   // patches from abutting.
   const placed = [];
   for (let i = 0; i < 10; i += 1) {
-    let px = (0.8 + rnd() * 10.4) * m;
-    let py = rnd() * 1024;
-    for (let tries = 0; tries < 8; tries += 1) {
-      let ok = true;
-      for (const q of placed) {
-        if (Math.hypot(px - q.x, py - q.y) < 2.5 * m) { ok = false; break; }
+    let px; let py;
+    if (i >= 8 && placed.length > 0) {
+      // v58.8 (Quick v58.7 fix 2): overlap the last two patches onto
+      // existing ones, so they merge into irregular multi-tone shapes
+      // instead of standing as separate rectangles. The tone flip
+      // below makes the overlap a different tone, so the merged patch
+      // reads as one irregular two-tone shape.
+      const q = placed[Math.floor(rnd() * placed.length)];
+      px = q.x + (rnd() - 0.5) * 2.0 * m;
+      py = q.y + (rnd() - 0.5) * 2.0 * along;
+    } else {
+      px = (0.8 + rnd() * 10.4) * m;
+      py = rnd() * 1024;
+      for (let tries = 0; tries < 8; tries += 1) {
+        let ok = true;
+        for (const q of placed) {
+          if (Math.hypot(px - q.x, py - q.y) < 1.5 * m) { ok = false; break; }
+        }
+        if (ok) break;
+        px = (0.8 + rnd() * 10.4) * m; py = rnd() * 1024;
       }
-      if (ok) break;
-      px = (0.8 + rnd() * 10.4) * m; py = rnd() * 1024;
     }
-    const pw = (2.5 + rnd() * 2) * m;
-    const ph = (3 + rnd() * 2) * along;
-    const rot = (rnd() - 0.5) * 0.14;
+    // v58.8 (Quick v58.7 fix 2): break the grid rhythm — patch size
+    // now varies by ~±45% (was ±25-29%), rotation is a 5-15 deg
+    // magnitude (was ±4 deg), and the 1.5 m separation floor (down
+    // from 2.5 m) lets patches come close without touching, so they
+    // stop lining up in neat rows. The rotation uses ONE rnd call
+    // with a 5 deg floor (same count as v58.7's ±4 deg), so the
+    // shared rnd stream — and the patch positions/tones — stay.
+    const pw = (2.0 + rnd() * 3.5) * m;
+    const ph = (2.2 + rnd() * 3.3) * along;
+    let rot = (rnd() - 0.5) * 0.52;
+    if (Math.abs(rot) < 0.087) rot = 0.087 * (rot < 0 ? -1 : 1);
     let light = rnd() < 0.5;
     let best = null; let bestD = 1e9;
     for (const q of placed) {
@@ -608,7 +696,8 @@ function v58RoadColour(base) {
     const col = light ? '184,188,194' : '42,44,48';
     const a = light ? 0.75 : 0.7;
     const { blobs, speck } = v58PatchBlobs(rnd, pw, ph, a, m, along);
-    v58Wrap(x, () => { v58PatchDraw(x, px, py, pw, ph, rot, col, a, blobs, speck, 160); });
+    const outline = v58PatchOutline(px, py, pw, ph);
+    v58Wrap(x, () => { v58PatchDraw(x, px, py, pw, ph, rot, col, a, blobs, speck, 160, outline); });
   }
   // Cracks: short thin dark polylines, mostly cross-lane or diagonal.
   // A crack running along the view direction stretches into a block
@@ -806,9 +895,10 @@ function v58Sidewalk(base) {
     for (let i = 0; i < 3; i += 1) {
       const px = (1 + rnd() * 14) * sm;
       const py = (1 + rnd() * 14) * sm;
-      const pw = (2.5 + rnd() * 2) * sm;
-      const ph = (3 + rnd() * 2) * sm;
-      const rot = (rnd() - 0.5) * 0.14;
+      const pw = (2.0 + rnd() * 3.5) * sm;
+      const ph = (2.2 + rnd() * 3.3) * sm;
+      let rot = (rnd() - 0.5) * 0.52;
+      if (Math.abs(rot) < 0.087) rot = 0.087 * (rot < 0 ? -1 : 1);
       let light = rnd() < 0.5;
       let best = null; let bestD = 1e9;
       for (const q of splaced) {
@@ -820,7 +910,8 @@ function v58Sidewalk(base) {
       const col = light ? '235,235,235' : '20,20,20';
       const a = light ? 0.35 : 0.55;
       const { blobs, speck } = v58PatchBlobs(rnd, pw, ph, a, sm, sm);
-      v58PatchDraw(x, px, py, pw, ph, rot, col, a, blobs, speck, 64);
+      const outline = v58PatchOutline(px, py, pw, ph);
+      v58PatchDraw(x, px, py, pw, ph, rot, col, a, blobs, speck, 64, outline);
     }
     // 3 cracks: short thin dark polylines.
     for (let i = 0; i < 3; i += 1) {
