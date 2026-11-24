@@ -1128,8 +1128,14 @@ function contactPass(game) {
   }
   if (game.player && game.player.mesh && game.player.mesh.visible
     && !(game.player.car) && game.player.pos) {
-    contactCore(game, game.player.pos.x, game.player.pos.z, 1.3, 1.0, 0.70);
-    contactBand(game, game.player.pos.x, game.player.pos.z, 2.0, 1.6, 0.42);
+    // v60.1: Superbot re-verification — the near (player) figure's
+    // contact read as a pit, not a shadow: 1.3 m core + 2.0 m band
+    // are ~2x the figure's width and spill down-right of the feet.
+    // Pull the player's foot contact back between v59.1 and v60
+    // (core 1.05x0.85, band 1.6x1.3, same opacities); peds and
+    // enemies keep the v60 sizes (their shadows were approved).
+    contactCore(game, game.player.pos.x, game.player.pos.z, 1.05, 0.85, 0.70);
+    contactBand(game, game.player.pos.x, game.player.pos.z, 1.6, 1.3, 0.42);
   }
   // Kerb bases: a dark band along the kerb where it meets the road
   // and where it meets the sidewalk, on the roads nearest the focus.
