@@ -1104,11 +1104,16 @@ function contactPass(game) {
   // Feet: every visible pedestrian in the hero zone gets a contact
   // core + band at the feet, so no one shares the ground's luminance
   // at the contact line.
+  // v60: the foot contact was there but read as floating — a 0.9 m
+  // core sits almost entirely under the body from the low shot
+  // cameras, so the shadow never peeks out past the feet. Widen
+  // the core to 1.3 m and the band to 2.0 m so the ground shadow
+  // visibly extends on both sides of the feet (same opacities).
   for (const p of game.peds || []) {
     if (!p.mesh || !p.mesh.visible || !p.pos) continue;
     if (!near(p.pos.x, p.pos.z, 70)) continue;
-    contactCore(game, p.pos.x, p.pos.z, 0.9, 0.7, 0.70);
-    contactBand(game, p.pos.x, p.pos.z, 1.4, 1.2, 0.42);
+    contactCore(game, p.pos.x, p.pos.z, 1.3, 1.0, 0.70);
+    contactBand(game, p.pos.x, p.pos.z, 2.0, 1.6, 0.42);
   }
   // The staged gunmen and thugs are NOT peds — they are combat
   // enemies (game.combat.enemies) — and the player on foot is not
@@ -1118,13 +1123,13 @@ function contactPass(game) {
   for (const e of (game.combat && game.combat.enemies) || []) {
     if (!e.mesh || !e.mesh.visible || !e.pos) continue;
     if (!near(e.pos.x, e.pos.z, 70)) continue;
-    contactCore(game, e.pos.x, e.pos.z, 0.9, 0.7, 0.70);
-    contactBand(game, e.pos.x, e.pos.z, 1.4, 1.2, 0.42);
+    contactCore(game, e.pos.x, e.pos.z, 1.3, 1.0, 0.70);
+    contactBand(game, e.pos.x, e.pos.z, 2.0, 1.6, 0.42);
   }
   if (game.player && game.player.mesh && game.player.mesh.visible
     && !(game.player.car) && game.player.pos) {
-    contactCore(game, game.player.pos.x, game.player.pos.z, 0.9, 0.7, 0.70);
-    contactBand(game, game.player.pos.x, game.player.pos.z, 1.4, 1.2, 0.42);
+    contactCore(game, game.player.pos.x, game.player.pos.z, 1.3, 1.0, 0.70);
+    contactBand(game, game.player.pos.x, game.player.pos.z, 2.0, 1.6, 0.42);
   }
   // Kerb bases: a dark band along the kerb where it meets the road
   // and where it meets the sidewalk, on the roads nearest the focus.
@@ -1185,6 +1190,54 @@ function contactPass(game) {
   const counts = {};
   game.scene.traverse((o) => { if (o.userData && o.userData.v58contact) counts[o.userData.v58contact] = (counts[o.userData.v58contact] || 0) + 1; });
   console.log('[v58.2] contactPass counts: ' + JSON.stringify(counts));
+}
+// v60 — Top layers on every large building in the hero zone
+// (Superbot v60 sprint, item 4; also item 1b — the gunfight
+// building's visible face is one flat orange expanse). The towers
+// and old-town blocks already carry a cap slab + parapet at the
+// roof, but the facade runs one colour from base to roof with no
+// horizontal break, so a tall face reads as a placeholder panel.
+// Two thin bands per building, reusing the city's own cap colours
+// (0x555a60 old-town cap grey, 0x3a3f45 tower trim): a waistline at
+// mid-height and a top band just below the existing cap. Both
+// protrude ~0.12 m so they read as a shadow line, never z-fight
+// the facade, and add no new textures or materials. Runs once, at
+// the end of stageShot, after materialPass.
+let _v60TopDone = false;
+function v60TopLayers(game) {
+  if (_v60TopDone) return;
+  _v60TopDone = true;
+  const focus = (game.player && game.player.car && game.player.car.pos)
+    || (game.player && game.player.pos) || { x: 240, z: -180 };
+  const near = (x, z, r) => Math.hypot(x - focus.x, z - focus.z) < r;
+  const tmp = new V3();
+  const bandMat = new MS({ color: 0x555a60, roughness: 0.9 });
+  const waistMat = new MS({ color: 0x3a3f45, roughness: 0.9 });
+  const found = [];
+  game.scene.traverse((o) => {
+    if (!o.isMesh || !o.geometry || o.geometry.type !== 'BoxGeometry') return;
+    const p = o.geometry.parameters;
+    if (!p || p.height < 5 || p.width < 3 || p.depth < 3) return;
+    const wp = o.getWorldPosition(tmp);
+    if (!near(wp.x, wp.z, 75)) return;
+    // Ground-based box only (same filter as the wall-base band):
+    // tiers and roof props sit high up and must not get bands.
+    if (Math.abs(wp.y - p.height / 2) > 0.5) return;
+    found.push({ x: wp.x, z: wp.z, w: p.width, h: p.height, d: p.depth });
+  });
+  for (const b of found) {
+    const top = new ME(new BX(b.w + 0.3, 0.9, b.d + 0.3), bandMat);
+    top.position.set(b.x, b.h - 1.0, b.z);
+    top.receiveShadow = true;
+    top.userData.v60top = 'top';
+    game.scene.add(top);
+    const waist = new ME(new BX(b.w + 0.24, 0.3, b.d + 0.24), waistMat);
+    waist.position.set(b.x, b.h * 0.5, b.z);
+    waist.receiveShadow = true;
+    waist.userData.v60top = 'waist';
+    game.scene.add(waist);
+  }
+  console.log('[v60] topLayers buildings: ' + found.length);
 }
 // v58.3 — Material response on cars, glass and metal (Superbot v58
 // plan, fix 3). The v57 paint is a flat colour at one roughness, so
@@ -2329,6 +2382,17 @@ function stageSunset(game) {
   if (game.skyDome) game.skyDome.visible = false;
   if (game.sunBillboard) game.sunBillboard.visible = false;
   game.sun.color.set(0xff7733);
+  // v60: lift the cast shadows on the road. The low sun throws long
+  // building/palm shadows across the street and the shadowed asphalt
+  // reads near-black (p5 4-7 L on the v59.1 render). The shadows-off
+  // diagnostic proved the blotches are cast shadows, not the road
+  // texture (road lifts to ~59 L with shadows off, patches read as
+  // subtle variation) — so the fix is light in the shadows, not
+  // another texture pass. A warm ambient lifts the shadowed road
+  // (means +11 L at 0.5, still p5 6-7 in the deepest cores) and
+  // the dark gunmen; 0.65 lands the shadow cores near ~12 L while
+  // the sunlit road only moves +5 L, so the sunset contrast holds.
+  game.scene.add(new THREE.AmbientLight(0xff8a50, 0.65));
   // Gunman ON the SOUTH white lane dash (z=-183 — the avenue's dashes
   // are at z=-177 and z=-183; the old z=-177.5 put him on the north
   // dash but far left of frame, x=404), at the centre of a dash
@@ -2878,4 +2942,8 @@ export function stageShot(name, game) {
   // clearcoat reads the van's customised paint colour (set in
   // stageChase) rather than the original.
   materialPass(game);
+  // v60: the top-layer pass runs last — it reads the building
+  // positions off the meshes themselves, after every stage
+  // function has placed its cars and people.
+  v60TopLayers(game);
 }
