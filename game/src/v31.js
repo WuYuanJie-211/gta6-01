@@ -176,7 +176,7 @@ export function makeRoadTexture(aniso) {
   // the same spots glossy.
   for (const [ox, oy, ow, oh] of [[2.6, 180, 55, 30], [8.9, 420, 40, 26], [3.4, 700, 48, 34], [9.5, 880, 38, 22], [5.2, 950, 44, 28]]) {
     wrap(() => {
-      x.fillStyle = 'rgba(8,8,10,0.28)';
+      x.fillStyle = 'rgba(8,8,10,0.18)';
       x.beginPath();
       x.ellipse(ox * m, oy, ow, oh, 0.4, 0, PI * 2);
       x.fill();

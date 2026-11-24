@@ -294,7 +294,11 @@ export function buildCity(scene, rng, textures) {
   }
   // Manholes.
   for (const [hx, hz] of [[120, -183], [180, -177], [237, -90], [0, -30], [60, -183], [243, 30], [-60, -177], [300, -183]]) {
-    const hole = new ME(new CG(0.55, 0.55, 0.06, 12), M(0x222222, 0.9));
+    // v60 fix round (Superbot final plan, item 1): the covers were
+    // 0x222222 (albedo ~0.13) and read as pure-black discs / holes in
+    // the sunset foreground. Lift to 0x383838 (albedo ~0.22, the
+    // reviewer's number) so they read as iron covers, not holes.
+    const hole = new ME(new CG(0.55, 0.55, 0.06, 12), M(0x383838, 0.9));
     hole.position.set(hx, 0.05, hz);
     scene.add(hole);
   }

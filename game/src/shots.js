@@ -712,9 +712,9 @@ function v58RoadColour(base) {
   for (const s of v58OilSpots()) {
     v58Wrap(x, () => {
       x.save(); x.translate(s.x, s.y); x.rotate(s.rot);
-      x.fillStyle = 'rgba(8,8,10,0.14)';
+      x.fillStyle = 'rgba(8,8,10,0.08)';
       x.beginPath(); x.ellipse(0, 0, s.w * 1.5, s.h * 1.5, 0, 0, PI * 2); x.fill();
-      x.fillStyle = 'rgba(8,8,10,0.38)';
+      x.fillStyle = 'rgba(8,8,10,0.22)';
       x.beginPath(); x.ellipse(0, 0, s.w, s.h, 0, 0, PI * 2); x.fill();
       x.restore();
     });
@@ -1817,7 +1817,13 @@ function stageChase(game) {
   // camera and c2, so the elevated angle is load-bearing here, not
   // a free choice.
   game.cameraAngle = -0.15;
-  game.camDist = 8;
+  // v60 fix round (Superbot final plan, item 3): pull back 1.5 m
+  // (camDist 8 -> 9.5) so the building tops — cornice + waistline —
+  // come back into frame. NOT the pitch: camPitch 0.11 is load-bearing
+  // (camera ~2.8 m, just above the van roof; lower and the van hides
+  // c2 entirely), so the pull-back is the safe option. The elevated
+  // angle is unchanged, so the roof clearance holds.
+  game.camDist = 9.5;
   game.camPitch = 0.11;
   // v58.1: the van sat dead centre and plain — shift the look target
   // east so the van sits off-centre (left) and the east cruiser /
@@ -2240,6 +2246,13 @@ function stageDowntown(game) {
   const parkedSpots = [[243, -194], [242.3, -168.84], [244.5, -204]];
   const others = game.cars.parked.filter((c) => c !== taxi);
   others.slice(0, 3).forEach((c, i) => place(c, parkedSpots[i][0], parkedSpots[i][1], PI / 2));
+  // v60 fix round (Superbot final plan, item 4): the black panel IS the
+  // armored van at (242.3,-168.84) — its stock paint 0x2a2f36 reads as a
+  // frameless black box from this camera (not shelter glass, not a pass
+  // artifact). Lift it to the chase value 0x767c84 so the side reads as
+  // a vehicle; per-car paint material, so no other car is touched.
+  const avp = game.cars.armored && game.cars.armored.mesh.userData.paint;
+  if (avp) { avp.color.setHex(0x767c84); avp.roughness = 0.2; avp.metalness = 0.2; }
   others.slice(3).forEach((c) => { place(c, 0, 300, 0); });
   // v52: contact shadows under every visible vehicle — the cars had
   // none, so they floated on the asphalt (Quick + Superbot v51).
@@ -2382,6 +2395,12 @@ function stageSunset(game) {
   if (game.skyDome) game.skyDome.visible = false;
   if (game.sunBillboard) game.sunBillboard.visible = false;
   game.sun.color.set(0xff7733);
+  // v60 fix round (Superbot final plan, item 2): press the cast-shadow
+  // depth. Three has no shadow-opacity knob, so lower the key itself
+  // (3.0 -> 2.4) in this shot only: the sunlit/shadow gap narrows and
+  // the shadowed road lifts relative to the lit road, while the warm
+  // ambient stays at 0.65 so the sunset does not wash out.
+  game.sun.intensity = 2.4;
   // v60: lift the cast shadows on the road. The low sun throws long
   // building/palm shadows across the street and the shadowed asphalt
   // reads near-black (p5 4-7 L on the v59.1 render). The shadows-off
